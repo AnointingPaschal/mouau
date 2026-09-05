@@ -5,80 +5,76 @@ import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
 import { REGISTRATION_STEPS } from '@/lib/data'
 import { getRegistrationProgress, getDownloadHistory } from '@/lib/auth'
-import { getAnnouncements } from '@/lib/db'
+import { getAnnouncements, getSiteContent } from '@/lib/db'
 import Link from 'next/link'
-import { MapPin, ClipboardList, BookOpen, MessageCircle, Users, Download, Star, AlertTriangle, Info, CheckCircle2, Calendar, ChevronRight, Sparkles, TrendingUp, Bell } from 'lucide-react'
+import { MapPin, ClipboardList, BookOpen, MessageCircle, Users, AlertTriangle, Info, CheckCircle2, Calendar, ChevronRight, TrendingUp, Bell, Download } from 'lucide-react'
 
-type Announcement = { id: string; title: string; body: string; type: string; pinned: boolean; created_at: string }
+type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; created_at:string }
 
 export default function Dashboard() {
   const { student } = useAuth()
-  const [progress, setProgress] = useState<Record<string, boolean>>({})
+  const [progress, setProgress] = useState<Record<string,boolean>>({})
   const [downloads, setDownloads] = useState<string[]>([])
-  const [announcements, setAnnouncements] = useState<Announcement[]>([])
+  const [anns, setAnns] = useState<Ann[]>([])
+  const [content, setContent] = useState<Record<string,string>>({})
 
   useEffect(() => {
     setProgress(getRegistrationProgress())
     setDownloads(getDownloadHistory())
-    getAnnouncements().then(({ data }) => { if (data) setAnnouncements(data as Announcement[]) })
+    getAnnouncements().then(({ data }) => { if (data) setAnns(data as Ann[]) })
+    getSiteContent().then(setContent)
   }, [])
 
-  const totalSteps = REGISTRATION_STEPS.reduce((a, s) => a + s.substeps.length, 0)
-  const completed = Object.values(progress).filter(Boolean).length
-  const percent = Math.round((completed / totalSteps) * 100)
-
-  const quickActions = [
-    { href:'/navigate', icon:MapPin, label:'Campus Map', desc:'Find locations', iconBg:'bg-emerald-100', iconColor:'text-emerald-700' },
-    { href:'/register', icon:ClipboardList, label:'Registration', desc:'Admission steps', iconBg:'bg-blue-100', iconColor:'text-blue-700' },
-    { href:'/library', icon:BookOpen, label:'Materials', desc:'Handouts & PQs', iconBg:'bg-purple-100', iconColor:'text-purple-700' },
-    { href:'/chat', icon:MessageCircle, label:'AI Assistant', desc:'Ask anything', iconBg:'bg-amber-100', iconColor:'text-amber-700' },
-    { href:'/forum', icon:Users, label:'Community', desc:'Ask students', iconBg:'bg-pink-100', iconColor:'text-pink-700' },
-  ]
+  const total = REGISTRATION_STEPS.reduce((a,s)=>a+s.substeps.length,0)
+  const done = Object.values(progress).filter(Boolean).length
+  const pct = Math.round((done/total)*100)
 
   const annIcon = (t: string) => {
-    if (t==='warning') return <AlertTriangle className="w-3 h-3 text-amber-500"/>
-    if (t==='success') return <CheckCircle2 className="w-3 h-3 text-green-500"/>
-    if (t==='event') return <Calendar className="w-3 h-3 text-blue-500"/>
-    return <Info className="w-3 h-3 text-mouau"/>
+    if (t==='warning') return <AlertTriangle className="w-3.5 h-3.5 text-amber-500"/>
+    if (t==='success') return <CheckCircle2 className="w-3.5 h-3.5 text-[#1a6b3a]"/>
+    if (t==='event') return <Calendar className="w-3.5 h-3.5 text-blue-500"/>
+    return <Info className="w-3.5 h-3.5 text-[#1a6b3a]"/>
   }
-  const annBg = (t: string) => {
-    if (t==='warning') return 'border-l-amber-400 bg-amber-50'
-    if (t==='success') return 'border-l-green-400 bg-green-50'
-    if (t==='event') return 'border-l-blue-400 bg-blue-50'
-    return 'border-l-mouau bg-mouau-surface'
+  const annBorder = (t: string) => {
+    if (t==='warning') return 'border-l-amber-400'
+    if (t==='success') return 'border-l-[#1a6b3a]'
+    if (t==='event') return 'border-l-blue-400'
+    return 'border-l-[#1a6b3a]'
   }
 
   return (
     <AppShell>
       <TopBar/>
-      <div className="p-3 lg:p-4 space-y-3 animate-fade-in">
+      <div className="p-4 lg:p-5 max-w-2xl mx-auto space-y-5 animate-fade-in">
 
-        {/* Hero */}
-        <div className="relative bg-green-gradient rounded-xl p-3.5 overflow-hidden shadow-md">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/5 rounded-full"/>
+        {/* Hero banner */}
+        <div className="bg-[#0a0a0a] rounded-xl p-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-[#1a6b3a]/20 rounded-full -translate-y-1/2 translate-x-1/2"/>
           <div className="relative z-10">
             <div className="flex items-start justify-between">
               <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <Sparkles className="w-3 h-3 text-gold"/>
-                  <span className="text-gold text-[10px] font-semibold uppercase tracking-wide">Welcome to MOUAU</span>
-                </div>
-                <h2 className="text-white font-black text-base leading-tight">{student?.name?.split(' ')[0]}'s Campus Hub</h2>
-                <p className="text-white/60 text-[10px] mt-0.5">Session 2024/2025 · {student?.level||'100'} Level</p>
+                <p className="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1">MOUAU · 2024/2025</p>
+                <h2 className="text-white font-black text-lg leading-tight">
+                  {student?.name?.split(' ')[0]}'s<br/>
+                  <span className="text-[#1a6b3a]">Campus Hub</span>
+                </h2>
+                <p className="text-white/40 text-xs mt-1">{student?.level||'100'} Level Student</p>
               </div>
               <div className="text-right">
-                <div className="text-white font-black text-2xl leading-none">{percent}%</div>
-                <div className="text-white/50 text-[10px]">Registered</div>
+                <div className="text-3xl font-black text-white">{pct}%</div>
+                <div className="text-white/40 text-[10px] uppercase tracking-wide">Registered</div>
               </div>
             </div>
-            <div className="mt-2.5">
-              <div className="flex justify-between text-[10px] text-white/50 mb-1">
-                <span>Registration</span><span>{completed}/{totalSteps}</span>
+            <div className="mt-4">
+              <div className="flex justify-between text-[10px] text-white/40 mb-1.5">
+                <span>Registration Progress</span><span>{done}/{total} steps</span>
               </div>
-              <div className="progress-bar"><div className="progress-fill" style={{width:`${percent}%`}}/></div>
+              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-[#1a6b3a] rounded-full transition-all duration-700" style={{width:`${pct}%`}}/>
+              </div>
             </div>
-            {percent < 100 && (
-              <Link href="/register" className="inline-flex items-center gap-1 mt-2 bg-gold text-white text-[10px] font-semibold px-2.5 py-1 rounded-lg hover:bg-gold-light transition-all">
+            {pct < 100 && (
+              <Link href="/register" className="inline-flex items-center gap-1.5 mt-3 bg-[#1a6b3a] text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-[#145530] transition-colors">
                 Continue Registration <ChevronRight className="w-3 h-3"/>
               </Link>
             )}
@@ -86,36 +82,40 @@ export default function Dashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2.5">
           {[
-            {label:'Downloads',value:downloads.length,icon:Download,color:'text-purple-600',bg:'bg-purple-50'},
-            {label:'Progress',value:`${percent}%`,icon:TrendingUp,color:'text-mouau',bg:'bg-mouau-surface'},
-            {label:'Points',value:student?.points||0,icon:Star,color:'text-amber-600',bg:'bg-amber-50'},
-          ].map(({label,value,icon:Icon,color,bg})=>(
-            <div key={label} className="card p-2.5 text-center">
-              <div className={`w-6 h-6 ${bg} rounded-lg flex items-center justify-center mx-auto mb-1`}>
-                <Icon className={`w-3.5 h-3.5 ${color}`}/>
-              </div>
-              <div className={`font-black text-sm ${color}`}>{value}</div>
-              <div className="text-gray-400 text-[10px]">{label}</div>
+            {label:'Downloads',value:downloads.length,icon:Download,color:'#6b6b6b'},
+            {label:'Progress',value:`${pct}%`,icon:TrendingUp,color:'#1a6b3a'},
+            {label:'Points',value:student?.points||0,icon:Bell,color:'#6b6b6b'},
+          ].map(({label,value,icon:Icon,color})=>(
+            <div key={label} className="card p-3 text-center">
+              <Icon className="w-4 h-4 mx-auto mb-1.5" style={{color}} strokeWidth={2}/>
+              <div className="font-black text-sm text-[#0a0a0a]">{value}</div>
+              <div className="text-[10px] text-[#aaa] uppercase tracking-wide">{label}</div>
             </div>
           ))}
         </div>
 
         {/* Quick Actions */}
         <div>
-          <h2 className="section-title mb-2">Quick Actions</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-            {quickActions.map(({href,icon:Icon,label,desc,iconBg,iconColor})=>(
-              <Link key={href} href={href} className="card card-hover p-3 flex items-center gap-2.5 group">
-                <div className={`w-7 h-7 ${iconBg} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                  <Icon className={`w-3.5 h-3.5 ${iconColor}`} strokeWidth={2}/>
+          <div className="section-label mb-3">QUICK ACTIONS</div>
+          <div className="space-y-2">
+            {[
+              { href:'/navigate', icon:MapPin, label:'Campus Map', desc:'Find buildings, routes & locations' },
+              { href:'/register', icon:ClipboardList, label:'Registration Guide', desc:'Step-by-step admission checklist' },
+              { href:'/library', icon:BookOpen, label:'Study Library', desc:'Past questions, notes & projects' },
+              { href:'/chat', icon:MessageCircle, label:'AI Assistant', desc:'Ask any question about MOUAU' },
+              { href:'/forum', icon:Users, label:'Community Forum', desc:'Connect with fellow students' },
+            ].map(({href,icon:Icon,label,desc})=>(
+              <Link key={href} href={href} className="card card-hover flex items-center gap-3 px-4 py-3 group">
+                <div className="w-8 h-8 border border-[#e8e8e8] rounded-lg flex items-center justify-center flex-shrink-0 group-hover:border-[#1a6b3a]/30 transition-colors">
+                  <Icon className="w-4 h-4 text-[#1a6b3a]" strokeWidth={2}/>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-mouau-dark text-xs">{label}</p>
-                  <p className="text-gray-400 text-[10px] truncate">{desc}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-[#0a0a0a] text-sm">{label}</p>
+                  <p className="text-[#aaa] text-xs truncate">{desc}</p>
                 </div>
-                <ChevronRight className="w-3 h-3 text-gray-300 group-hover:text-mouau group-hover:translate-x-0.5 transition-all flex-shrink-0"/>
+                <ChevronRight className="w-4 h-4 text-[#ddd] group-hover:text-[#1a6b3a] group-hover:translate-x-0.5 transition-all flex-shrink-0"/>
               </Link>
             ))}
           </div>
@@ -123,27 +123,23 @@ export default function Dashboard() {
 
         {/* Announcements */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="section-title">Announcements</h2>
-            <Bell className="w-3.5 h-3.5 text-gray-400"/>
-          </div>
-          {announcements.length === 0 ? (
-            <div className="card p-4 text-center">
-              <p className="text-gray-400 text-xs">No announcements yet.</p>
-              <p className="text-gray-300 text-[10px] mt-0.5">Check back later or visit the Admin Block.</p>
+          <div className="section-label mb-3">ANNOUNCEMENTS</div>
+          {anns.length === 0 ? (
+            <div className="card p-6 text-center">
+              <p className="text-[#aaa] text-sm">No announcements yet.</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {announcements.map(ann=>(
-                <div key={ann.id} className={`card border-l-4 ${annBg(ann.type)} p-3 ${ann.pinned?'ring-1 ring-gold/20':''}`}>
-                  <div className="flex items-start gap-2">
-                    <div className="mt-0.5 flex-shrink-0">{annIcon(ann.type)}</div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-1">
-                        <h3 className="font-semibold text-xs text-gray-800 leading-tight">{ann.title}</h3>
-                        {ann.pinned&&<span className="badge badge-gold flex-shrink-0">Pinned</span>}
+              {anns.map(ann=>(
+                <div key={ann.id} className={`card border-l-4 ${annBorder(ann.type)} p-3.5`}>
+                  <div className="flex items-start gap-2.5">
+                    <div className="flex-shrink-0 mt-0.5">{annIcon(ann.type)}</div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#0a0a0a] text-xs leading-tight">{ann.title}</p>
+                        {ann.pinned && <span className="badge badge-green text-[9px]">Pinned</span>}
                       </div>
-                      <p className="text-gray-500 text-[10px] mt-0.5 leading-relaxed line-clamp-2">{ann.body}</p>
+                      <p className="text-[#6b6b6b] text-[11px] mt-1 leading-relaxed line-clamp-2">{ann.body}</p>
                     </div>
                   </div>
                 </div>

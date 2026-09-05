@@ -1,11 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-export const supabase = createClient(url, key)
-export const supabaseConfigured = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co'
-)
+export const supabaseConfigured = Boolean(url && key)
+export const supabase = supabaseConfigured
+  ? createClient(url, key)
+  : createClient('https://placeholder.supabase.co', 'placeholder', { auth: { persistSession: false } })

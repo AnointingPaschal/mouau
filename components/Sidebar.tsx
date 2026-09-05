@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from './AuthProvider'
-import { LayoutDashboard, MapPin, ClipboardList, BookOpen, MessageCircle, Users, User, LogOut, Sprout } from 'lucide-react'
+import { LayoutDashboard, MapPin, ClipboardList, BookOpen, MessageCircle, Users, User, LogOut } from 'lucide-react'
 
 const nav = [
   { href:'/dashboard', label:'Dashboard', icon:LayoutDashboard },
@@ -18,46 +18,44 @@ export default function Sidebar() {
   const pathname = usePathname()
   const { student, logout } = useAuth()
   return (
-    <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-52 bg-mouau z-50 shadow-lg">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
-        <div className="w-7 h-7 bg-gold rounded-lg flex items-center justify-center">
-          <Sprout className="w-4 h-4 text-white" strokeWidth={2.5}/>
+    <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-52 bg-[#0a0a0a] z-50 border-r border-white/5">
+      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-white/5">
+        <div className="w-7 h-7 bg-[#1a6b3a] rounded-md flex items-center justify-center flex-shrink-0">
+          <span className="text-white font-black text-xs">M</span>
         </div>
         <div>
-          <p className="text-white font-bold text-xs leading-none">MOUAU</p>
-          <p className="text-white/60 text-[10px]">FreshStart</p>
+          <p className="text-white font-black text-sm leading-none tracking-tight">FreshStart</p>
+          <p className="text-white/30 text-[10px] mt-0.5">MOUAU</p>
         </div>
       </div>
       {student && (
-        <div className="px-3 py-2 border-b border-white/10">
-          <div className="flex items-center gap-2 bg-white/10 rounded-lg p-2">
-            <div className="w-7 h-7 bg-gold rounded-full flex items-center justify-center flex-shrink-0">
+        <div className="px-3 py-3 border-b border-white/5">
+          <div className="flex items-center gap-2.5 px-2.5 py-2 bg-white/5 rounded-lg">
+            <div className="w-7 h-7 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-white font-bold text-[10px]">{student.avatar||'ST'}</span>
             </div>
             <div className="min-w-0">
               <p className="text-white font-semibold text-xs truncate">{student.name}</p>
-              <p className="text-white/60 text-[10px] truncate">{student.idNumber}</p>
+              <p className="text-white/30 text-[10px] truncate">{student.idNumber}</p>
             </div>
           </div>
         </div>
       )}
-      <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
         {nav.map(({ href, label, icon: Icon }) => {
           const active = pathname === href
           return (
             <Link key={href} href={href}
-              className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all text-xs ${
-                active ? 'bg-white/20 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`}>
-              <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-gold' : ''}`} strokeWidth={2}/>
-              <span className="font-medium">{label}</span>
-              {active && <div className="ml-auto w-1 h-1 rounded-full bg-gold"/>}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${active?'bg-[#1a6b3a] text-white':'text-white/50 hover:text-white hover:bg-white/5'}`}>
+              <Icon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2}/>
+              {label}
             </Link>
           )
         })}
       </nav>
-      <div className="p-2 border-t border-white/10">
-        <button onClick={logout} className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-white/60 hover:bg-red-500/20 hover:text-red-300 transition-all text-xs">
+      <div className="p-2 border-t border-white/5">
+        <button onClick={logout}
+          className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-xs text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all">
           <LogOut className="w-3.5 h-3.5"/> Sign Out
         </button>
       </div>

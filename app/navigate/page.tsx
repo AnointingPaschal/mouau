@@ -1,95 +1,108 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
-import { CAMPUS_LOCATIONS, CampusLocation } from '@/lib/data'
-import { MapPin, Search, Clock, X, Filter } from 'lucide-react'
+import { getCampusLocations } from '@/lib/db'
+import { Search, X, MapPin, Clock, Navigation2 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
-const CampusMap = dynamic(() => import('@/components/CampusMap'), {
-  ssr: false,
-  loading: () => <div className="flex-1 bg-gray-100 rounded-xl flex items-center justify-center"><p className="text-xs text-gray-400">Loading map...</p></div>
-})
+const CampusMap = dynamic(() => import('@/components/CampusMap'), { ssr: false, loading: () => (
+  <div className="flex items-center justify-center h-full bg-[#f9f9f7]">
+    <div className="text-center"><div className="w-5 h-5 border-2 border-[#1a6b3a] border-t-transparent rounded-full animate-spin mx-auto mb-2"/><p className="text-xs text-[#aaa]">Loading map...</p></div>
+  </div>
+)})
 
-const CATS = [{id:'all',l:'All'},{id:'academic',l:'Academic'},{id:'admin',l:'Admin'},{id:'hostel',l:'Hostel'},{id:'social',l:'Social'},{id:'health',l:'Health'},{id:'worship',l:'Worship'},{id:'sport',l:'Sport'}]
-const CCAT: Record<string,string> = {academic:'bg-blue-100 text-blue-700',admin:'bg-purple-100 text-purple-700',hostel:'bg-amber-100 text-amber-700',social:'bg-pink-100 text-pink-700',health:'bg-red-100 text-red-700',worship:'bg-indigo-100 text-indigo-700',sport:'bg-green-100 text-green-700'}
+type Loc = { id:string; name:string; description:string; lat:number; lng:number; category:string; hours:string; directions:string }
+
+const COLORS: Record<string,string> = { academic:'#1a6b3a', admin:'#0a0a0a', hostel:'#6b6b6b', social:'#d97706', health:'#dc2626', worship:'#7c3aed', sport:'#2563eb' }
+const CATS = ['all','academic','admin','hostel','social','health','worship','sport']
 
 export default function NavigatePage() {
-  const [selected, setSelected] = useState<CampusLocation|null>(null)
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('all')
+  const [locations, setLocations] = useState<Loc[]>([])
+  const [selected, setSelected] = useState<Loc|null>(null)
+  const [query, setQuery] = useState('')
+  const [catFilter, setCatFilter] = useState('all')
 
-  const filtered = CAMPUS_LOCATIONS.filter(l => {
-    const mC = category==='all'||l.category===category
-    const mS = !search||l.name.toLowerCase().includes(search.toLowerCase())
-    return mC&&mS
+  useEffect(() => {
+    getCampusLocations().then(({ data }) => { if (data) setLocations(data as Loc[]) })
+  }, [])
+
+  const filtered = locations.filter(l => {
+    const q = query.toLowerCase()
+    if (catFilter !== 'all' && l.category !== catFilter) return false
+    if (!q) return true
+    return l.name.toLowerCase().includes(q) || l.description.toLowerCase().includes(q)
   })
 
   return (
     <AppShell>
       <TopBar title="Campus Map" subtitle="Navigate MOUAU campus"/>
-      <div className="p-3 lg:p-4 animate-fade-in">
-        <div className="flex flex-col lg:flex-row gap-3 h-[calc(100vh-120px)]">
-          <div className="flex-1 card overflow-hidden relative" style={{minHeight:'320px'}}>
-            <CampusMap locations={filtered} selected={selected} onSelect={setSelected}/>
-            {/* Search overlay */}
-            <div className="absolute top-3 left-3 right-3 z-10 flex gap-2">
-              <div className="flex-1 bg-white rounded-lg shadow-md flex items-center gap-2 px-2.5 py-2">
-                <Search className="w-3.5 h-3.5 text-gray-400"/>
-                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search locations..." className="flex-1 text-xs outline-none bg-transparent"/>
-                {search&&<button onClick={()=>setSearch('')}><X className="w-3 h-3 text-gray-400"/></button>}
-              </div>
-            </div>
-            {/* Category filter */}
-            <div className="absolute bottom-3 left-3 right-3 z-10">
-              <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-                {CATS.map(c=>(
-                  <button key={c.id} onClick={()=>setCategory(c.id)}
-                    className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm transition-all ${category===c.id?'bg-mouau text-white':'bg-white text-gray-600'}`}>
-                    {c.l}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {/* Selected card */}
-            {selected&&(
-              <div className="absolute top-14 left-3 right-3 z-10 animate-slide-up">
-                <div className="card shadow-lg p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2">
-                      <div className="w-7 h-7 bg-mouau rounded-lg flex items-center justify-center flex-shrink-0">
-                        <MapPin className="w-3.5 h-3.5 text-white"/>
-                      </div>
-                      <div>
-                        <p className="font-bold text-mouau-dark text-xs">{selected.name}</p>
-                        <p className="text-gray-400 text-[10px] mt-0.5 leading-relaxed">{selected.description}</p>
-                        {selected.hours&&<div className="flex items-center gap-1 mt-1"><Clock className="w-2.5 h-2.5 text-mouau"/><span className="text-[10px] text-mouau font-medium">{selected.hours}</span></div>}
-                        <span className={`badge ${CCAT[selected.category]||'badge-green'} mt-1.5 text-[9px]`}>{selected.category}</span>
-                      </div>
-                    </div>
-                    <button onClick={()=>setSelected(null)}><X className="w-3.5 h-3.5 text-gray-400"/></button>
-                  </div>
-                </div>
-              </div>
-            )}
+      <div className="flex flex-col h-[calc(100vh-100px)] lg:h-[calc(100vh-60px)]">
+        {/* Search */}
+        <div className="p-3 border-b border-[#e8e8e8] bg-white space-y-2.5">
+          <div className="flex items-center border border-[#e8e8e8] rounded-lg px-3 py-2 bg-[#f9f9f7] gap-2">
+            <Search className="w-3.5 h-3.5 text-[#aaa] flex-shrink-0"/>
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search locations..." className="flex-1 text-xs outline-none bg-transparent text-[#0a0a0a] placeholder-[#aaa]"/>
+            {query && <button onClick={() => setQuery('')}><X className="w-3.5 h-3.5 text-[#aaa]"/></button>}
           </div>
-          {/* List */}
-          <div className="hidden lg:flex flex-col gap-2 w-60 overflow-y-auto">
-            <p className="text-xs font-bold text-mouau-dark">{filtered.length} Locations</p>
-            {filtered.map(loc=>(
-              <button key={loc.id} onClick={()=>setSelected(loc)}
-                className={`card card-hover p-2.5 text-left ${selected?.id===loc.id?'ring-1 ring-mouau':''}`}>
-                <div className="flex items-start gap-2">
-                  <div className="w-6 h-6 bg-mouau-surface rounded-lg flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-3 h-3 text-mouau"/>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-mouau-dark text-[10px] leading-tight truncate">{loc.name}</p>
-                    <span className={`badge ${CCAT[loc.category]||'badge-green'} mt-0.5 text-[9px]`}>{loc.category}</span>
-                  </div>
-                </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            {CATS.map(c => (
+              <button key={c} onClick={() => setCatFilter(c)}
+                className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${catFilter===c?'bg-[#0a0a0a] text-white':'bg-[#f9f9f7] text-[#6b6b6b] hover:bg-[#e8e8e8]'}`}>
+                {c.charAt(0).toUpperCase()+c.slice(1)}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <div className="hidden lg:flex flex-col w-72 border-r border-[#e8e8e8] bg-white overflow-y-auto flex-shrink-0">
+            <div className="p-2.5 space-y-1">
+              {filtered.map(loc => (
+                <button key={loc.id} onClick={() => setSelected(loc === selected ? null : loc)}
+                  className={`w-full text-left p-2.5 rounded-xl transition-all ${selected?.id===loc.id?'bg-[#0a0a0a] text-white':'hover:bg-[#f9f9f7]'}`}>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:COLORS[loc.category]||'#aaa'}}/>
+                    <div className="min-w-0">
+                      <p className={`font-semibold text-xs truncate ${selected?.id===loc.id?'text-white':'text-[#0a0a0a]'}`}>{loc.name}</p>
+                      <p className={`text-[10px] truncate ${selected?.id===loc.id?'text-white/50':'text-[#aaa]'}`}>{loc.description}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Map */}
+          <div className="flex-1 relative">
+            <CampusMap locations={filtered} selected={selected} onSelect={setSelected} colors={COLORS}/>
+
+            {/* Detail panel */}
+            {selected && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-white rounded-xl shadow-lg border border-[#e8e8e8] p-4 z-10 animate-slide-up">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{background:COLORS[selected.category]||'#aaa'}}/>
+                    <h3 className="font-black text-[#0a0a0a] text-sm">{selected.name}</h3>
+                  </div>
+                  <button onClick={() => setSelected(null)} className="p-1 rounded-full bg-[#f9f9f7]"><X className="w-3.5 h-3.5 text-[#aaa]"/></button>
+                </div>
+                {selected.description && <p className="text-[#6b6b6b] text-xs mt-1.5 leading-relaxed">{selected.description}</p>}
+                {selected.hours && (
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <Clock className="w-3 h-3 text-[#aaa] flex-shrink-0"/>
+                    <p className="text-xs text-[#6b6b6b]">{selected.hours}</p>
+                  </div>
+                )}
+                {selected.directions && (
+                  <div className="flex items-start gap-1.5 mt-2 p-2.5 bg-[#f9f9f7] rounded-lg">
+                    <Navigation2 className="w-3 h-3 text-[#1a6b3a] flex-shrink-0 mt-0.5"/>
+                    <p className="text-xs text-[#6b6b6b] leading-relaxed">{selected.directions}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

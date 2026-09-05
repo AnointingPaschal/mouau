@@ -1,34 +1,29 @@
 'use client'
+import Sidebar from './Sidebar'
+import BottomNav from './BottomNav'
 import { useAuth } from './AuthProvider'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import Sidebar from './Sidebar'
-import BottomNav from './BottomNav'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { student, loading } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    if (!loading && !student) router.replace('/')
-  }, [student, loading, router])
+  useEffect(() => { if (!loading && !student) router.replace('/') }, [student, loading, router])
 
   if (loading) return (
-    <div className="min-h-screen bg-mouau-bg flex items-center justify-center">
-      <div className="flex flex-col items-center gap-2">
-        <div className="w-8 h-8 border-2 border-mouau border-t-transparent rounded-full animate-spin"/>
-        <p className="text-mouau text-xs font-medium">Loading...</p>
-      </div>
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="w-5 h-5 border-2 border-[#1a6b3a] border-t-transparent rounded-full animate-spin"/>
     </div>
   )
   if (!student) return null
 
   return (
-    <div className="flex min-h-screen bg-mouau-bg">
+    <div className="flex min-h-screen bg-[#f9f9f7]">
       <Sidebar/>
-      <main className="flex-1 lg:ml-52 min-w-0">
-        <div className="pb-20 lg:pb-6">{children}</div>
-      </main>
+      <div className="flex-1 lg:ml-52 min-w-0 pb-20 lg:pb-0">
+        {children}
+      </div>
       <BottomNav/>
     </div>
   )
