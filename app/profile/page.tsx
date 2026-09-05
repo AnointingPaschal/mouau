@@ -1,281 +1,155 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
 import { updateStudent } from '@/lib/auth'
 import { COLLEGES, DEPARTMENTS } from '@/lib/data'
-import {
-  User, Mail, Phone, GraduationCap, Building2, Edit2, Save,
-  X, CheckCircle2, Star, Download, TrendingUp, LogOut, Shield, Bell
-} from 'lucide-react'
+import { User, Mail, Phone, GraduationCap, Building2, Save, CheckCircle2, Award, Download, Shield, LogOut, Edit2 } from 'lucide-react'
 
 export default function ProfilePage() {
   const { student, setStudent, logout } = useAuth()
   const [editing, setEditing] = useState(false)
-  const [toast, setToast] = useState('')
+  const [saved, setSaved] = useState(false)
   const [form, setForm] = useState({
-    name: student?.name || '',
-    email: student?.email || '',
-    phone: student?.phone || '',
-    department: student?.department || '',
-    college: student?.college || '',
-    level: student?.level || '100',
+    name:student?.name||'', email:student?.email||'', phone:student?.phone||'',
+    department:student?.department||'', college:student?.college||'', level:student?.level||'100'
   })
-
-  useEffect(() => {
-    if (student) {
-      setForm({
-        name: student.name || '',
-        email: student.email || '',
-        phone: student.phone || '',
-        department: student.department || '',
-        college: student.college || '',
-        level: student.level || '100',
-      })
-    }
-  }, [student])
+  const depts = form.college?(DEPARTMENTS[form.college]||[]):[]
 
   const save = () => {
-    const updated = updateStudent(form)
-    if (updated) {
-      setStudent(updated)
-      setEditing(false)
-      showToast('Profile updated successfully!')
-    }
+    const updated = updateStudent({ ...form })
+    if (updated) setStudent(updated)
+    setEditing(false); setSaved(true)
+    setTimeout(()=>setSaved(false),3000)
   }
-
-  const showToast = (msg: string) => {
-    setToast(msg); setTimeout(() => setToast(''), 3000)
-  }
-
-  const departments = form.college ? (DEPARTMENTS[form.college] || []) : []
-
-  const stats = [
-    { label:'Points', value: student?.points || 0, icon:Star, color:'text-amber-600', bg:'bg-amber-50' },
-    { label:'Downloads', value: student?.downloads || 0, icon:Download, color:'text-purple-600', bg:'bg-purple-50' },
-    { label:'Level', value: `${student?.level || 100}L`, icon:GraduationCap, color:'text-mouau', bg:'bg-mouau-surface' },
-    { label:'Progress', value: `0%`, icon:TrendingUp, color:'text-blue-600', bg:'bg-blue-50' },
-  ]
-
-  const initials = (student?.name || 'ST').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)
 
   return (
     <AppShell>
-      <TopBar title="My Profile" subtitle="Manage your MOUAU account"/>
-      <div className="p-4 lg:p-6 space-y-5 animate-fade-in">
+      <TopBar title="My Profile" subtitle="Your student account"/>
+      <div className="p-3 lg:p-4 space-y-3 animate-fade-in">
 
-        {toast && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-mouau text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-slide-up">
-            <CheckCircle2 className="w-4 h-4 text-green-300"/>
-            <span className="text-sm font-medium">{toast}</span>
-          </div>
-        )}
-
-        {/* Avatar Card */}
-        <div className="bg-green-gradient rounded-2xl p-6 shadow-lg relative overflow-hidden">
-          <div className="absolute -right-12 -top-12 w-48 h-48 bg-white/5 rounded-full"/>
-          <div className="relative z-10 flex items-center gap-5">
-            <div className="w-20 h-20 bg-gold rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-              <span className="text-white font-black text-3xl">{initials}</span>
-            </div>
-            <div>
-              <h2 className="text-white font-black text-xl">{student?.name || 'MOUAU Student'}</h2>
-              <p className="text-white/70 text-sm mt-0.5">{student?.idNumber}</p>
-              {student?.department && (
-                <span className="inline-block mt-2 bg-white/10 text-white/80 text-xs px-3 py-1 rounded-full">
-                  {student.department} · {student.level || 100}L
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-2">
-          {stats.map(({ label, value, icon: Icon, color, bg }) => (
-            <div key={label} className="card p-3 text-center">
-              <div className={`w-7 h-7 ${bg} rounded-lg flex items-center justify-center mx-auto mb-1.5`}>
-                <Icon className={`w-4 h-4 ${color}`}/>
+        {/* Profile Header */}
+        <div className="bg-green-gradient rounded-xl p-3.5 shadow-md">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gold rounded-xl flex items-center justify-center shadow-md">
+                <span className="text-white font-black text-lg">{student?.avatar||'S'}</span>
               </div>
-              <div className={`font-black text-base ${color}`}>{value}</div>
-              <div className="text-gray-400 text-[10px]">{label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Profile Form */}
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="font-bold text-mouau-dark text-base">Personal Information</h3>
-            {!editing ? (
-              <button onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 text-sm text-mouau font-semibold bg-mouau-surface px-3 py-1.5 rounded-xl hover:bg-green-100 transition-all">
-                <Edit2 className="w-3.5 h-3.5"/> Edit
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button onClick={() => setEditing(false)}
-                  className="flex items-center gap-1.5 text-sm text-gray-500 font-medium px-3 py-1.5 rounded-xl hover:bg-gray-100 transition-all">
-                  <X className="w-3.5 h-3.5"/> Cancel
-                </button>
-                <button onClick={save}
-                  className="flex items-center gap-1.5 text-sm bg-mouau text-white font-semibold px-3 py-1.5 rounded-xl hover:bg-mouau-mid transition-all">
-                  <Save className="w-3.5 h-3.5"/> Save
-                </button>
+              <div>
+                <h2 className="font-black text-sm text-white">{student?.name}</h2>
+                <p className="text-white/60 text-[10px]">{student?.idNumber}</p>
+                <p className="text-white/50 text-[10px]">{student?.department||'Department not set'}</p>
               </div>
-            )}
+            </div>
+            <button onClick={()=>setEditing(!editing)} className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-all">
+              <Edit2 className="w-3.5 h-3.5 text-white"/>
+            </button>
           </div>
-
-          <div className="space-y-4">
-            {/* Name */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1.5 flex items-center gap-1.5 block">
-                <User className="w-3.5 h-3.5"/> Full Name
-              </label>
-              {editing ? (
-                <input value={form.name} onChange={e => setForm({...form,name:e.target.value})}
-                  className="input" placeholder="Your full name"/>
-              ) : (
-                <p className="text-mouau-dark font-semibold bg-mouau-bg px-4 py-3 rounded-xl text-sm">
-                  {student?.name || '—'}
-                </p>
-              )}
-            </div>
-
-            {/* ID Number */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1.5 flex items-center gap-1.5 block">
-                <Shield className="w-3.5 h-3.5"/> JAMB / Matric Number
-              </label>
-              <p className="text-mouau-dark font-semibold bg-gray-50 px-4 py-3 rounded-xl text-sm border border-gray-100 text-gray-400">
-                {student?.idNumber || '—'} <span className="text-xs text-gray-300 ml-1">(cannot change)</span>
-              </p>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1.5 flex items-center gap-1.5 block">
-                <Mail className="w-3.5 h-3.5"/> Email Address
-              </label>
-              {editing ? (
-                <input value={form.email} onChange={e => setForm({...form,email:e.target.value})}
-                  className="input" type="email" placeholder="your@email.com"/>
-              ) : (
-                <p className="text-mouau-dark bg-mouau-bg px-4 py-3 rounded-xl text-sm">
-                  {student?.email || '—'}
-                </p>
-              )}
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1.5 flex items-center gap-1.5 block">
-                <Phone className="w-3.5 h-3.5"/> Phone Number
-              </label>
-              {editing ? (
-                <input value={form.phone} onChange={e => setForm({...form,phone:e.target.value})}
-                  className="input" type="tel" placeholder="+234 XXX XXX XXXX"/>
-              ) : (
-                <p className="text-mouau-dark bg-mouau-bg px-4 py-3 rounded-xl text-sm">
-                  {student?.phone || '—'}
-                </p>
-              )}
-            </div>
-
-            {/* College */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1.5 flex items-center gap-1.5 block">
-                <Building2 className="w-3.5 h-3.5"/> College
-              </label>
-              {editing ? (
-                <select value={form.college} onChange={e => setForm({...form,college:e.target.value,department:''})}
-                  className="input text-sm py-2">
-                  <option value="">Select college...</option>
-                  {COLLEGES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              ) : (
-                <p className="text-mouau-dark bg-mouau-bg px-4 py-3 rounded-xl text-sm">
-                  {student?.college || '—'}
-                </p>
-              )}
-            </div>
-
-            {/* Department */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1.5 flex items-center gap-1.5 block">
-                <GraduationCap className="w-3.5 h-3.5"/> Department
-              </label>
-              {editing ? (
-                <select value={form.department} onChange={e => setForm({...form,department:e.target.value})}
-                  className="input text-sm py-2" disabled={!form.college}>
-                  <option value="">{form.college ? 'Select department...' : 'Select college first'}</option>
-                  {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              ) : (
-                <p className="text-mouau-dark bg-mouau-bg px-4 py-3 rounded-xl text-sm">
-                  {student?.department || '—'}
-                </p>
-              )}
-            </div>
-
-            {/* Level */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Academic Level</label>
-              {editing ? (
-                <div className="grid grid-cols-5 gap-2">
-                  {['100','200','300','400','500'].map(l => (
-                    <button key={l} type="button" onClick={() => setForm({...form,level:l})}
-                      className={`py-2 rounded-xl text-sm font-bold transition-all border ${
-                        form.level===l ? 'bg-mouau text-white border-mouau shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-mouau/50'
-                      }`}>{l}L</button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-mouau-dark bg-mouau-bg px-4 py-3 rounded-xl text-sm">
-                  {student?.level || 100} Level
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Preferences */}
-        <div className="card p-5">
-          <h3 className="font-bold text-mouau-dark text-base mb-4">Preferences</h3>
-          <div className="space-y-3">
-            {[
-              { icon:Bell, label:'Push Notifications', desc:'Get campus alerts and announcements' },
-              { icon:Download, label:'Auto-save Downloads', desc:'Keep downloaded files for offline access' },
-            ].map(({ icon:Icon, label, desc }) => (
-              <div key={label} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-mouau-surface rounded-xl flex items-center justify-center">
-                    <Icon className="w-4 h-4 text-mouau"/>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-mouau-dark text-sm">{label}</p>
-                    <p className="text-gray-400 text-xs">{desc}</p>
-                  </div>
-                </div>
-                <button className="w-11 h-6 bg-mouau rounded-full relative transition-all shadow-inner">
-                  <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5 shadow-sm transition-all"/>
-                </button>
+          <div className="grid grid-cols-3 gap-2">
+            {[{l:'Level',v:`${student?.level||100}L`},{l:'Points',v:student?.points||0},{l:'Downloads',v:student?.downloads||0}].map(({l,v})=>(
+              <div key={l} className="bg-white/10 rounded-lg p-2 text-center">
+                <div className="text-white font-black text-sm">{v}</div>
+                <div className="text-white/50 text-[10px]">{l}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Sign Out */}
-        <button onClick={logout}
-          className="w-full card p-4 flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 transition-all border-red-100">
-          <LogOut className="w-4 h-4"/>
-          <span className="font-semibold text-sm">Sign Out</span>
-        </button>
+        {saved&&<div className="flex items-center gap-1.5 p-2.5 bg-green-50 border border-green-100 rounded-lg animate-fade-in"><CheckCircle2 className="w-3.5 h-3.5 text-mouau"/><span className="text-mouau font-semibold text-xs">Saved!</span></div>}
 
-        <p className="text-center text-xs text-gray-300 pb-2">
-          MOUAU FreshStart v1.0 · Michael Okpara University of Agriculture
-        </p>
+        {/* Edit Form */}
+        {editing&&(
+          <div className="card p-3 space-y-2.5 animate-fade-in">
+            <h3 className="font-bold text-mouau-dark text-xs">Edit Information</h3>
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Full Name</label>
+              <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="input"/>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Email</label>
+                <input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} className="input" type="email"/>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Phone</label>
+                <input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} className="input" type="tel"/>
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 mb-1 block">College</label>
+              <select value={form.college} onChange={e=>setForm({...form,college:e.target.value,department:''})} className="input py-1.5 text-[10px]">
+                <option value="">Select college...</option>
+                {COLLEGES.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Department</label>
+              <select value={form.department} onChange={e=>setForm({...form,department:e.target.value})} className="input py-1.5 text-[10px]" disabled={!form.college}>
+                <option value="">Select dept...</option>
+                {depts.map(d=><option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Level</label>
+              <select value={form.level} onChange={e=>setForm({...form,level:e.target.value})} className="input py-1.5 text-[10px]">
+                {['100','200','300','400','500'].map(l=><option key={l} value={l}>{l} Level</option>)}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={save} className="btn-primary flex-1 flex items-center justify-center gap-1"><Save className="w-3 h-3"/>Save</button>
+              <button onClick={()=>setEditing(false)} className="btn-outline flex-1">Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Info Display */}
+        {!editing&&(
+          <div className="card p-3 space-y-2">
+            {[
+              {icon:User,l:'Name',v:student?.name||'Not set'},
+              {icon:Mail,l:'Email',v:student?.email||'Not set'},
+              {icon:Phone,l:'Phone',v:student?.phone||'Not set'},
+              {icon:Building2,l:'College',v:student?.college||'Not set'},
+              {icon:GraduationCap,l:'Department',v:student?.department||'Not set'},
+            ].map(({icon:Icon,l,v})=>(
+              <div key={l} className="flex items-center gap-2 py-1.5 border-b border-gray-50 last:border-0">
+                <div className="w-6 h-6 bg-mouau-surface rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-3 h-3 text-mouau"/>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-gray-400">{l}</p>
+                  <p className="font-semibold text-gray-800 text-xs truncate">{v}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Achievements */}
+        <div className="card p-3">
+          <h3 className="font-bold text-mouau-dark text-xs mb-2">Achievements</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              {icon:Award,l:'FreshStart',d:'Joined the platform',c:'text-gold',bg:'bg-amber-50',earned:true},
+              {icon:Download,l:'First Download',d:'Downloaded a material',c:'text-purple-600',bg:'bg-purple-50',earned:false},
+              {icon:Shield,l:'Verified',d:'Complete your profile',c:'text-mouau',bg:'bg-mouau-surface',earned:!!(student?.college&&student?.department)},
+              {icon:User,l:'Active Member',d:'Post in the forum',c:'text-blue-600',bg:'bg-blue-50',earned:false},
+            ].map(({icon:Icon,l,d,c,bg,earned})=>(
+              <div key={l} className={`p-2.5 rounded-xl border ${earned?'border-mouau/20 bg-white':'border-gray-100 bg-gray-50 opacity-50'}`}>
+                <div className={`w-6 h-6 ${bg} rounded-lg flex items-center justify-center mb-1.5`}><Icon className={`w-3 h-3 ${c}`}/></div>
+                <p className="font-bold text-[10px] text-gray-800">{l}</p>
+                <p className="text-gray-400 text-[9px]">{d}</p>
+                {earned&&<span className="badge badge-green text-[9px] mt-1">Earned</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={logout} className="w-full card p-3 flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 transition-all text-xs font-semibold">
+          <LogOut className="w-3.5 h-3.5"/> Sign Out
+        </button>
+        <p className="text-center text-[10px] text-gray-300 pb-2">MOUAU FreshStart v1.0 · 2024/2025</p>
       </div>
     </AppShell>
   )

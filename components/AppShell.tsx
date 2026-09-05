@@ -10,33 +10,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && !student) {
-      router.replace('/')
-    }
+    if (!loading && !student) router.replace('/')
   }, [student, loading, router])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-mouau-bg flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 border-4 border-mouau border-t-transparent rounded-full animate-spin" />
-          <p className="text-mouau font-medium text-sm">Loading...</p>
-        </div>
+  if (loading) return (
+    <div className="min-h-screen bg-mouau-bg flex items-center justify-center">
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-8 h-8 border-2 border-mouau border-t-transparent rounded-full animate-spin"/>
+        <p className="text-mouau text-xs font-medium">Loading...</p>
       </div>
-    )
-  }
-
+    </div>
+  )
   if (!student) return null
 
   return (
     <div className="flex min-h-screen bg-mouau-bg">
-      <Sidebar />
-      <main className="flex-1 lg:ml-64 min-w-0">
-        <div className="pb-24 lg:pb-8">
-          {children}
-        </div>
+      <Sidebar/>
+      <main className="flex-1 lg:ml-52 min-w-0">
+        <div className="pb-20 lg:pb-6">{children}</div>
       </main>
-      <BottomNav />
+      <BottomNav/>
     </div>
   )
 }

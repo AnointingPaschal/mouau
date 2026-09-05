@@ -12,7 +12,6 @@ const primary = [
   { href:'/library', label:'Library', icon:BookOpen },
   { href:'/chat', label:'Chat', icon:MessageCircle },
 ]
-
 const more = [
   { href:'/register', label:'Registration', icon:ClipboardList },
   { href:'/forum', label:'Community', icon:Users },
@@ -23,62 +22,47 @@ export default function BottomNav() {
   const pathname = usePathname()
   const { logout } = useAuth()
   const [showMore, setShowMore] = useState(false)
-
-  const isActive = (href: string) => pathname === href
+  const active = (href: string) => pathname === href
 
   return (
     <>
-      {/* More Modal */}
       {showMore && (
         <div className="lg:hidden fixed inset-0 z-50 flex items-end" onClick={() => setShowMore(false)}>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative w-full bg-white rounded-t-3xl shadow-2xl p-6 animate-slide-up"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-bold text-mouau text-lg">More Options</h3>
-              <button onClick={() => setShowMore(false)} className="p-2 rounded-full bg-gray-100">
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"/>
+          <div className="relative w-full bg-white rounded-t-2xl shadow-2xl p-4 animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-mouau text-sm">More</h3>
+              <button onClick={() => setShowMore(false)} className="p-1 rounded-full bg-gray-100"><X className="w-4 h-4 text-gray-500"/></button>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-3 gap-2 mb-3">
               {more.map(({ href, label, icon: Icon }) => (
                 <Link key={href} href={href} onClick={() => setShowMore(false)}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all ${
-                    isActive(href) ? 'bg-mouau text-white' : 'bg-gray-50 text-gray-700 hover:bg-mouau-surface'
-                  }`}>
-                  <Icon className="w-6 h-6" />
-                  <span className="text-xs font-medium">{label}</span>
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs transition-all ${active(href) ? 'bg-mouau text-white' : 'bg-gray-50 text-gray-600'}`}>
+                  <Icon className="w-4 h-4"/>{label}
                 </Link>
               ))}
             </div>
             <button onClick={() => { setShowMore(false); logout() }}
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-red-50 text-red-600 font-medium">
-              <LogOut className="w-5 h-5" />
-              Sign Out
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-medium">
+              <LogOut className="w-4 h-4"/> Sign Out
             </button>
           </div>
         </div>
       )}
-
-      {/* Bottom Nav Bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-xl bottom-nav-safe">
-        <div className="flex items-center justify-around px-2 py-2">
+        <div className="flex items-center justify-around px-1 py-1.5">
           {primary.map(({ href, label, icon: Icon }) => {
-            const active = isActive(href)
+            const isActive = active(href)
             return (
               <Link key={href} href={href}
-                className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all duration-150 ${
-                  active ? 'bg-mouau-surface text-mouau' : 'text-gray-400'
-                }`}>
-                <Icon className={`w-5 h-5 ${active ? 'text-mouau' : ''}`} strokeWidth={active ? 2.5 : 2} />
-                <span className={`text-[10px] font-medium ${active ? 'text-mouau' : ''}`}>{label}</span>
-                {active && <div className="w-1 h-1 rounded-full bg-mouau" />}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${isActive ? 'bg-mouau-surface text-mouau' : 'text-gray-400'}`}>
+                <Icon className="w-4 h-4" strokeWidth={isActive ? 2.5 : 2}/>
+                <span className="text-[10px] font-medium">{label}</span>
               </Link>
             )
           })}
-          <button onClick={() => setShowMore(true)}
-            className="flex flex-col items-center gap-1 px-4 py-2 rounded-2xl text-gray-400 transition-all duration-150">
-            <Grid3X3 className="w-5 h-5" strokeWidth={2} />
+          <button onClick={() => setShowMore(true)} className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-gray-400">
+            <Grid3X3 className="w-4 h-4" strokeWidth={2}/>
             <span className="text-[10px] font-medium">More</span>
           </button>
         </div>
