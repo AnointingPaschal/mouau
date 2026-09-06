@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import { COLLEGES } from '@/lib/data'
 import { getLibraryItems, uploadMaterial, incrementDownload } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useSearchParams } from 'next/navigation'
 import { BookOpen, Download, Star, Search, Upload, CheckCircle2, FileText, X, Shield, Users, Loader2, Filter, Lock, BookMarked, FolderOpen, Link } from 'lucide-react'
@@ -81,6 +82,46 @@ function LibraryContent() {
       showToast('Please paste a file URL'); return
     }
     setUploading(true)
+
+    if (fileSource === 'link') {
+      // Check for duplicate link
+      const url = linkUrl.trim()
+      const { data: existing } = await supabase
+        .from('library_materials')
+        .select('id')
+        .eq('file_url', url)
+        .limit(1)
+      if (existing && existing.length > 0) {
+        setUploading(false)
+        showToast('This link already exists in the library')
+        return
+      }
+      const { error } = await supabase.from('library_materials').insert({
+        title: upForm.title,
+        department: upForm.department,
+        college: '',
+        level: upForm.level + 'L',
+        type: tab,
+        course: '',
+        course_code: '',
+        uploader: student?.name || 'Anonymous',
+        abstract: '',
+        year: '',
+        file_url: url,
+        size: 'Link',
+        verified: false,
+        admin_only: false,
+        downloads: 0,
+        rating: 0
+      })
+      setUploading(false)
+      if (error) { showToast('Failed to save link: ' + error.message); return }
+      setShowUpload(false); setLinkUrl(''); setUpFile(null)
+      setUpForm({ title:'', department:'General', level:'100' }); setFileSource('upload')
+      showToast('Material link saved!'); load(); return
+    }
+
+    // File upload path
     const { error } = await uploadMaterial(upFile!, {
       title: upForm.title, department: upForm.department, college: '',
       level: upForm.level, type: tab, course: '', courseCode: '',
@@ -89,13 +130,9 @@ function LibraryContent() {
     })
     setUploading(false)
     if (error) { showToast(`Upload failed: ${error}`); return }
-    setShowUpload(false)
-    setUpFile(null)
-    setUpForm({ title:'', department:'General', level:'100' })
-    setFileSource('upload')
-    setLinkUrl('')
-    showToast('Material submitted successfully!')
-    load()
+    setShowUpload(false); setUpFile(null); setLinkUrl('')
+    setUpForm({ title:'', department:'General', level:'100' }); setFileSource('upload')
+    showToast('Material submitted successfully!'); load()
   }
 
   const currentTab = TABS.find(t => t.id === tab)!
