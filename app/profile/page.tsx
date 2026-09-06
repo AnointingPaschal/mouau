@@ -35,8 +35,10 @@ export default function ProfilePage() {
     setUploading(false)
   }
 
+  const [downloads, setDownloads] = useState(0)
+  useEffect(()=>{ setDownloads(parseInt(localStorage.getItem(`downloads_${student?.idNumber}`) || '0')) },[student?.idNumber])
+
   const av = (student?.name||'ST').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)
-  const downloads = parseInt(localStorage.getItem(`downloads_${student?.idNumber}`) || '0')
 
   return (
     <AppShell>
