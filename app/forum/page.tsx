@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
@@ -7,8 +8,8 @@ import { supabase } from '@/lib/supabase'
 import {
   X, Send, MessageCircle, Share2, Loader2, MoreHorizontal,
   Image as ImageIcon, Video, Bold, Italic, Underline,
-  List, Link, AlignLeft, ChevronDown, Heart, Smile, Frown, Zap, ThumbsUp,
-  ArrowLeft, Upload
+  List, Link, AlignLeft, ThumbsUp, Heart, Laugh, Frown, Zap,
+  ArrowLeft, ChevronDown
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -29,6 +30,7 @@ const REACTIONS:{type:Reaction;emoji:string;label:string;color:string}[] = [
   {type:'cry',   emoji:'😢', label:'Cry',   color:'#2563eb'},
 ]
 const CATS = ['All','Admissions','Navigation','Accommodation','Study Help','Registration','Campus Life','General']
+const POST_CATS = ['General','Admissions','Navigation','Accommodation','Study Help','Registration','Campus Life']
 
 // ─── Rich Text Toolbar ────────────────────────────────────────────────────────
 function RichToolbar({ editorRef }:{ editorRef:React.RefObject<HTMLDivElement> }) {
@@ -37,56 +39,190 @@ function RichToolbar({ editorRef }:{ editorRef:React.RefObject<HTMLDivElement> }
     document.execCommand(cmd, false, val)
   }
   const tools = [
-    { icon:<Bold className="w-3.5 h-3.5"/>,      cmd:'bold',         title:'Bold' },
-    { icon:<Italic className="w-3.5 h-3.5"/>,    cmd:'italic',       title:'Italic' },
-    { icon:<Underline className="w-3.5 h-3.5"/>, cmd:'underline',    title:'Underline' },
-    { icon:<List className="w-3.5 h-3.5"/>,      cmd:'insertUnorderedList', title:'List' },
-    { icon:<AlignLeft className="w-3.5 h-3.5"/>, cmd:'insertOrderedList',   title:'Numbered' },
+    { icon:<Bold className="w-4 h-4"/>,      cmd:'bold',                 title:'Bold' },
+    { icon:<Italic className="w-4 h-4"/>,    cmd:'italic',               title:'Italic' },
+    { icon:<Underline className="w-4 h-4"/>, cmd:'underline',            title:'Underline' },
+    { icon:<List className="w-4 h-4"/>,      cmd:'insertUnorderedList',  title:'List' },
+    { icon:<AlignLeft className="w-4 h-4"/>, cmd:'insertOrderedList',    title:'Numbered' },
   ]
   return (
-    <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#e8e8e8] bg-[#f9f9f7] rounded-t-xl">
+    <div className="flex items-center gap-1 px-4 py-2 border-t border-[#e8e8e8]">
       {tools.map(t => (
         <button key={t.cmd} onMouseDown={e => { e.preventDefault(); exec(t.cmd) }}
           title={t.title}
-          className="p-1.5 rounded hover:bg-[#e8e8e8] text-[#6b6b6b] hover:text-[#0a0a0a] transition-colors">
+          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#f0f0f0] text-[#6b6b6b] hover:text-[#0a0a0a] transition-colors">
           {t.icon}
         </button>
       ))}
-      <div className="w-px h-4 bg-[#e8e8e8] mx-1"/>
+      <div className="w-px h-5 bg-[#e8e8e8] mx-1"/>
       <button onMouseDown={e => { e.preventDefault(); const url=prompt('Enter URL:'); if(url) exec('createLink',url) }}
-        title="Link" className="p-1.5 rounded hover:bg-[#e8e8e8] text-[#6b6b6b] hover:text-[#0a0a0a] transition-colors">
-        <Link className="w-3.5 h-3.5"/>
+        title="Link" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#f0f0f0] text-[#6b6b6b] hover:text-[#0a0a0a] transition-colors">
+        <Link className="w-4 h-4"/>
       </button>
     </div>
   )
 }
 
-// ─── Full Post Modal ───────────────────────────────────────────────────────────
-function PostModal({
-  post, myReaction, onReact, onClose
-}:{
+// ─── Full-Page Post Creator (Facebook-style) ───────────────────────────────────
+function PostCreator({ onClose, onPosted }:{ onClose:()=>void; onPosted:()=>void }) {
+  const { student } = useAuth()
+  const [postCat, setPostCat]       = useState('General')
+  const [postFile, setPostFile]     = useState<File|null>(null)
+  const [postPreview, setPostPreview] = useState<string|null>(null)
+  const [isVideo, setIsVideo]       = useState(false)
+  const [posting, setPosting]       = useState(false)
+  const editorRef = useRef<HTMLDivElement>(null)
+  const fileRef   = useRef<HTMLInputElement>(null)
+  const av = (student?.name||'ST').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)
+
+  // Handle hardware back button
+  useEffect(() => {
+    const onPop = () => onClose()
+    window.history.pushState({ modal:'create-post' }, '')
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  },[onClose])
+
+  const handleFileChange = (e:React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if(!f) return
+    setPostFile(f); setIsVideo(f.type.startsWith('video/'))
+    setPostPreview(URL.createObjectURL(f))
+  }
+
+  const submitPost = async() => {
+    const body = editorRef.current?.innerHTML||''
+    if(!body.replace(/<[^>]*>/g,'').trim()) return
+    setPosting(true)
+    let mediaUrl=''
+    if(postFile){
+      const ext=postFile.name.split('.').pop()
+      const path=`forum/${Date.now()}.${ext}`
+      const {error} = await supabase.storage.from('materials').upload(path,postFile,{contentType:postFile.type})
+      if(!error){
+        const {data:{publicUrl}} = supabase.storage.from('materials').getPublicUrl(path)
+        mediaUrl=publicUrl
+      }
+    }
+    await supabase.from('forum_posts').insert({
+      title:body.replace(/<[^>]*>/g,' ').trim().slice(0,100),
+      body, author:student?.name||'Anonymous', avatar:av,
+      category:postCat, tags:[],
+      image_url:isVideo?'':mediaUrl, video_url:isVideo?mediaUrl:'',
+      replies:0, views:0, likes:0,
+      like_count:0, love_count:0, haha_count:0, wow_count:0, cry_count:0,
+    })
+    setPosting(false)
+    onPosted()
+  }
+
+  const hasContent = () => (editorRef.current?.textContent||'').trim().length > 0
+
+  return (
+    <div className="fixed inset-0 z-50 bg-white flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8e8e8] flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f0f0] transition-colors">
+            <X className="w-5 h-5 text-[#0a0a0a]"/>
+          </button>
+          <h2 className="font-black text-[#0a0a0a] text-lg">Create Post</h2>
+        </div>
+        <button onClick={submitPost} disabled={posting}
+          className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${posting ? 'bg-[#1a6b3a]/40 text-white cursor-not-allowed' : 'bg-[#1a6b3a] text-white hover:bg-[#145530] active:scale-95'}`}>
+          {posting ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Post'}
+        </button>
+      </div>
+
+      {/* Author row */}
+      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0">
+        <div className="w-11 h-11 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-base">{av}</div>
+        <div>
+          <p className="font-bold text-[#0a0a0a] text-base">{student?.name}</p>
+          <button className="flex items-center gap-1 mt-0.5 bg-[#f0f0f0] hover:bg-[#e8e8e8] rounded-lg px-2.5 py-1 transition-colors">
+            <select value={postCat} onChange={e=>setPostCat(e.target.value)}
+              className="text-xs font-semibold text-[#0a0a0a] bg-transparent outline-none cursor-pointer appearance-none pr-1">
+              {POST_CATS.map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+            <ChevronDown className="w-3 h-3 text-[#6b6b6b]"/>
+          </button>
+        </div>
+      </div>
+
+      {/* Editor — takes remaining space */}
+      <div className="flex-1 overflow-y-auto px-4">
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          data-placeholder={`What's on your mind, ${student?.name?.split(' ')[0]}?`}
+          className="min-h-full text-[17px] text-[#0a0a0a] outline-none leading-relaxed pb-20 empty:before:content-[attr(data-placeholder)] empty:before:text-[#aaa] empty:before:pointer-events-none"
+        />
+
+        {/* Media preview */}
+        {postPreview && (
+          <div className="relative rounded-xl overflow-hidden border border-[#e8e8e8] mb-4">
+            {isVideo
+              ? <video src={postPreview} className="w-full max-h-64 object-contain bg-black" controls/>
+              : <img src={postPreview} alt="Preview" className="w-full max-h-64 object-cover"/>}
+            <button onClick={()=>{ setPostFile(null); setPostPreview(null) }}
+              className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1.5">
+              <X className="w-4 h-4"/>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom toolbar */}
+      <div className="flex-shrink-0 border-t border-[#e8e8e8] bg-white">
+        <RichToolbar editorRef={editorRef}/>
+        <div className="flex items-center gap-1 px-4 py-3 border-t border-[#e8e8e8]">
+          <span className="text-xs font-semibold text-[#6b6b6b] mr-2">Add to post</span>
+          <button onClick={()=>fileRef.current?.click()}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#f0f0f0] transition-colors">
+            <ImageIcon className="w-5 h-5 text-[#1a6b3a]"/>
+          </button>
+          <button onClick={()=>fileRef.current?.click()}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#f0f0f0] transition-colors">
+            <Video className="w-5 h-5 text-red-500"/>
+          </button>
+        </div>
+        <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileChange}/>
+      </div>
+    </div>
+  )
+}
+
+// ─── Full Post View ────────────────────────────────────────────────────────────
+function PostView({ post, myReaction, onReact, onClose }:{
   post:Post; myReaction?:Reaction
   onReact:(post:Post,r:Reaction)=>void
   onClose:()=>void
 }) {
   const { student } = useAuth()
-  const [comments, setComments] = useState<Comment[]>([])
+  const [comments, setComments]   = useState<Comment[]>([])
   const [commentText, setCommentText] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [showPicker, setShowPicker] = useState(false)
+  const [submitting, setSubmitting]   = useState(false)
+  const [showPicker, setShowPicker]   = useState(false)
   const av = (student?.name||'ST').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)
+
+  // Handle hardware back button
+  useEffect(()=>{
+    const onPop = () => onClose()
+    window.history.pushState({ modal:'post-view' }, '')
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  },[onClose])
 
   useEffect(()=>{
     supabase.from('forum_comments').select('*').eq('post_id',post.id).order('created_at')
       .then(({data})=>{ if(data) setComments(data as Comment[]) })
   },[post.id])
 
-  const submitComment = async () => {
+  const submitComment = async() => {
     if(!commentText.trim()||submitting) return
     setSubmitting(true)
     await supabase.from('forum_comments').insert({
-      post_id:post.id, author:student?.name||'Anonymous',
-      avatar:av, body:commentText.trim()
+      post_id:post.id, author:student?.name||'Anonymous', avatar:av, body:commentText.trim()
     })
     await supabase.from('forum_posts').update({replies:(post.replies||0)+1}).eq('id',post.id)
     setCommentText('')
@@ -97,16 +233,18 @@ function PostModal({
 
   const myR = myReaction ? REACTIONS.find(r=>r.type===myReaction) : null
   const total = post.like_count+post.love_count+post.haha_count+post.wow_count+post.cry_count
+  const topR  = REACTIONS.filter(r=>(post[`${r.type}_count` as keyof Post] as number)>0)
+    .sort((a,b)=>(post[`${b.type}_count` as keyof Post] as number)-(post[`${a.type}_count` as keyof Post] as number)).slice(0,3)
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col animate-slide-up">
+    <div className="fixed inset-0 z-50 bg-white flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#e8e8e8] flex-shrink-0">
-        <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f9f9f7]">
+        <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f0f0]">
           <ArrowLeft className="w-5 h-5 text-[#0a0a0a]"/>
         </button>
         <div className="flex-1 min-w-0">
-          <p className="font-black text-[#0a0a0a] text-sm truncate">{post.author}</p>
+          <p className="font-black text-[#0a0a0a] text-sm">{post.author}</p>
           <p className="text-[10px] text-[#aaa]">{formatDistanceToNow(new Date(post.created_at),{addSuffix:true})}</p>
         </div>
         <span className="badge badge-green text-[9px]">{post.category}</span>
@@ -114,38 +252,28 @@ function PostModal({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Post body */}
         <div className="px-4 py-4">
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-10 h-10 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">
-              {post.avatar}
-            </div>
+            <div className="w-10 h-10 bg-[#1a6b3a] rounded-full flex items-center justify-center text-white font-bold">{post.avatar}</div>
             <div>
               <p className="font-bold text-[#0a0a0a] text-sm">{post.author}</p>
               <p className="text-[10px] text-[#aaa]">{formatDistanceToNow(new Date(post.created_at),{addSuffix:true})}</p>
             </div>
           </div>
-
-          {/* Full post body — rendered as HTML */}
-          <div className="text-sm text-[#0a0a0a] leading-relaxed prose prose-sm max-w-none"
+          <div className="text-sm text-[#0a0a0a] leading-relaxed"
             dangerouslySetInnerHTML={{__html: post.body.replace(/\n/g,'<br/>')}}/>
-
-          {post.image_url && (
-            <img src={post.image_url} alt="Post" className="w-full rounded-xl mt-3 object-cover max-h-72"/>
-          )}
-          {post.video_url && (
-            <video src={post.video_url} controls className="w-full mt-3 rounded-xl bg-black max-h-64"/>
-          )}
+          {post.image_url && <img src={post.image_url} alt="Post" className="w-full rounded-xl mt-3 object-cover max-h-80"/>}
+          {post.video_url && <video src={post.video_url} controls className="w-full mt-3 rounded-xl bg-black max-h-64"/>}
         </div>
 
         {/* Reaction summary */}
-        {total > 0 && (
-          <div className="flex items-center gap-1.5 px-4 py-2 border-t border-[#f0f0f0]">
-            {REACTIONS.filter(r=>(post[`${r.type}_count` as keyof Post] as number)>0)
-              .sort((a,b)=>(post[`${b.type}_count` as keyof Post] as number)-(post[`${a.type}_count` as keyof Post] as number))
-              .slice(0,3).map(r=><span key={r.type} className="text-base">{r.emoji}</span>)}
-            <span className="text-[11px] text-[#aaa] ml-1">{total} reaction{total!==1?'s':''}</span>
-            {post.replies>0 && <span className="text-[11px] text-[#aaa] ml-auto">{post.replies} comment{post.replies!==1?'s':''}</span>}
+        {(total>0||post.replies>0) && (
+          <div className="flex items-center justify-between px-4 py-2 border-t border-[#f0f0f0]">
+            <div className="flex items-center gap-1">
+              {topR.map(r=><span key={r.type} className="text-sm">{r.emoji}</span>)}
+              {total>0&&<span className="text-[11px] text-[#aaa] ml-1">{total}</span>}
+            </div>
+            {post.replies>0&&<span className="text-[11px] text-[#aaa]">{post.replies} comment{post.replies!==1?'s':''}</span>}
           </div>
         )}
 
@@ -154,13 +282,15 @@ function PostModal({
           <div className="flex-1 relative">
             <button onClick={()=>setShowPicker(p=>!p)}
               className="flex items-center justify-center gap-1.5 w-full py-2.5 text-xs font-semibold hover:bg-[#f9f9f7] transition-all"
-              style={{color:myR?.color||'#6b6b6b'}}>
-              <span className="text-base">{myR?myR.emoji:'👍'}</span>
-              <span>{myR?myR.label:'Like'}</span>
+              style={{color: myR ? myR.color : '#1a6b3a'}}>
+              {myR ? (
+                <><span className="text-base leading-none">{myR.emoji}</span><span>{myR.label}</span></>
+              ) : (
+                <><ThumbsUp className="w-4 h-4" fill={myReaction?'#1a6b3a':'none'}/><span>Like</span></>
+              )}
             </button>
             {showPicker && (
-              <div className="absolute bottom-full left-0 mb-1 bg-white border border-[#e8e8e8] rounded-full shadow-xl px-2 py-1.5 flex items-center gap-0.5 z-20"
-                onClick={e=>e.stopPropagation()}>
+              <div className="absolute bottom-full left-0 mb-1 bg-white border border-[#e8e8e8] rounded-full shadow-xl px-2 py-1.5 flex items-center gap-0.5 z-20">
                 {REACTIONS.map(r=>(
                   <button key={r.type} onClick={()=>{onReact(post,r.type);setShowPicker(false)}}
                     className={`text-xl p-1.5 rounded-full hover:scale-125 transition-all ${myReaction===r.type?'ring-2 ring-[#1a6b3a] bg-[#f9f9f7]':''}`}>
@@ -170,10 +300,11 @@ function PostModal({
               </div>
             )}
           </div>
-          <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-[#6b6b6b] hover:bg-[#f9f9f7] border-x border-[#f0f0f0]">
+          <button onClick={()=>document.getElementById('comment-input')?.focus()}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-[#6b6b6b] hover:bg-[#f9f9f7] border-x border-[#f0f0f0]">
             <MessageCircle className="w-4 h-4"/> Comment
           </button>
-          <button onClick={()=>navigator.share?.({text:post.body}).catch(()=>{})}
+          <button onClick={()=>navigator.share?.({text:post.body.replace(/<[^>]*>/g,' ')}).catch(()=>{})}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-[#6b6b6b] hover:bg-[#f9f9f7]">
             <Share2 className="w-4 h-4"/> Share
           </button>
@@ -181,6 +312,9 @@ function PostModal({
 
         {/* Comments */}
         <div className="border-t border-[#f0f0f0]">
+          {comments.length===0 && (
+            <p className="text-center text-xs text-[#aaa] py-6">No comments yet.</p>
+          )}
           {comments.map(c=>(
             <div key={c.id} className="flex items-start gap-2.5 px-4 py-3 border-b border-[#f9f9f7]">
               <div className="w-8 h-8 bg-[#0a0a0a] rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">{c.avatar}</div>
@@ -193,19 +327,14 @@ function PostModal({
               </div>
             </div>
           ))}
-          {comments.length===0 && (
-            <div className="px-4 py-6 text-center">
-              <p className="text-xs text-[#aaa]">No comments yet. Be the first to comment!</p>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Comment input pinned to bottom */}
+      {/* Comment input */}
       <div className="border-t border-[#e8e8e8] bg-white px-3 py-3 flex items-center gap-2 flex-shrink-0">
-        <div className="w-7 h-7 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">{av}</div>
+        <div className="w-8 h-8 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">{av}</div>
         <div className="flex-1 flex items-center border border-[#e8e8e8] rounded-full bg-[#f9f9f7] px-3 py-2 gap-2">
-          <input value={commentText} onChange={e=>setCommentText(e.target.value)}
+          <input id="comment-input" value={commentText} onChange={e=>setCommentText(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&submitComment()}
             placeholder="Write a comment..."
             className="flex-1 text-xs outline-none bg-transparent placeholder-[#aaa]"/>
@@ -218,35 +347,28 @@ function PostModal({
   )
 }
 
-// ─── Compressed Post Card ─────────────────────────────────────────────────────
-function PostCard({
-  post, myReaction, onReact, onClick
-}:{
+// ─── Compressed Post Card ──────────────────────────────────────────────────────
+function PostCard({ post, myReaction, onReact, onClick }:{
   post:Post; myReaction?:Reaction
   onReact:(post:Post,r:Reaction)=>void
   onClick:()=>void
 }) {
   const [showPicker, setShowPicker] = useState(false)
-  const myR = myReaction ? REACTIONS.find(r=>r.type===myReaction) : null
+  const myR  = myReaction ? REACTIONS.find(r=>r.type===myReaction) : null
   const total = post.like_count+post.love_count+post.haha_count+post.wow_count+post.cry_count
-  const topR = REACTIONS.filter(r=>(post[`${r.type}_count` as keyof Post] as number)>0)
-    .sort((a,b)=>(post[`${b.type}_count` as keyof Post] as number)-(post[`${a.type}_count` as keyof Post] as number))
-    .slice(0,3)
-
-  // Strip HTML for preview
+  const topR  = REACTIONS.filter(r=>(post[`${r.type}_count` as keyof Post] as number)>0)
+    .sort((a,b)=>(post[`${b.type}_count` as keyof Post] as number)-(post[`${a.type}_count` as keyof Post] as number)).slice(0,3)
   const plainBody = post.body.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim()
 
   return (
     <div className="card animate-fade-in" onClick={()=>{ setShowPicker(false); onClick() }}>
-      {/* Post header */}
+      {/* Header */}
       <div className="flex items-start gap-2.5 p-3.5 pb-2">
-        <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">
-          {post.avatar}
-        </div>
+        <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">{post.avatar}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-bold text-[#0a0a0a] text-sm leading-tight">{post.author}</p>
+              <p className="font-bold text-[#0a0a0a] text-sm">{post.author}</p>
               <div className="flex items-center gap-1.5">
                 <p className="text-[#aaa] text-[10px]">{formatDistanceToNow(new Date(post.created_at),{addSuffix:true})}</p>
                 <span className="text-[#aaa] text-[10px]">·</span>
@@ -260,28 +382,26 @@ function PostCard({
         </div>
       </div>
 
-      {/* Compressed body — max 3 lines */}
+      {/* Compressed body */}
       <div className="px-3.5 pb-2">
         <p className="text-sm text-[#0a0a0a] leading-relaxed line-clamp-3">{plainBody}</p>
-        {(plainBody.length > 150 || post.image_url || post.video_url) && (
-          <span className="text-xs text-[#1a6b3a] font-semibold">See more</span>
-        )}
+        {plainBody.length>150&&<span className="text-xs text-[#1a6b3a] font-semibold">See more</span>}
       </div>
 
-      {/* Thumbnail preview if image */}
-      {post.image_url && (
-        <div className="mx-3.5 mb-2 rounded-xl overflow-hidden max-h-40">
-          <img src={post.image_url} alt="" className="w-full object-cover max-h-40"/>
+      {/* Media thumbnail */}
+      {post.image_url&&(
+        <div className="mx-3.5 mb-2 rounded-xl overflow-hidden max-h-44">
+          <img src={post.image_url} alt="" className="w-full object-cover max-h-44"/>
         </div>
       )}
-      {post.video_url && !post.image_url && (
-        <div className="mx-3.5 mb-2 rounded-xl overflow-hidden bg-[#0a0a0a] max-h-32 flex items-center justify-center">
-          <Video className="w-8 h-8 text-white/50"/>
+      {post.video_url&&!post.image_url&&(
+        <div className="mx-3.5 mb-2 rounded-xl overflow-hidden bg-[#0a0a0a]/80 h-24 flex items-center justify-center">
+          <Video className="w-8 h-8 text-white/60"/>
         </div>
       )}
 
       {/* Reaction counts */}
-      {(total>0||post.replies>0) && (
+      {(total>0||post.replies>0)&&(
         <div className="flex items-center justify-between px-3.5 py-1.5 border-t border-[#f0f0f0]">
           <div className="flex items-center gap-1">
             {topR.map(r=><span key={r.type} className="text-sm">{r.emoji}</span>)}
@@ -296,11 +416,15 @@ function PostCard({
         <div className="flex-1 relative">
           <button onClick={()=>setShowPicker(p=>!p)}
             className="flex items-center justify-center gap-1.5 w-full py-2 text-xs font-semibold hover:bg-[#f9f9f7] transition-all"
-            style={{color:myR?.color||'#6b6b6b'}}>
-            <span className="text-base leading-none">{myR?myR.emoji:'👍'}</span>
-            <span>{myR?myR.label:'Like'}</span>
+            style={{color: myR ? myR.color : '#1a6b3a'}}>
+            {myR ? (
+              <><span className="text-base leading-none">{myR.emoji}</span><span>{myR.label}</span></>
+            ) : (
+              /* Default Like — site theme, not emoji */
+              <><ThumbsUp className="w-4 h-4"/><span>Like</span></>
+            )}
           </button>
-          {showPicker && (
+          {showPicker&&(
             <div className="absolute bottom-full left-0 mb-1 bg-white border border-[#e8e8e8] rounded-full shadow-xl px-2 py-1.5 flex items-center gap-0.5 z-20">
               {REACTIONS.map(r=>(
                 <button key={r.type} onClick={()=>{onReact(post,r.type);setShowPicker(false)}}
@@ -324,26 +448,17 @@ function PostCard({
   )
 }
 
-// ─── Main Forum Page ──────────────────────────────────────────────────────────
+// ─── Main Forum Page ───────────────────────────────────────────────────────────
 export default function ForumPage() {
   const { student } = useAuth()
   const [posts, setPosts]         = useState<Post[]>([])
   const [loading, setLoading]     = useState(true)
   const [cat, setCat]             = useState('All')
   const [showCreate, setShowCreate] = useState(false)
+  const [activePost, setActivePost] = useState<Post|null>(null)
   const [myReactions, setMyReactions] = useState<Record<string,Reaction>>({})
-  const [activePost, setActivePost]   = useState<Post|null>(null)
 
-  // Create post state
-  const [postCat, setPostCat]     = useState('General')
-  const [postFile, setPostFile]   = useState<File|null>(null)
-  const [postPreview, setPostPreview] = useState<string|null>(null)
-  const [isVideo, setIsVideo]     = useState(false)
-  const [posting, setPosting]     = useState(false)
-  const editorRef = useRef<HTMLDivElement>(null)
-  const fileRef   = useRef<HTMLInputElement>(null)
-
-  const loadPosts = useCallback(async () => {
+  const loadPosts = useCallback(async() => {
     setLoading(true)
     let q = supabase.from('forum_posts').select('*').order('created_at',{ascending:false})
     if(cat!=='All') q = q.eq('category',cat)
@@ -353,7 +468,6 @@ export default function ForumPage() {
   },[cat])
 
   useEffect(()=>{ loadPosts() },[loadPosts])
-
   useEffect(()=>{
     try { const s=localStorage.getItem('forum_reactions'); if(s) setMyReactions(JSON.parse(s)) } catch{}
   },[])
@@ -362,46 +476,18 @@ export default function ForumPage() {
     const prev = myReactions[post.id]
     const next  = {...myReactions}
     const upd:Partial<Post> = {}
-    if(prev===reaction){ delete next[post.id]; upd[`${reaction}_count` as keyof Post] = Math.max(0,(post[`${reaction}_count` as keyof Post] as number)-1) as any }
-    else { if(prev) upd[`${prev}_count` as keyof Post] = Math.max(0,(post[`${prev}_count` as keyof Post] as number)-1) as any; next[post.id]=reaction; upd[`${reaction}_count` as keyof Post] = ((post[`${reaction}_count` as keyof Post] as number)+1) as any }
+    if(prev===reaction){
+      delete next[post.id]
+      upd[`${reaction}_count` as keyof Post] = Math.max(0,(post[`${reaction}_count` as keyof Post] as number)-1) as any
+    } else {
+      if(prev) upd[`${prev}_count` as keyof Post] = Math.max(0,(post[`${prev}_count` as keyof Post] as number)-1) as any
+      next[post.id]=reaction
+      upd[`${reaction}_count` as keyof Post] = ((post[`${reaction}_count` as keyof Post] as number)+1) as any
+    }
     setMyReactions(next); localStorage.setItem('forum_reactions',JSON.stringify(next))
     setPosts(p=>p.map(x=>x.id===post.id?{...x,...upd}:x))
     if(activePost?.id===post.id) setActivePost(p=>p?{...p,...upd}:p)
     await supabase.from('forum_posts').update(upd).eq('id',post.id)
-  }
-
-  const handleFileChange = (e:React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if(!f) return
-    setPostFile(f); setIsVideo(f.type.startsWith('video/'))
-    setPostPreview(URL.createObjectURL(f))
-  }
-
-  const submitPost = async() => {
-    const body = editorRef.current?.innerHTML||''
-    if(!body.replace(/<[^>]*>/g,'').trim()) return
-    setPosting(true)
-    let mediaUrl=''
-    if(postFile){
-      const ext=postFile.name.split('.').pop()
-      const path=`forum/${Date.now()}.${ext}`
-      const {error} = await supabase.storage.from('materials').upload(path,postFile,{contentType:postFile.type})
-      if(!error){
-        const {data:{publicUrl}} = supabase.storage.from('materials').getPublicUrl(path)
-        mediaUrl=publicUrl
-      }
-    }
-    const av=(student?.name||'ST').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)
-    await supabase.from('forum_posts').insert({
-      title:body.replace(/<[^>]*>/g,' ').trim().slice(0,100),
-      body, author:student?.name||'Anonymous', avatar:av,
-      category:postCat, tags:[],
-      image_url:isVideo?'':mediaUrl, video_url:isVideo?mediaUrl:'',
-      replies:0, views:0, likes:0,
-      like_count:0, love_count:0, haha_count:0, wow_count:0, cry_count:0,
-    })
-    setPosting(false); setShowCreate(false)
-    if(editorRef.current) editorRef.current.innerHTML=''
-    setPostFile(null); setPostPreview(null); loadPosts()
   }
 
   const av = (student?.name||'ST').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)
@@ -411,27 +497,27 @@ export default function ForumPage() {
       <TopBar title="Community" subtitle="Ask questions, share knowledge"/>
       <div className="max-w-2xl mx-auto px-3 lg:px-5 py-4 space-y-3 pb-24 lg:pb-6">
 
-        {/* Create post box */}
+        {/* Create post trigger */}
         <div className="card p-3.5">
-          <div className="flex items-center gap-2.5" onClick={()=>setShowCreate(true)}>
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={()=>setShowCreate(true)}>
             <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">{av}</div>
-            <div className="flex-1 bg-[#f9f9f7] rounded-full px-4 py-2 cursor-pointer hover:bg-[#f0f0f0] transition-colors">
+            <div className="flex-1 bg-[#f9f9f7] rounded-full px-4 py-2.5 hover:bg-[#f0f0f0] transition-colors">
               <p className="text-[#aaa] text-sm">What's on your mind, {student?.name?.split(' ')[0]}?</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 mt-3 pt-3 border-t border-[#e8e8e8]">
-            <button onClick={()=>{ setShowCreate(true); setTimeout(()=>fileRef.current?.click(),100) }}
+          <div className="flex items-center gap-0 mt-3 pt-3 border-t border-[#e8e8e8]">
+            <button onClick={()=>setShowCreate(true)}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold text-[#6b6b6b] hover:bg-[#f9f9f7]">
               <ImageIcon className="w-4 h-4 text-[#1a6b3a]"/> Photo
             </button>
-            <button onClick={()=>{ setShowCreate(true); setTimeout(()=>fileRef.current?.click(),100) }}
+            <button onClick={()=>setShowCreate(true)}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold text-[#6b6b6b] hover:bg-[#f9f9f7]">
               <Video className="w-4 h-4 text-red-500"/> Video
             </button>
           </div>
         </div>
 
-        {/* Category filter */}
+        {/* Category filters */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
           {CATS.map(c=>(
             <button key={c} onClick={()=>setCat(c)}
@@ -463,84 +549,20 @@ export default function ForumPage() {
         )}
       </div>
 
-      {/* ─── Full Post Modal ─── */}
+      {/* Full-page post creator */}
+      {showCreate && (
+        <PostCreator
+          onClose={()=>setShowCreate(false)}
+          onPosted={()=>{ setShowCreate(false); loadPosts() }}/>
+      )}
+
+      {/* Full-page post viewer */}
       {activePost && (
-        <PostModal
+        <PostView
           post={activePost}
           myReaction={myReactions[activePost.id]}
           onReact={handleReact}
           onClose={()=>setActivePost(null)}/>
-      )}
-
-      {/* ─── Create Post Modal with Rich Text ─── */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={()=>!posting&&setShowCreate(false)}/>
-          <div className="relative w-full max-w-lg bg-white rounded-2xl animate-slide-up max-h-[92vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8e8e8]">
-              <h2 className="font-black text-[#0a0a0a] text-base">Create Post</h2>
-              {!posting && <button onClick={()=>setShowCreate(false)} className="p-1.5 rounded-full bg-[#f9f9f7]"><X className="w-4 h-4"/></button>}
-            </div>
-
-            <div className="p-4 space-y-3">
-              {/* Author + category */}
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 bg-[#1a6b3a] rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">{av}</div>
-                <div>
-                  <p className="font-bold text-[#0a0a0a] text-sm">{student?.name}</p>
-                  <select value={postCat} onChange={e=>setPostCat(e.target.value)}
-                    className="text-xs bg-[#f9f9f7] border border-[#e8e8e8] rounded-full px-2 py-0.5 text-[#6b6b6b] outline-none mt-0.5">
-                    {CATS.slice(1).map(c=><option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Rich text editor */}
-              <div className="border border-[#e8e8e8] rounded-xl overflow-hidden focus-within:border-[#1a6b3a] transition-colors">
-                <RichToolbar editorRef={editorRef}/>
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  data-placeholder={`What's on your mind, ${student?.name?.split(' ')[0]}?`}
-                  className="min-h-[120px] max-h-[220px] overflow-y-auto px-3 py-2.5 text-sm text-[#0a0a0a] outline-none leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-[#aaa] empty:before:pointer-events-none"
-                />
-              </div>
-
-              {/* Media preview */}
-              {postPreview && (
-                <div className="relative rounded-xl overflow-hidden border border-[#e8e8e8]">
-                  {isVideo
-                    ? <video src={postPreview} className="w-full max-h-40 object-contain bg-black" controls/>
-                    : <img src={postPreview} alt="Preview" className="w-full max-h-40 object-cover"/>}
-                  <button onClick={()=>{ setPostFile(null); setPostPreview(null) }}
-                    className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1"><X className="w-3.5 h-3.5"/></button>
-                </div>
-              )}
-
-              {/* Add media */}
-              <div className="border border-[#e8e8e8] rounded-xl p-3 flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#6b6b6b]">Add to your post</span>
-                <div className="flex items-center gap-1">
-                  <button onClick={()=>fileRef.current?.click()} className="p-1.5 rounded-lg hover:bg-[#f9f9f7]">
-                    <ImageIcon className="w-4 h-4 text-[#1a6b3a]"/>
-                  </button>
-                  <button onClick={()=>fileRef.current?.click()} className="p-1.5 rounded-lg hover:bg-[#f9f9f7]">
-                    <Video className="w-4 h-4 text-red-500"/>
-                  </button>
-                </div>
-              </div>
-              <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileChange}/>
-
-              <button onClick={submitPost} disabled={posting}
-                className="btn-primary w-full flex items-center justify-center gap-1.5">
-                {posting?<><Loader2 className="w-3.5 h-3.5 animate-spin"/>Posting...</>:'Post'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </AppShell>
   )
