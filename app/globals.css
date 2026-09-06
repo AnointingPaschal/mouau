@@ -127,3 +127,26 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #fff; color: #0a
   100% { transform:scale(1); }
 }
 .like-pulse { animation: likePulse 0.35s ease; }
+
+/* Places banner animated gradient */
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes shimmer {
+  0%   { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(300%) skewX(-15deg); }
+}
+.places-banner-gradient {
+  background: linear-gradient(135deg, #1a6b3a, #0f4a28, #2d9e5f, #1a6b3a, #145530, #22c55e, #1a6b3a);
+  background-size: 400% 400%;
+  animation: gradientShift 4s ease infinite;
+}
+.places-banner-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  animation: shimmer 2.5s ease infinite;
+}

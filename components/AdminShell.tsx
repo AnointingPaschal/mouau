@@ -10,6 +10,7 @@ const nav = [
   { href:'/admin/dashboard', label:'Dashboard', icon:LayoutDashboard },
   { href:'/admin/content', label:'Site Content', icon:Type },
   { href:'/admin/library', label:'Library', icon:BookOpen },
+  { href:'/admin/places',  label:'Campus Places', icon:MapPin },
   { href:'/admin/announcements', label:'Announcements', icon:Bell },
   { href:'/admin/map', label:'Campus Map', icon:MapPin },
   { href:'/admin/ai-training', label:'AI Training', icon:Brain },

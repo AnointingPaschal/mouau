@@ -10,7 +10,7 @@ import {
   MapPin, ClipboardList, BookOpen, MessageCircle,
   Users, User, AlertTriangle, Info, CheckCircle2,
   Calendar, ChevronRight, Brain, Calculator, Clock,
-  Zap, GraduationCap
+  Navigation
 } from 'lucide-react'
 
 type Ann = { id: string; title: string; body: string; type: string; pinned: boolean; created_at: string }
@@ -128,6 +128,29 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+
+        {/* Places Banner */}
+        <Link href="/places" className="block relative overflow-hidden rounded-2xl group cursor-pointer" style={{minHeight:72}}>
+          {/* Animated gradient background */}
+          <div className="absolute inset-0 places-banner-gradient"/>
+          {/* Shimmer layer */}
+          <div className="absolute inset-0 places-banner-shimmer"/>
+          <div className="relative z-10 flex items-center justify-between px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-white"/>
+              </div>
+              <div>
+                <p className="text-white font-black text-sm leading-tight">Explore Places in MOUAU</p>
+                <p className="text-white/70 text-[10px] mt-0.5">Buildings, hostels, offices & landmarks</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm rounded-xl px-3 py-1.5">
+              <Navigation className="w-3 h-3 text-white"/>
+              <span className="text-white text-[10px] font-bold">Navigate</span>
+            </div>
+          </div>
+        </Link>
 
         {/* Announcements */}
         <div>
