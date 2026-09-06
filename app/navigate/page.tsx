@@ -19,7 +19,7 @@ const COLORS:Record<string,string> = {
   academic:'#1a6b3a', admin:'#0a0a0a', hostel:'#6b6b6b',
   social:'#d97706', health:'#dc2626', worship:'#7c3aed', sport:'#2563eb'
 }
-const DEFAULT_SRC = 'https://maps.google.com/maps?q=Michael+Okpara+University+of+Agriculture+Umudike&output=embed&z=16'
+const DEFAULT_SRC = 'https://maps.google.com/maps?q=Michael+Okpara+University+of+Agriculture+Umudike&output=embed&z=16&t=k'
 const LOC_KEY = 'mouau_location_granted'
 
 function stripHtml(h:string){ return h.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim() }
@@ -336,19 +336,7 @@ function NavigateContent() {
             <ExternalLink className="w-3 h-3 text-[#1a6b3a]"/> Open in Maps
           </button>
 
-          {!dirResult && (
-                        <div className="lg:hidden absolute bottom-[80px] lg:bottom-4 left-0 right-0 z-10 px-3">
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {locations.map(loc => (
-                  <button key={loc.id} onClick={() => setToText(loc.name+', MOUAU Umudike')}
-                    className="flex-shrink-0 bg-white border border-[#e8e8e8] rounded-xl px-3 py-2 shadow-sm flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background: COLORS[loc.category]||'#1a6b3a'}}/>
-                    <p className="text-xs font-semibold text-[#0a0a0a] whitespace-nowrap max-w-[110px] truncate">{loc.name}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+
 
           {dirResult && !dirResult._noSteps && leg && (
                         <div className="absolute bottom-[72px] lg:bottom-0 left-0 right-0 z-10">
