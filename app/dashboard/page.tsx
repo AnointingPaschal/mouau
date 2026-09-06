@@ -9,20 +9,21 @@ import Link from 'next/link'
 import {
   MapPin, ClipboardList, BookOpen, MessageCircle,
   Users, User, AlertTriangle, Info, CheckCircle2,
-  Calendar, ChevronRight, LayoutGrid, Brain
+  Calendar, ChevronRight, Brain, Calculator, Clock,
+  Zap, GraduationCap
 } from 'lucide-react'
 
 type Ann = { id: string; title: string; body: string; type: string; pinned: boolean; created_at: string }
 
 const QUICK_ACTIONS = [
-  { href:'/navigate',   label:'Campus Map',    icon:MapPin,         color:'#1a6b3a', bg:'#1a6b3a/10' },
-  { href:'/register',   label:'Register',      icon:ClipboardList,  color:'#d97706', bg:'amber-50'   },
-  { href:'/library',    label:'Library',       icon:BookOpen,       color:'#2563eb', bg:'blue-50'    },
-  { href:'/chat',       label:'AI Chat',       icon:Brain,          color:'#7c3aed', bg:'violet-50'  },
-  { href:'/places',     label:'All Places',    icon:LayoutGrid,     color:'#0a0a0a', bg:'gray-100'   },
-  { href:'/forum',      label:'Community',     icon:Users,          color:'#dc2626', bg:'red-50'     },
-  { href:'/profile',    label:'Profile',       icon:User,           color:'#6b6b6b', bg:'gray-100'   },
-  { href:'/chat',       label:'Ask AI',        icon:MessageCircle,  color:'#1a6b3a', bg:'#1a6b3a/10' },
+  { href:'/navigate',    label:'Campus Map',  icon:MapPin,        color:'#1a6b3a' },
+  { href:'/register',    label:'Register',    icon:ClipboardList, color:'#d97706' },
+  { href:'/library',     label:'Library',     icon:BookOpen,      color:'#2563eb' },
+  { href:'/chat',        label:'AI Chat',     icon:Brain,         color:'#7c3aed' },
+  { href:'/events',      label:'Events',      icon:Calendar,      color:'#e11d48' },
+  { href:'/forum',       label:'Community',   icon:Users,         color:'#dc2626' },
+  { href:'/calculator',  label:'Calculator',  icon:Calculator,    color:'#0284c7' },
+  { href:'/timetable',   label:'Timetable',   icon:Clock,         color:'#059669' },
 ]
 
 const annIcon = (t: string) => {
@@ -47,8 +48,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     getAnnouncements().then(({ data }) => { if (data) setAnns(data as Ann[]) })
-
-    // Load registration progress from same localStorage key as register page
     if (!student?.idNumber) return
     const progressKey = `reg_progress_${student.idNumber}`
     try {
@@ -56,8 +55,6 @@ export default function Dashboard() {
       const checked: Record<string, boolean> = raw ? JSON.parse(raw) : {}
       const done = Object.values(checked).filter(Boolean).length
       setDoneCount(done)
-
-      // Get total from DB
       supabase.from('registration_steps').select('substeps').eq('active', true)
         .then(({ data }) => {
           if (!data) return
@@ -79,8 +76,7 @@ export default function Dashboard() {
     <AppShell>
       <TopBar/>
       <div className="p-4 lg:p-5 max-w-2xl mx-auto space-y-5 pb-24 lg:pb-6 animate-fade-in">
-
-        {/* Hero banner */}
+        {/* Hero */}
         <div className="bg-[#0a0a0a] rounded-2xl p-5 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-36 h-36 bg-[#1a6b3a]/20 rounded-full -translate-y-1/2 translate-x-1/2"/>
           <div className="relative z-10">
@@ -116,14 +112,14 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick Actions — 2 rows × 4 cols */}
+        {/* Quick Actions 4×2 */}
         <div>
           <div className="section-label mb-3">QUICK ACTIONS</div>
           <div className="grid grid-cols-4 gap-2.5">
-            {QUICK_ACTIONS.map(({ href, label, icon: Icon, color, bg }) => (
+            {QUICK_ACTIONS.map(({ href, label, icon: Icon, color }) => (
               <Link key={href + label} href={href}
                 className="card card-hover flex flex-col items-center gap-2 py-3.5 px-1 text-center group">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:scale-105`}
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:scale-105"
                   style={{ background: color + '18' }}>
                   <Icon className="w-5 h-5" style={{ color }}/>
                 </div>
@@ -137,9 +133,7 @@ export default function Dashboard() {
         <div>
           <div className="section-label mb-3">ANNOUNCEMENTS</div>
           {anns.length === 0 ? (
-            <div className="card p-6 text-center">
-              <p className="text-[#aaa] text-sm">No announcements yet.</p>
-            </div>
+            <div className="card p-6 text-center"><p className="text-[#aaa] text-sm">No announcements yet.</p></div>
           ) : (
             <div className="space-y-2">
               {anns.map(ann => (
