@@ -1,155 +1,115 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
-import { updateStudent } from '@/lib/auth'
-import { COLLEGES, DEPARTMENTS } from '@/lib/data'
-import { User, Mail, Phone, GraduationCap, Building2, Save, CheckCircle2, Award, Download, Shield, LogOut, Edit2 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { Camera, Save, Loader2, CheckCircle2, User, Mail, Phone, BookOpen, GraduationCap, Download, LogOut } from 'lucide-react'
 
 export default function ProfilePage() {
-  const { student, setStudent, logout } = useAuth()
-  const [editing, setEditing] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [form, setForm] = useState({
-    name:student?.name||'', email:student?.email||'', phone:student?.phone||'',
-    department:student?.department||'', college:student?.college||'', level:student?.level||'100'
-  })
-  const depts = form.college?(DEPARTMENTS[form.college]||[]):[]
+  const { student, logout } = useAuth()
+  const [avatarUrl, setAvatarUrl]   = useState<string|null>(null)
+  const [uploading, setUploading]   = useState(false)
+  const [saved, setSaved]           = useState(false)
+  const [dbStudent, setDbStudent]   = useState<any>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  const save = () => {
-    const updated = updateStudent({ ...form })
-    if (updated) setStudent(updated)
-    setEditing(false); setSaved(true)
-    setTimeout(()=>setSaved(false),3000)
+  useEffect(()=>{
+    if(!student?.idNumber) return
+    supabase.from('students').select('*').eq('id_number', student.idNumber).single()
+      .then(({data})=>{ if(data){ setDbStudent(data); if(data.avatar_url) setAvatarUrl(data.avatar_url) } })
+  },[student?.idNumber])
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if(!file) return
+    setUploading(true)
+    const ext = file.name.split('.').pop()
+    const path = `avatars/${student?.idNumber}-${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('materials').upload(path, file, { contentType: file.type, upsert: true })
+    if(!error){
+      const { data:{ publicUrl }} = supabase.storage.from('materials').getPublicUrl(path)
+      setAvatarUrl(publicUrl)
+      await supabase.from('students').update({ avatar_url: publicUrl }).eq('id_number', student?.idNumber)
+      setSaved(true); setTimeout(()=>setSaved(false), 2500)
+    }
+    setUploading(false)
   }
+
+  const av = (student?.name||'ST').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)
+  const downloads = parseInt(localStorage.getItem(`downloads_${student?.idNumber}`) || '0')
 
   return (
     <AppShell>
-      <TopBar title="My Profile" subtitle="Your student account"/>
-      <div className="p-3 lg:p-4 space-y-3 animate-fade-in">
+      <TopBar title="My Profile" subtitle="Your student profile"/>
+      <div className="max-w-lg mx-auto p-4 lg:p-5 pb-24 space-y-4 animate-fade-in">
 
-        {/* Profile Header */}
-        <div className="bg-green-gradient rounded-xl p-3.5 shadow-md">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gold rounded-xl flex items-center justify-center shadow-md">
-                <span className="text-white font-black text-lg">{student?.avatar||'S'}</span>
-              </div>
-              <div>
-                <h2 className="font-black text-sm text-white">{student?.name}</h2>
-                <p className="text-white/60 text-[10px]">{student?.idNumber}</p>
-                <p className="text-white/50 text-[10px]">{student?.department||'Department not set'}</p>
-              </div>
+        {/* Avatar section */}
+        <div className="card p-6 flex flex-col items-center text-center">
+          <div className="relative mb-4">
+            <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-[#1a6b3a]/20">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={student?.name||''} className="w-full h-full object-cover"/>
+              ) : (
+                <div className="w-full h-full bg-[#1a6b3a] flex items-center justify-center">
+                  <span className="text-white font-black text-3xl">{av}</span>
+                </div>
+              )}
             </div>
-            <button onClick={()=>setEditing(!editing)} className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-all">
-              <Edit2 className="w-3.5 h-3.5 text-white"/>
+            {/* Camera button */}
+            <button onClick={()=>fileRef.current?.click()} disabled={uploading}
+              className="absolute bottom-0 right-0 w-8 h-8 bg-[#1a6b3a] rounded-full flex items-center justify-center shadow-lg hover:bg-[#145530] transition-colors border-2 border-white">
+              {uploading ? <Loader2 className="w-4 h-4 text-white animate-spin"/> : <Camera className="w-4 h-4 text-white"/>}
             </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload}/>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[{l:'Level',v:`${student?.level||100}L`},{l:'Points',v:student?.points||0},{l:'Downloads',v:student?.downloads||0}].map(({l,v})=>(
-              <div key={l} className="bg-white/10 rounded-lg p-2 text-center">
-                <div className="text-white font-black text-sm">{v}</div>
-                <div className="text-white/50 text-[10px]">{l}</div>
-              </div>
-            ))}
-          </div>
+          <h2 className="font-black text-[#0a0a0a] text-xl">{student?.name}</h2>
+          <p className="text-[#6b6b6b] text-sm mt-0.5">{student?.idNumber}</p>
+          {saved && (
+            <div className="flex items-center gap-1.5 mt-2 text-[#1a6b3a] text-xs font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5"/> Avatar updated!
+            </div>
+          )}
+          <p className="text-[10px] text-[#aaa] mt-2">Tap the camera icon to change your photo</p>
         </div>
 
-        {saved&&<div className="flex items-center gap-1.5 p-2.5 bg-green-50 border border-green-100 rounded-lg animate-fade-in"><CheckCircle2 className="w-3.5 h-3.5 text-mouau"/><span className="text-mouau font-semibold text-xs">Saved!</span></div>}
-
-        {/* Edit Form */}
-        {editing&&(
-          <div className="card p-3 space-y-2.5 animate-fade-in">
-            <h3 className="font-bold text-mouau-dark text-xs">Edit Information</h3>
-            <div>
-              <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Full Name</label>
-              <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="input"/>
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { label:'Level', value: student?.level||'100' },
+            { label:'Downloads', value: downloads || dbStudent?.downloads || 0 },
+            { label:'Points', value: dbStudent?.points || 0 },
+          ].map(s=>(
+            <div key={s.label} className="card p-3.5 text-center">
+              <div className="font-black text-lg text-[#0a0a0a]">{s.value}</div>
+              <div className="text-[10px] text-[#aaa] uppercase tracking-wide mt-0.5">{s.label}</div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Email</label>
-                <input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} className="input" type="email"/>
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Phone</label>
-                <input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} className="input" type="tel"/>
-              </div>
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold text-gray-500 mb-1 block">College</label>
-              <select value={form.college} onChange={e=>setForm({...form,college:e.target.value,department:''})} className="input py-1.5 text-[10px]">
-                <option value="">Select college...</option>
-                {COLLEGES.map(c=><option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Department</label>
-              <select value={form.department} onChange={e=>setForm({...form,department:e.target.value})} className="input py-1.5 text-[10px]" disabled={!form.college}>
-                <option value="">Select dept...</option>
-                {depts.map(d=><option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Level</label>
-              <select value={form.level} onChange={e=>setForm({...form,level:e.target.value})} className="input py-1.5 text-[10px]">
-                {['100','200','300','400','500'].map(l=><option key={l} value={l}>{l} Level</option>)}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={save} className="btn-primary flex-1 flex items-center justify-center gap-1"><Save className="w-3 h-3"/>Save</button>
-              <button onClick={()=>setEditing(false)} className="btn-outline flex-1">Cancel</button>
-            </div>
-          </div>
-        )}
-
-        {/* Info Display */}
-        {!editing&&(
-          <div className="card p-3 space-y-2">
-            {[
-              {icon:User,l:'Name',v:student?.name||'Not set'},
-              {icon:Mail,l:'Email',v:student?.email||'Not set'},
-              {icon:Phone,l:'Phone',v:student?.phone||'Not set'},
-              {icon:Building2,l:'College',v:student?.college||'Not set'},
-              {icon:GraduationCap,l:'Department',v:student?.department||'Not set'},
-            ].map(({icon:Icon,l,v})=>(
-              <div key={l} className="flex items-center gap-2 py-1.5 border-b border-gray-50 last:border-0">
-                <div className="w-6 h-6 bg-mouau-surface rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-3 h-3 text-mouau"/>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] text-gray-400">{l}</p>
-                  <p className="font-semibold text-gray-800 text-xs truncate">{v}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Achievements */}
-        <div className="card p-3">
-          <h3 className="font-bold text-mouau-dark text-xs mb-2">Achievements</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              {icon:Award,l:'FreshStart',d:'Joined the platform',c:'text-gold',bg:'bg-amber-50',earned:true},
-              {icon:Download,l:'First Download',d:'Downloaded a material',c:'text-purple-600',bg:'bg-purple-50',earned:false},
-              {icon:Shield,l:'Verified',d:'Complete your profile',c:'text-mouau',bg:'bg-mouau-surface',earned:!!(student?.college&&student?.department)},
-              {icon:User,l:'Active Member',d:'Post in the forum',c:'text-blue-600',bg:'bg-blue-50',earned:false},
-            ].map(({icon:Icon,l,d,c,bg,earned})=>(
-              <div key={l} className={`p-2.5 rounded-xl border ${earned?'border-mouau/20 bg-white':'border-gray-100 bg-gray-50 opacity-50'}`}>
-                <div className={`w-6 h-6 ${bg} rounded-lg flex items-center justify-center mb-1.5`}><Icon className={`w-3 h-3 ${c}`}/></div>
-                <p className="font-bold text-[10px] text-gray-800">{l}</p>
-                <p className="text-gray-400 text-[9px]">{d}</p>
-                {earned&&<span className="badge badge-green text-[9px] mt-1">Earned</span>}
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
 
-        <button onClick={logout} className="w-full card p-3 flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 transition-all text-xs font-semibold">
-          <LogOut className="w-3.5 h-3.5"/> Sign Out
+        {/* Profile info */}
+        <div className="card divide-y divide-[#f0f0f0]">
+          {[
+            { icon:<User className="w-4 h-4 text-[#1a6b3a]"/>,        label:'Full Name',   value: student?.name || '—' },
+            { icon:<GraduationCap className="w-4 h-4 text-[#1a6b3a]"/>,label:'ID Number',   value: student?.idNumber || '—' },
+            { icon:<BookOpen className="w-4 h-4 text-[#1a6b3a]"/>,    label:'Department',  value: dbStudent?.department || '—' },
+            { icon:<Mail className="w-4 h-4 text-[#1a6b3a]"/>,        label:'Email',       value: dbStudent?.email || '—' },
+            { icon:<Phone className="w-4 h-4 text-[#1a6b3a]"/>,       label:'WhatsApp',    value: dbStudent?.whatsapp || '—' },
+          ].map(item=>(
+            <div key={item.label} className="flex items-center gap-3 px-4 py-3">
+              <div className="flex-shrink-0">{item.icon}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold text-[#aaa] uppercase tracking-wide">{item.label}</p>
+                <p className="text-sm text-[#0a0a0a] font-medium truncate">{item.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Sign out */}
+        <button onClick={logout}
+          className="w-full flex items-center justify-center gap-2 py-3 border border-red-100 rounded-xl text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors">
+          <LogOut className="w-4 h-4"/> Sign Out
         </button>
-        <p className="text-center text-[10px] text-gray-300 pb-2">MOUAU FreshStart v1.0 · 2024/2025</p>
       </div>
     </AppShell>
   )
