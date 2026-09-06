@@ -43,8 +43,8 @@ function NavigateContent() {
   const autoDir   = searchParams.get('directions') === '1'
 
   // ── Location permission state ──────────────────────────────
-  type LocState = 'requesting' | 'granted' | 'denied' | 'skipped'
-  const [locState, setLocState]   = useState<LocState>('requesting')
+  type LocState = 'checking' | 'requesting' | 'granted' | 'denied' | 'skipped'
+  const [locState, setLocState]   = useState<LocState>('checking')
   const [userLat, setUserLat]     = useState<number | null>(null)
   const [userLng, setUserLng]     = useState<number | null>(null)
 
@@ -88,18 +88,39 @@ function NavigateContent() {
 
     if (!navigator.geolocation) { setLocState('denied'); return }
 
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const { latitude: lat, longitude: lng } = pos.coords
-        setUserLat(lat); setUserLng(lng)
-        setLocState('granted')
-        setFromText(`${lat.toFixed(6)},${lng.toFixed(6)}`)
-        // Centre map on user
-        updateMap(`https://maps.google.com/maps?q=${lat},${lng}&output=embed&z=17&t=k`)
-      },
-      _err => { setLocState('denied') },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    )
+    const doGetLocation = () => {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude: lat, longitude: lng } = pos.coords
+          setUserLat(lat); setUserLng(lng)
+          setLocState('granted')
+          setFromText(`${lat.toFixed(6)},${lng.toFixed(6)}`)
+          updateMap(`https://maps.google.com/maps?q=${lat},${lng}&output=embed&z=17&t=k`)
+        },
+        () => setLocState('denied'),
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      )
+    }
+
+    // Check if permission already granted — skip overlay if so
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' as PermissionName })
+        .then(result => {
+          if (result.state === 'granted') {
+            setLocState('granted') // Hide overlay immediately
+            doGetLocation()
+          } else if (result.state === 'denied') {
+            setLocState('denied')
+          } else {
+            setLocState('requesting') // Show overlay
+            doGetLocation()
+          }
+        })
+        .catch(() => { setLocState('requesting'); doGetLocation() })
+    } else {
+      setLocState('requesting')
+      doGetLocation()
+    }
   }, [])
 
   const updateMap = (src: string) => { setMapSrc(src); setMapKey(k => k + 1) }
