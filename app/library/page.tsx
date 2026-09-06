@@ -81,7 +81,7 @@ function LibraryContent() {
       showToast('Please paste a file URL'); return
     }
     setUploading(true)
-    const { error } = await uploadMaterial(upFile, {
+    const { error } = await uploadMaterial(upFile!, {
       title: upForm.title, department: upForm.department, college: '',
       level: upForm.level, type: tab, course: '', courseCode: '',
       uploader: student?.name || 'Anonymous', abstract: '', year: '',
