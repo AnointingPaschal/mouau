@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import CampusMap from '@/components/CampusMap'
@@ -36,7 +37,11 @@ function ManeuverIcon({ m }: { m?: string }) {
   return <MoveRight className="w-3.5 h-3.5"/>
 }
 
-export default function NavigatePage() {
+function NavigateContent() {
+  const searchParams = useSearchParams()
+  const paramTo   = searchParams.get('to') || ''
+  const autoDir   = searchParams.get('directions') === '1'
+
   // ── Location permission state ──────────────────────────────
   type LocState = 'requesting' | 'granted' | 'denied' | 'skipped'
   const [locState, setLocState]   = useState<LocState>('requesting')
@@ -74,6 +79,12 @@ export default function NavigatePage() {
   // ── 1. REQUEST LOCATION ON MOUNT ──────────────────────────
   useEffect(() => {
     getCampusLocations().then(({ data }) => { if (data) setLocations(data as Loc[]) })
+
+    // Read URL params from Places page
+    if (paramTo) {
+      setToText(paramTo); setToId('')
+      if (autoDir) setMode('directions')
+    }
 
     if (!navigator.geolocation) { setLocState('denied'); return }
 
@@ -576,5 +587,17 @@ export default function NavigatePage() {
         </div>
       </div>
     </AppShell>
+  )
+}
+
+export default function NavigatePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-5 h-5 border-2 border-[#1a6b3a] border-t-transparent rounded-full animate-spin"/>
+      </div>
+    }>
+      <NavigateContent/>
+    </Suspense>
   )
 }

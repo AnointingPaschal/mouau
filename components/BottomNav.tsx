@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, MapPin, BookOpen, MessageCircle, Grid3X3, ClipboardList, Users, User, LogOut, X } from 'lucide-react'
+import { LayoutDashboard, MapPin, BookOpen, MessageCircle, Grid3X3, ClipboardList, Users, User, LogOut, X, LayoutGrid } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from './AuthProvider'
 
@@ -12,6 +12,7 @@ const primary = [
   { href:'/chat', label:'Chat', icon:MessageCircle },
 ]
 const more = [
+  { href:'/places', label:'All Places', icon:LayoutGrid },
   { href:'/register', label:'Registration', icon:ClipboardList },
   { href:'/forum', label:'Community', icon:Users },
   { href:'/profile', label:'Profile', icon:User },
@@ -33,7 +34,7 @@ export default function BottomNav() {
               <p className="font-black text-sm text-[#0a0a0a]">More</p>
               <button onClick={() => setShowMore(false)} className="p-1 rounded-full bg-[#f9f9f7]"><X className="w-4 h-4"/></button>
             </div>
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-4 gap-2 mb-4">
               {more.map(({ href, label, icon: Icon }) => (
                 <Link key={href} href={href} onClick={() => setShowMore(false)}
                   className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all ${active(href)?'bg-[#1a6b3a] text-white':'bg-[#f9f9f7] text-[#0a0a0a]'}`}>

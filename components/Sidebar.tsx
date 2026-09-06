@@ -2,11 +2,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from './AuthProvider'
-import { LayoutDashboard, MapPin, ClipboardList, BookOpen, MessageCircle, Users, User, LogOut } from 'lucide-react'
+import { LayoutDashboard, MapPin, ClipboardList, BookOpen, MessageCircle, Users, User, LogOut, LayoutGrid } from 'lucide-react'
 
 const nav = [
   { href:'/dashboard', label:'Dashboard', icon:LayoutDashboard },
   { href:'/navigate', label:'Campus Map', icon:MapPin },
+  { href:'/places', label:'All Places', icon:LayoutGrid },
   { href:'/register', label:'Registration', icon:ClipboardList },
   { href:'/library', label:'Library', icon:BookOpen },
   { href:'/chat', label:'AI Assistant', icon:MessageCircle },
