@@ -6,7 +6,7 @@ import { COLLEGES } from '@/lib/data'
 import { getLibraryItems, uploadMaterial, incrementDownload } from '@/lib/db'
 import { useAuth } from '@/components/AuthProvider'
 import { useSearchParams } from 'next/navigation'
-import { BookOpen, Download, Star, Search, Upload, CheckCircle2, FileText, X, Shield, Users, Loader2, Filter, Lock, BookMarked, FolderOpen } from 'lucide-react'
+import { BookOpen, Download, Star, Search, Upload, CheckCircle2, FileText, X, Shield, Users, Loader2, Filter, Lock, BookMarked, FolderOpen, Link } from 'lucide-react'
 
 
 const ALL_DEPARTMENTS = [
@@ -46,6 +46,8 @@ function LibraryContent() {
   const [uploading, setUploading] = useState(false)
   const [upFile, setUpFile] = useState<File|null>(null)
   const [upForm, setUpForm] = useState({ title:'', department:'General', level:'100' })
+  const [fileSource, setFileSource] = useState<'upload'|'link'>('upload')
+  const [linkUrl, setLinkUrl] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -84,6 +86,8 @@ function LibraryContent() {
     setShowUpload(false)
     setUpFile(null)
     setUpForm({ title:'', department:'General', level:'100' })
+    setFileSource('upload')
+    setLinkUrl('')
     showToast('Material submitted successfully!')
     load()
   }
@@ -267,16 +271,54 @@ function LibraryContent() {
                   ))}
                 </div>
               </div>
+              {/* Source toggle */}
               <div>
-                <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">File * (PDF, Word, Image)</label>
-                <div className="border-2 border-dashed border-[#e8e8e8] rounded-xl p-5 text-center cursor-pointer hover:border-[#1a6b3a]/40 transition-colors"
-                  onClick={() => document.getElementById('fu')?.click()}>
-                  <input id="fu" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" className="hidden"
-                    onChange={e => setUpFile(e.target.files?.[0]||null)}/>
-                  {upFile ? <p className="text-sm text-[#1a6b3a] font-medium">{upFile.name}</p> : (
-                    <><Upload className="w-5 h-5 text-[#ddd] mx-auto mb-1.5"/><p className="text-xs text-[#aaa]">Tap to select file</p></>
-                  )}
+                <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-2 block">File Source *</label>
+                <div className="flex bg-[#f9f9f7] rounded-xl p-1 gap-1 mb-3">
+                  <button onClick={()=>{ setFileSource('upload'); setLinkUrl('') }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${fileSource==='upload'?'bg-white text-[#0a0a0a] shadow-sm':'text-[#aaa]'}`}>
+                    <Upload className="w-3.5 h-3.5"/> Upload File
+                  </button>
+                  <button onClick={()=>{ setFileSource('link'); setUpFile(null) }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${fileSource==='link'?'bg-white text-[#0a0a0a] shadow-sm':'text-[#aaa]'}`}>
+                    <Link className="w-3.5 h-3.5"/> Paste Link
+                  </button>
                 </div>
+
+                {fileSource === 'upload' ? (
+                  <div className="border-2 border-dashed border-[#e8e8e8] rounded-xl p-5 text-center cursor-pointer hover:border-[#1a6b3a]/40 transition-colors"
+                    onClick={() => document.getElementById('fu')?.click()}>
+                    <input id="fu" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" className="hidden"
+                      onChange={e => setUpFile(e.target.files?.[0]||null)}/>
+                    {upFile ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#1a6b3a] flex-shrink-0"/>
+                        <p className="text-sm text-[#1a6b3a] font-semibold truncate max-w-[220px]">{upFile.name}</p>
+                      </div>
+                    ) : (
+                      <><Upload className="w-5 h-5 text-[#ddd] mx-auto mb-1.5"/><p className="text-xs text-[#aaa]">Tap to select file (PDF, Word, Image)</p></>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <textarea
+                      rows={3}
+                      value={linkUrl}
+                      onChange={e => setLinkUrl(e.target.value)}
+                      placeholder="https://drive.google.com/... or any direct file URL"
+                      className="input resize-none text-xs py-2.5 leading-relaxed"
+                    />
+                    <p className="text-[10px] text-[#aaa] mt-1.5 leading-relaxed">
+                      Paste a direct file link — Google Drive share link, S3, Dropbox, OneDrive, Afribary, or any public URL.
+                    </p>
+                    {linkUrl.trim() && (
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#1a6b3a] flex-shrink-0"/>
+                        <p className="text-[10px] text-[#1a6b3a] font-semibold">Link ready</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <button onClick={handleUpload} disabled={uploading}
                 className="btn-primary w-full flex items-center justify-center gap-1.5">
