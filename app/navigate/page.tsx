@@ -337,8 +337,7 @@ function NavigateContent() {
           </button>
 
           {!dirResult && (
-            {/* LIFTED bottom-[80px] to escape bottom navigation */}
-            <div className="lg:hidden absolute bottom-[80px] lg:bottom-4 left-0 right-0 z-10 px-3">
+                        <div className="lg:hidden absolute bottom-[80px] lg:bottom-4 left-0 right-0 z-10 px-3">
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {locations.map(loc => (
                   <button key={loc.id} onClick={() => setToText(loc.name+', MOUAU Umudike')}
@@ -352,8 +351,7 @@ function NavigateContent() {
           )}
 
           {dirResult && !dirResult._noSteps && leg && (
-            {/* LIFTED bottom-[72px] to escape bottom navigation */}
-            <div className="absolute bottom-[72px] lg:bottom-0 left-0 right-0 z-10">
+                        <div className="absolute bottom-[72px] lg:bottom-0 left-0 right-0 z-10">
               <div className="bg-white rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)] border-t border-[#e8e8e8] flex flex-col max-h-[52vh]">
 
                 <button onClick={() => setShowSteps(!showSteps)}
@@ -427,8 +425,7 @@ function NavigateContent() {
           )}
 
           {dirResult?._noSteps && (
-            {/* LIFTED bottom-[80px] to escape bottom navigation */}
-            <div className="absolute bottom-[80px] lg:bottom-4 left-3 right-3 z-10">
+                        <div className="absolute bottom-[80px] lg:bottom-4 left-3 right-3 z-10">
               <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#e8e8e8] p-4 flex items-center gap-3">
                 <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0">
                   <Navigation2 className="w-4 h-4 text-white"/>
