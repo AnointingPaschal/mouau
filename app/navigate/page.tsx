@@ -23,32 +23,33 @@ const COLORS: Record<string, string> = {
 }
 const CATS = ['all', 'academic', 'admin', 'hostel', 'social', 'health', 'sport']
 const DEFAULT_SRC = 'https://maps.google.com/maps?q=Michael+Okpara+University+of+Agriculture+Umudike&output=embed&z=16'
+const LOC_GRANTED_KEY = 'mouau_location_granted'
 
 function stripHtml(html: string) {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 function ManeuverIcon({ m }: { m?: string }) {
-  if (!m) return <MoveRight className="w-3.5 h-3.5"/>
-  if (m.includes('left'))  return <CornerDownRight className="w-3.5 h-3.5 scale-x-[-1]"/>
-  if (m.includes('right')) return <CornerDownRight className="w-3.5 h-3.5"/>
+  if (!m) return <MoveRight className="w-3.5 h-3.5" />
+  if (m.includes('left'))  return <CornerDownRight className="w-3.5 h-3.5 scale-x-[-1]" />
+  if (m.includes('right')) return <CornerDownRight className="w-3.5 h-3.5" />
   if (m.includes('uturn')) return <span className="text-base leading-none">↩</span>
   if (m.includes('roundabout')) return <span className="text-sm leading-none">↻</span>
-  if (m.includes('merge') || m.includes('ramp')) return <CornerUpRight className="w-3.5 h-3.5"/>
-  return <MoveRight className="w-3.5 h-3.5"/>
+  return <MoveRight className="w-3.5 h-3.5" />
 }
 
 function NavigateContent() {
   const searchParams = useSearchParams()
-  const paramTo   = searchParams.get('to') || ''
-  const autoDir   = searchParams.get('directions') === '1'
+  const paramTo  = searchParams.get('to')  || ''
+  const autoDir  = searchParams.get('directions') === '1'
 
-  // ── Location permission state ──────────────────────────────
-  type LocState = 'checking' | 'requesting' | 'granted' | 'denied' | 'skipped'
-  const [locState, setLocState]   = useState<LocState>('checking')
-  const [userLat, setUserLat]     = useState<number | null>(null)
-  const [userLng, setUserLng]     = useState<number | null>(null)
+  const alreadyGranted = typeof window !== 'undefined' &&
+    localStorage.getItem(LOC_GRANTED_KEY) === '1'
 
-  // ── Map state ──────────────────────────────────────────────
+  type LocState = 'granted' | 'requesting' | 'denied' | 'skipped'
+  const [locState, setLocState] = useState<LocState>(alreadyGranted ? 'granted' : 'requesting')
+  const [userLat, setUserLat]   = useState<number | null>(null)
+  const [userLng, setUserLng]   = useState<number | null>(null)
+
   const [mode, setMode]           = useState<'explore' | 'directions'>('explore')
   const [locations, setLocations] = useState<Loc[]>([])
   const [selected, setSelected]   = useState<Loc | null>(null)
@@ -56,76 +57,83 @@ function NavigateContent() {
   const [mapSrc, setMapSrc]       = useState(DEFAULT_SRC)
   const [mapKey, setMapKey]       = useState(0)
 
-  // ── Explore search ─────────────────────────────────────────
-  const [query, setQuery]         = useState('')
-  const [suggestions, setSugg]    = useState<Prediction[]>([])
+  const [query, setQuery]      = useState('')
+  const [suggestions, setSugg] = useState<Prediction[]>([])
   const [loadingSugg, setLoadingSugg] = useState(false)
   const suggTimer = useRef<any>(null)
 
-  // ── Directions state ───────────────────────────────────────
-  const [fromText, setFromText]   = useState('')
-  const [toText, setToText]       = useState('')
-  const [fromId, setFromId]       = useState('')
-  const [toId, setToId]           = useState('')
-  const [fromSugg, setFromSugg]   = useState<Prediction[]>([])
-  const [toSugg, setToSugg]       = useState<Prediction[]>([])
+  const [fromText, setFromText] = useState('')
+  const [toText, setToText]     = useState('')
+  const [fromId, setFromId]     = useState('')
+  const [toId, setToId]         = useState('')
+  const [fromSugg, setFromSugg] = useState<Prediction[]>([])
+  const [toSugg, setToSugg]     = useState<Prediction[]>([])
   const [loadingDir, setLoadingDir] = useState(false)
-  const [dirError, setDirError]   = useState('')
-  const [dirResult, setDirResult] = useState<any>(null)
-  const [showSteps, setShowSteps] = useState(true)
+  const [dirError, setDirError]     = useState('')
+  const [dirResult, setDirResult]   = useState<any>(null)
+  const [showSteps, setShowSteps]   = useState(true)
   const fromTimer = useRef<any>(null)
   const toTimer   = useRef<any>(null)
 
-  // ── 1. REQUEST LOCATION ON MOUNT ──────────────────────────
   useEffect(() => {
     getCampusLocations().then(({ data }) => { if (data) setLocations(data as Loc[]) })
+    if (paramTo) { setToText(paramTo); setToId(''); if (autoDir) setMode('directions') }
+  }, [paramTo, autoDir])
 
-    // Read URL params from Places page
-    if (paramTo) {
-      setToText(paramTo); setToId('')
-      if (autoDir) setMode('directions')
-    }
-
+  useEffect(() => {
     if (!navigator.geolocation) { setLocState('denied'); return }
 
-    const doGetLocation = () => {
+    const doGet = (silent = false) => {
       navigator.geolocation.getCurrentPosition(
         pos => {
           const { latitude: lat, longitude: lng } = pos.coords
           setUserLat(lat); setUserLng(lng)
           setLocState('granted')
           setFromText(`${lat.toFixed(6)},${lng.toFixed(6)}`)
+          localStorage.setItem(LOC_GRANTED_KEY, '1')
           updateMap(`https://maps.google.com/maps?q=${lat},${lng}&output=embed&z=17&t=k`)
         },
-        () => setLocState('denied'),
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+        (error) => {
+          console.warn('Location error:', error.message)
+          if (!silent) setLocState('denied')
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       )
     }
 
-    // Check if permission already granted — skip overlay if so
-    if (navigator.permissions) {
+    if (alreadyGranted) {
+      doGet(true)
+    } else if (navigator.permissions) {
       navigator.permissions.query({ name: 'geolocation' as PermissionName })
         .then(result => {
           if (result.state === 'granted') {
-            setLocState('granted') // Hide overlay immediately
-            doGetLocation()
+            setLocState('granted')
+            localStorage.setItem(LOC_GRANTED_KEY, '1')
+            doGet(true)
           } else if (result.state === 'denied') {
             setLocState('denied')
           } else {
-            setLocState('requesting') // Show overlay
-            doGetLocation()
+            setLocState('requesting')
+            doGet(false)
+          }
+          result.onchange = () => {
+            if (result.state === 'granted') {
+              setLocState('granted')
+              localStorage.setItem(LOC_GRANTED_KEY, '1')
+              doGet(true)
+            } else if (result.state === 'denied') {
+              setLocState('denied')
+            }
           }
         })
-        .catch(() => { setLocState('requesting'); doGetLocation() })
+        .catch(() => { setLocState('requesting'); doGet(false) })
     } else {
-      setLocState('requesting')
-      doGetLocation()
+      doGet(false)
     }
-  }, [])
+  }, [alreadyGranted])
 
   const updateMap = (src: string) => { setMapSrc(src); setMapKey(k => k + 1) }
 
-  // ── Autocomplete helpers ───────────────────────────────────
   const fetchSugg = async (val: string): Promise<Prediction[]> => {
     if (val.length < 2) return []
     try {
@@ -135,8 +143,7 @@ function NavigateContent() {
   }
 
   const onQueryChange = (val: string) => {
-    setQuery(val)
-    clearTimeout(suggTimer.current)
+    setQuery(val); clearTimeout(suggTimer.current)
     if (val.length < 2) { setSugg([]); return }
     setLoadingSugg(true)
     suggTimer.current = setTimeout(async () => { setSugg(await fetchSugg(val)); setLoadingSugg(false) }, 350)
@@ -161,65 +168,54 @@ function NavigateContent() {
     updateMap(`https://maps.google.com/maps?q=${encodeURIComponent(loc.name + ' MOUAU Umudike')}&output=embed&ll=${loc.lat},${loc.lng}&z=18&t=k`)
   }
   const directTo = (loc: Loc) => {
-    setMode('directions'); setToText(loc.name + ', MOUAU Umudike'); setToId(''); setToSugg([]); setDirResult(null)
+    setMode('directions'); setToText(loc.name + ', MOUAU Umudike')
+    setToId(''); setToSugg([]); setDirResult(null)
   }
 
-  // ── 2. GET DIRECTIONS → AUTO-OPEN GOOGLE MAPS APP ─────────
-  const getDirections = async () => {
-    if (!fromText.trim() || !toText.trim()) {
-      setDirError('Please enter both a starting point and destination.'); return
-    }
-    setDirError(''); setLoadingDir(true); setDirResult(null)
-
-    // Build the Google Maps directions URL (opens app on mobile)
-    const origin = userLat && fromText.includes(String(userLat.toFixed(4)))
-      ? `${userLat},${userLng}`
-      : fromText
-    const gmapsAppUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(toText)}&travelmode=driving`
-
-    // Show route in iframe simultaneously
-    updateMap(`https://maps.google.com/maps?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(toText)}&output=embed&dirflg=d`)
-
-    // Auto-open Google Maps app
-    window.open(gmapsAppUrl, '_blank')
-
-    // Also fetch SerpAPI text steps for reference panel
-    try {
-      let url = `/api/maps/directions?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(toText)}`
-      if (fromId) url += `&origin_place_id=${fromId}`
-      if (toId)   url += `&destination_place_id=${toId}`
-      const res  = await fetch(url)
-      const data = await res.json()
-      if (data.directions || data.routes) { setDirResult(data); setShowSteps(true) }
-      else setDirResult({ _noSteps: true })
-    } catch { setDirResult({ _noSteps: true }) }
-    setLoadingDir(false)
-  }
-
-  const retrylocation = () => {
+  const retryLocation = () => {
     setLocState('requesting')
     navigator.geolocation.getCurrentPosition(
       pos => {
-        const { latitude: lat, longitude: lng } = pos.coords
-        setUserLat(lat); setUserLng(lng); setLocState('granted')
-        setFromText(`${lat.toFixed(6)},${lng.toFixed(6)}`)
-        updateMap(`https://maps.google.com/maps?q=${lat},${lng}&output=embed&z=17&t=k`)
+        setUserLat(pos.coords.latitude); setUserLng(pos.coords.longitude)
+        setLocState('granted')
+        setFromText(`${pos.coords.latitude.toFixed(6)},${pos.coords.longitude.toFixed(6)}`)
+        localStorage.setItem(LOC_GRANTED_KEY, '1')
+        updateMap(`https://maps.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}&output=embed&z=17&t=k`)
       },
       () => setLocState('denied'),
-      { enableHighAccuracy: true, timeout: 12000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     )
   }
 
   const skipLocation = () => { setLocState('skipped'); updateMap(DEFAULT_SRC) }
 
-  const openInGoogleMapsApp = () => {
-    if (mode === 'directions' && fromText && toText) {
-      window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(fromText)}&destination=${encodeURIComponent(toText)}&travelmode=driving`, '_blank')
-    } else if (selected) {
-      window.open(`https://www.google.com/maps/search/${encodeURIComponent(selected.name + ' MOUAU Umudike')}`, '_blank')
-    } else {
-      window.open('https://www.google.com/maps/place/Michael+Okpara+University+of+Agriculture/@5.48,7.546,16z', '_blank')
+  const getDirections = async () => {
+    if (!fromText.trim() || !toText.trim()) {
+      setDirError('Please enter both a starting point and destination.'); return
     }
+    setDirError(''); setLoadingDir(true); setDirResult(null)
+    const origin = (userLat && fromText.startsWith(String(userLat.toFixed(4))))
+      ? `${userLat},${userLng}` : fromText
+    updateMap(`https://maps.google.com/maps?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(toText)}&output=embed&dirflg=d`)
+    window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(toText)}&travelmode=driving`, '_blank')
+    try {
+      let url = `/api/maps/directions?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(toText)}`
+      if (fromId) url += `&origin_place_id=${fromId}`
+      if (toId)   url += `&destination_place_id=${toId}`
+      const data = await (await fetch(url)).json()
+      setDirResult((data.directions || data.routes) ? data : { _noSteps: true })
+      setShowSteps(true)
+    } catch { setDirResult({ _noSteps: true }) }
+    setLoadingDir(false)
+  }
+
+  const openInGoogleMapsApp = () => {
+    if (mode === 'directions' && fromText && toText)
+      window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(fromText)}&destination=${encodeURIComponent(toText)}&travelmode=driving`, '_blank')
+    else if (selected)
+      window.open(`https://www.google.com/maps/search/${encodeURIComponent(selected.name + ' MOUAU Umudike')}`, '_blank')
+    else
+      window.open('https://www.google.com/maps/place/Michael+Okpara+University+of+Agriculture/@5.48,7.546,16z', '_blank')
   }
 
   const filtered = locations.filter(l => {
@@ -229,19 +225,20 @@ function NavigateContent() {
     return l.name.toLowerCase().includes(q) || l.description.toLowerCase().includes(q)
   })
 
-  const leg   = dirResult?.directions?.[0]?.legs?.[0] || dirResult?.routes?.[0]?.legs?.[0]
+  const leg        = dirResult?.directions?.[0]?.legs?.[0] || dirResult?.routes?.[0]?.legs?.[0]
   const steps: Step[] = leg?.steps || []
-  const totalDist = leg?.distance?.text || ''
-  const totalDur  = leg?.duration?.text  || ''
+  const totalDist  = leg?.distance?.text || ''
+  const totalDur   = leg?.duration?.text  || ''
+  const showOverlay = locState === 'requesting' || locState === 'denied'
 
-  // ── RENDER ─────────────────────────────────────────────────
   return (
     <AppShell>
       <TopBar title="Campus Navigation" subtitle="Powered by Google Maps"/>
 
-      <div className="flex flex-col h-[calc(100vh-104px)] lg:h-[calc(100vh-60px)]">
+      {/* Blurred page content when overlay is active */}
+      <div className={`relative flex flex-col h-[calc(100vh-104px)] lg:h-[calc(100vh-60px)] transition-all duration-300 ${showOverlay ? 'blur-md pointer-events-none select-none brightness-95' : ''}`}>
 
-        {/* Mode tabs */}
+        {/* Mode toggle */}
         <div className="flex bg-white border-b border-[#e8e8e8]">
           {(['explore', 'directions'] as const).map(m => (
             <button key={m} onClick={() => { setMode(m); if (m === 'explore') { updateMap(DEFAULT_SRC); setDirResult(null) } }}
@@ -293,17 +290,14 @@ function NavigateContent() {
             </>
           ) : (
             <div className="space-y-2">
-              {/* From field */}
               <div className="relative">
                 <div className="flex items-center border border-[#e8e8e8] rounded-xl bg-white focus-within:border-[#1a6b3a] transition-colors">
                   <div className="px-3 flex-shrink-0"><div className="w-2.5 h-2.5 rounded-full bg-[#1a6b3a]"/></div>
                   <input value={fromText} onChange={e => onFromChange(e.target.value)} placeholder="From: your location or address..."
                     className="flex-1 py-2.5 text-xs outline-none text-[#0a0a0a] placeholder-[#aaa]"/>
-                  {locState === 'granted' && userLat && (
+                  {(locState === 'granted' && userLat) && (
                     <button onClick={() => { setFromText(`${userLat!.toFixed(6)},${userLng!.toFixed(6)}`); setFromSugg([]) }}
-                      title="Use my location" className="px-3 text-[#1a6b3a] hover:text-[#145530] flex-shrink-0">
-                      <LocateFixed className="w-4 h-4"/>
-                    </button>
+                      className="px-3 text-[#1a6b3a] flex-shrink-0"><LocateFixed className="w-4 h-4"/></button>
                   )}
                 </div>
                 {fromSugg.length > 0 && (
@@ -324,8 +318,6 @@ function NavigateContent() {
                   </div>
                 )}
               </div>
-
-              {/* To field */}
               <div className="relative">
                 <div className="flex items-center border border-[#e8e8e8] rounded-xl bg-white focus-within:border-[#dc2626] transition-colors">
                   <div className="px-3 flex-shrink-0"><div className="w-2.5 h-2.5 rounded-full bg-[#dc2626]"/></div>
@@ -361,8 +353,6 @@ function NavigateContent() {
                   </div>
                 )}
               </div>
-
-              {/* Quick campus destinations */}
               {!toText && (
                 <div className="flex gap-1.5 overflow-x-auto pb-0.5">
                   {locations.slice(0, 7).map(l => (
@@ -374,15 +364,12 @@ function NavigateContent() {
                   ))}
                 </div>
               )}
-
               {dirError && (
                 <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-xl">
                   <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5"/>
                   <p className="text-xs text-red-600 leading-relaxed">{dirError}</p>
                 </div>
               )}
-
-              {/* Get Directions button — opens Google Maps app */}
               <button onClick={getDirections} disabled={loadingDir || !fromText.trim() || !toText.trim()}
                 className="btn-primary w-full flex items-center justify-center gap-1.5">
                 {loadingDir
@@ -396,8 +383,6 @@ function NavigateContent() {
 
         {/* Map + sidebar */}
         <div className="flex flex-1 overflow-hidden relative">
-
-          {/* Desktop location sidebar */}
           {mode === 'explore' && (
             <div className="hidden lg:flex flex-col w-72 border-r border-[#e8e8e8] bg-white overflow-y-auto flex-shrink-0">
               <div className="p-2.5 space-y-1">
@@ -417,77 +402,13 @@ function NavigateContent() {
               </div>
             </div>
           )}
-
-          {/* Google Maps iframe */}
           <div className="flex-1 relative">
             <CampusMap src={mapSrc} key={mapKey}/>
-
-            {/* Open in Maps button */}
             <button onClick={openInGoogleMapsApp}
-              className="absolute top-2 right-2 z-10 bg-white border border-[#e8e8e8] rounded-full px-2.5 py-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#0a0a0a] shadow-md hover:shadow-lg transition-all">
+              className="absolute top-2 right-2 z-10 bg-white border border-[#e8e8e8] rounded-full px-2.5 py-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#0a0a0a] shadow-md">
               <ExternalLink className="w-3 h-3 text-[#4285f4]"/> Open in Maps
             </button>
-
-            {/* ── LOCATION PERMISSION OVERLAY ──────────────────── */}
-            {(locState === 'requesting' || locState === 'denied') && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center"
-                style={{ backdropFilter: 'blur(8px)', background: 'rgba(255,255,255,0.7)' }}>
-                <div className="bg-white rounded-2xl shadow-2xl border border-[#e8e8e8] p-6 mx-4 max-w-xs w-full text-center animate-slide-up">
-
-                  {locState === 'requesting' ? (
-                    <>
-                      <div className="w-16 h-16 bg-[#1a6b3a]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <MapPin className="w-8 h-8 text-[#1a6b3a]"/>
-                      </div>
-                      <h2 className="font-black text-[#0a0a0a] text-lg mb-2">Allow Location Access</h2>
-                      <p className="text-[#6b6b6b] text-sm leading-relaxed mb-4">
-                        FreshStart needs your location to show your position on campus and give precise directions.
-                      </p>
-                      <div className="flex items-center justify-center gap-2 mb-4">
-                        <div className="w-4 h-4 border-2 border-[#1a6b3a] border-t-transparent rounded-full animate-spin"/>
-                        <p className="text-xs text-[#aaa] font-medium">Waiting for permission...</p>
-                      </div>
-                      <p className="text-[10px] text-[#aaa] mb-4 leading-relaxed">
-                        A browser permission prompt should appear. Tap <strong>Allow</strong> to continue.
-                      </p>
-                      <button onClick={skipLocation}
-                        className="w-full py-2 text-xs font-semibold text-[#aaa] hover:text-[#6b6b6b] transition-colors border border-[#e8e8e8] rounded-xl">
-                        Skip — Browse without location
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <MapPinOff className="w-8 h-8 text-red-500"/>
-                      </div>
-                      <h2 className="font-black text-[#0a0a0a] text-base mb-2">Location Access Denied</h2>
-                      <p className="text-[#6b6b6b] text-sm leading-relaxed mb-4">
-                        To enable location for precise directions, go to your browser settings and allow location for this site.
-                      </p>
-                      <div className="bg-[#f9f9f7] rounded-xl p-3 mb-4 text-left">
-                        <p className="text-[10px] font-semibold text-[#0a0a0a] mb-1.5 flex items-center gap-1.5">
-                          <ShieldAlert className="w-3 h-3 text-amber-500"/> How to enable:
-                        </p>
-                        <p className="text-[10px] text-[#6b6b6b] leading-relaxed">
-                          Chrome: tap the lock icon in the address bar → Site settings → Location → Allow
-                        </p>
-                      </div>
-                      <button onClick={retrylocation}
-                        className="btn-primary w-full flex items-center justify-center gap-1.5 mb-2">
-                        <RefreshCw className="w-3.5 h-3.5"/> Try Again
-                      </button>
-                      <button onClick={skipLocation}
-                        className="w-full py-2 text-xs font-semibold text-[#aaa] hover:text-[#6b6b6b] border border-[#e8e8e8] rounded-xl transition-colors">
-                        Continue Without Location
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Explore: selected location card */}
-            {mode === 'explore' && selected && locState !== 'requesting' && (
+            {mode === 'explore' && selected && (
               <div className="absolute bottom-4 left-3 right-3 z-10 animate-slide-up">
                 <div className="bg-white rounded-2xl shadow-xl border border-[#e8e8e8] p-4">
                   <div className="flex items-start justify-between mb-2">
@@ -495,8 +416,9 @@ function NavigateContent() {
                       <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[selected.category] || '#1a6b3a' }}/>
                       <h3 className="font-black text-[#0a0a0a] text-sm">{selected.name}</h3>
                     </div>
-                    <button onClick={() => { setSelected(null); updateMap(DEFAULT_SRC) }}
-                      className="p-1 rounded-full bg-[#f9f9f7]"><X className="w-3.5 h-3.5 text-[#aaa]"/></button>
+                    <button onClick={() => { setSelected(null); updateMap(DEFAULT_SRC) }} className="p-1 rounded-full bg-[#f9f9f7]">
+                      <X className="w-3.5 h-3.5 text-[#aaa]"/>
+                    </button>
                   </div>
                   <p className="text-[#6b6b6b] text-xs leading-relaxed mb-2">{selected.description}</p>
                   {selected.hours && (
@@ -523,9 +445,7 @@ function NavigateContent() {
                 </div>
               </div>
             )}
-
-            {/* Directions text-step panel */}
-            {mode === 'directions' && dirResult && !dirResult._noSteps && leg && locState !== 'requesting' && (
+            {mode === 'directions' && dirResult && !dirResult._noSteps && leg && (
               <div className="absolute bottom-0 left-0 right-0 z-10">
                 <div className="bg-white rounded-t-2xl shadow-2xl border-t border-[#e8e8e8] flex flex-col max-h-[50vh]">
                   <button onClick={() => setShowSteps(!showSteps)}
@@ -536,24 +456,24 @@ function NavigateContent() {
                     <div className="flex-1 min-w-0">
                       <p className="font-black text-[#0a0a0a] text-sm">Route Summary</p>
                       <div className="flex items-center gap-2">
-                        {totalDist && <span className="text-xs font-bold text-[#0a0a0a]">{totalDist}</span>}
+                        {totalDist && <span className="text-xs font-bold">{totalDist}</span>}
                         {totalDur  && <><span className="text-[#aaa] text-xs">·</span><span className="text-xs font-bold text-[#1a6b3a]">{totalDur}</span></>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button onClick={e => { e.stopPropagation(); openInGoogleMapsApp() }}
-                        className="text-[10px] text-[#4285f4] font-semibold flex items-center gap-0.5 border border-[#4285f4]/20 rounded-full px-2 py-0.5">
+                        className="text-[10px] text-[#4285f4] font-semibold border border-[#4285f4]/20 rounded-full px-2 py-0.5 flex items-center gap-0.5">
                         <ExternalLink className="w-2.5 h-2.5"/> Open
                       </button>
                       {showSteps ? <ChevronDown className="w-4 h-4 text-[#aaa]"/> : <ChevronUp className="w-4 h-4 text-[#aaa]"/>}
                     </div>
                   </button>
                   <div className="flex items-center gap-2 px-4 py-2 bg-[#f9f9f7] border-b border-[#f0f0f0] flex-shrink-0">
-                    <div className="w-2 h-2 rounded-full bg-[#1a6b3a] flex-shrink-0"/>
+                    <div className="w-2 h-2 rounded-full bg-[#1a6b3a]"/>
                     <p className="text-[11px] text-[#6b6b6b] truncate flex-1">{fromText.split(',')[0]}</p>
                     <ArrowRight className="w-3 h-3 text-[#aaa] flex-shrink-0"/>
                     <p className="text-[11px] font-semibold text-[#0a0a0a] truncate flex-1 text-right">{toText.split(',')[0]}</p>
-                    <div className="w-2 h-2 rounded-full bg-[#dc2626] flex-shrink-0"/>
+                    <div className="w-2 h-2 rounded-full bg-[#dc2626]"/>
                   </div>
                   {showSteps && (
                     <div className="overflow-y-auto flex-1">
@@ -575,7 +495,7 @@ function NavigateContent() {
                         )
                       })}
                       <div className="flex items-center gap-2 px-4 py-3 bg-[#1a6b3a]/5">
-                        <div className="w-3 h-3 rounded-full bg-[#dc2626] flex-shrink-0"/>
+                        <div className="w-3 h-3 rounded-full bg-[#dc2626]"/>
                         <p className="text-xs font-semibold text-[#0a0a0a] flex-1">{toText.split(',')[0]}</p>
                         <span className="text-[10px] text-[#1a6b3a] font-semibold">Destination</span>
                       </div>
@@ -589,14 +509,12 @@ function NavigateContent() {
                 </div>
               </div>
             )}
-
-            {/* Mobile horizontal location chips */}
-            {mode === 'explore' && !selected && locState !== 'requesting' && (
+            {mode === 'explore' && !selected && (
               <div className="lg:hidden absolute bottom-4 left-0 right-0 z-10 px-3">
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {filtered.map(loc => (
                     <button key={loc.id} onClick={() => pickLocation(loc)}
-                      className="flex-shrink-0 bg-white border border-[#e8e8e8] rounded-xl px-3 py-2 shadow-sm flex items-center gap-2 hover:border-[#1a6b3a]/40 transition-all">
+                      className="flex-shrink-0 bg-white border border-[#e8e8e8] rounded-xl px-3 py-2 shadow-sm flex items-center gap-2 transition-all">
                       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: COLORS[loc.category] || '#1a6b3a' }}/>
                       <p className="text-xs font-semibold text-[#0a0a0a] whitespace-nowrap max-w-[100px] truncate">{loc.name}</p>
                     </button>
@@ -607,6 +525,63 @@ function NavigateContent() {
           </div>
         </div>
       </div>
+
+      {/* Permission overlay — outside blurred container, always on top */}
+      {showOverlay && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-white/10">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#e8e8e8] p-6 mx-4 max-w-xs w-full text-center animate-slide-up">
+            {locState === 'requesting' ? (
+              <>
+                <div className="w-16 h-16 bg-[#1a6b3a]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="w-8 h-8 text-[#1a6b3a]"/>
+                </div>
+                <h2 className="font-black text-[#0a0a0a] text-lg mb-2">Allow Location Access</h2>
+                <p className="text-[#6b6b6b] text-sm leading-relaxed mb-4">
+                  FreshStart needs your location to show your position on campus and give precise directions.
+                </p>
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <div className="w-4 h-4 border-2 border-[#1a6b3a] border-t-transparent rounded-full animate-spin"/>
+                  <p className="text-xs text-[#aaa] font-medium">Waiting for permission...</p>
+                </div>
+                <p className="text-[10px] text-[#aaa] mb-4 leading-relaxed">
+                  A browser permission prompt should appear. Tap <strong>Allow</strong> to continue.
+                </p>
+                <button onClick={skipLocation}
+                  className="w-full py-2.5 text-xs font-semibold text-[#aaa] hover:text-[#6b6b6b] border border-[#e8e8e8] rounded-xl transition-colors">
+                  Skip — Browse without location
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPinOff className="w-8 h-8 text-red-500"/>
+                </div>
+                <h2 className="font-black text-[#0a0a0a] text-base mb-2">Location Access Denied</h2>
+                <p className="text-[#6b6b6b] text-sm leading-relaxed mb-3">Enable location to get precise campus directions.</p>
+                <div className="bg-[#f9f9f7] rounded-xl p-3 mb-4 text-left">
+                  <p className="text-[10px] font-semibold text-[#0a0a0a] mb-1.5 flex items-center gap-1.5">
+                    <ShieldAlert className="w-3 h-3 text-amber-500"/> How to enable:
+                  </p>
+                  <p className="text-[10px] text-[#6b6b6b] leading-relaxed mb-1">
+                    1. Tap the lock icon in your address bar → Allow Location.
+                  </p>
+                  <p className="text-[10px] text-[#6b6b6b] leading-relaxed">
+                    2. Ensure your phone's GPS is ON in your quick settings.
+                  </p>
+                </div>
+                <button onClick={retryLocation}
+                  className="btn-primary w-full flex items-center justify-center gap-1.5 mb-2">
+                  <RefreshCw className="w-3.5 h-3.5"/> Try Again
+                </button>
+                <button onClick={skipLocation}
+                  className="w-full py-2 text-xs font-semibold text-[#aaa] hover:text-[#6b6b6b] border border-[#e8e8e8] rounded-xl transition-colors">
+                  Continue Without Location
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </AppShell>
   )
 }
