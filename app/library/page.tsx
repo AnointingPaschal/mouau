@@ -71,8 +71,14 @@ function LibraryContent() {
   }
 
   const handleUpload = async () => {
-    if (!upFile || !upForm.title || !upForm.department) {
-      showToast('Please fill all required fields and select a file'); return
+    if (!upForm.title || !upForm.department) {
+      showToast('Please enter a title and select a department'); return
+    }
+    if (fileSource === 'upload' && !upFile) {
+      showToast('Please select a file to upload'); return
+    }
+    if (fileSource === 'link' && !linkUrl.trim()) {
+      showToast('Please paste a file URL'); return
     }
     setUploading(true)
     const { error } = await uploadMaterial(upFile, {
