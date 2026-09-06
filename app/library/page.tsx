@@ -8,6 +8,19 @@ import { useAuth } from '@/components/AuthProvider'
 import { useSearchParams } from 'next/navigation'
 import { BookOpen, Download, Star, Search, Upload, CheckCircle2, FileText, X, Shield, Users, Loader2, Filter, Lock, BookMarked, FolderOpen } from 'lucide-react'
 
+
+const ALL_DEPARTMENTS = [
+  'General',
+  'Agronomy', 'Crop Science & Technology', 'Agricultural Extension', 'Soil Science', 'Animal Science',
+  'Biochemistry', 'Computer Science', 'Microbiology', 'Chemistry', 'Mathematics', 'Physics',
+  'Agricultural Engineering', 'Food Engineering', 'Electrical Engineering', 'Civil Engineering',
+  'Food Science & Technology', 'Human Nutrition & Dietetics', 'Food Processing Technology',
+  'Veterinary Surgery', 'Veterinary Medicine', 'Veterinary Physiology',
+  'Agricultural Economics', 'Business Administration', 'Accounting', 'Economics',
+  'Soil & Land Resources Management', 'Forestry & Environmental Management',
+  'Fisheries & Aquaculture', 'Wildlife & Range Management',
+]
+
 type Mat = { id:string; title:string; department:string; college:string; level:string; type:string; course:string; course_code:string; abstract:string; uploader:string; year:string; downloads:number; rating:number; size:string; file_url:string; verified:boolean; admin_only:boolean; created_at:string }
 
 const TABS = [
@@ -32,7 +45,7 @@ function LibraryContent() {
   const [toast, setToast] = useState('')
   const [uploading, setUploading] = useState(false)
   const [upFile, setUpFile] = useState<File|null>(null)
-  const [upForm, setUpForm] = useState({ title:'', college:COLLEGES[0], department:'', level:'100', course:'', code:'', abstract:'', year:'' })
+  const [upForm, setUpForm] = useState({ title:'', department:'General', level:'100' })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -56,21 +69,21 @@ function LibraryContent() {
   }
 
   const handleUpload = async () => {
-    if (!upFile || !upForm.title || !upForm.department || !upForm.code) {
+    if (!upFile || !upForm.title || !upForm.department) {
       showToast('Please fill all required fields and select a file'); return
     }
     setUploading(true)
     const { error } = await uploadMaterial(upFile, {
-      title: upForm.title, department: upForm.department, college: upForm.college,
-      level: upForm.level, type: tab, course: upForm.course, courseCode: upForm.code,
-      uploader: student?.name || 'Anonymous', abstract: upForm.abstract, year: upForm.year,
+      title: upForm.title, department: upForm.department, college: '',
+      level: upForm.level, type: tab, course: '', courseCode: '',
+      uploader: student?.name || 'Anonymous', abstract: '', year: '',
       studentId: student?.idNumber || ''
     })
     setUploading(false)
     if (error) { showToast(`Upload failed: ${error}`); return }
     setShowUpload(false)
     setUpFile(null)
-    setUpForm({ title:'', college:COLLEGES[0], department:'', level:'100', course:'', code:'', abstract:'', year:'' })
+    setUpForm({ title:'', department:'General', level:'100' })
     showToast('Material submitted successfully!')
     load()
   }
@@ -234,43 +247,25 @@ function LibraryContent() {
             <div className="space-y-3">
               <div>
                 <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">Title *</label>
-                <input value={upForm.title} onChange={e=>setUpForm({...upForm,title:e.target.value})} className="input" placeholder={tab==='past-question'?'e.g. CSC 201 Past Questions 2022':'e.g. Introduction to Agronomy Notes'}/>
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">College *</label>
-                  <select value={upForm.college} onChange={e=>setUpForm({...upForm,college:e.target.value})} className="input py-2 text-xs">
-                    {COLLEGES.map(c=><option key={c} value={c}>{c.replace('College of ','')}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">Department *</label>
-                  <input value={upForm.department} onChange={e=>setUpForm({...upForm,department:e.target.value})} className="input" placeholder="e.g. Biochemistry"/>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">Level</label>
-                  <select value={upForm.level} onChange={e=>setUpForm({...upForm,level:e.target.value})} className="input py-2 text-xs">
-                    {['100','200','300','400','500'].map(l=><option key={l} value={l}>{l}L</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">Code *</label>
-                  <input value={upForm.code} onChange={e=>setUpForm({...upForm,code:e.target.value})} className="input" placeholder="CSC 201"/>
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">Year</label>
-                  <input value={upForm.year} onChange={e=>setUpForm({...upForm,year:e.target.value})} className="input" placeholder="2023"/>
-                </div>
+                <input value={upForm.title} onChange={e=>setUpForm({...upForm,title:e.target.value})} className="input"
+                  placeholder={tab==='past-question'?'e.g. CSC 201 Past Questions 2022':'e.g. Introduction to Agronomy Notes'}/>
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">Course Name</label>
-                <input value={upForm.course} onChange={e=>setUpForm({...upForm,course:e.target.value})} className="input" placeholder="e.g. Data Structures"/>
+                <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">Department *</label>
+                <select value={upForm.department} onChange={e=>setUpForm({...upForm,department:e.target.value})} className="input py-2.5 text-sm">
+                  {ALL_DEPARTMENTS.map(d=><option key={d} value={d}>{d}</option>)}
+                </select>
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">Brief Description</label>
-                <textarea rows={2} value={upForm.abstract} onChange={e=>setUpForm({...upForm,abstract:e.target.value})} className="input resize-none" placeholder="Optional: describe what's in this material..."/>
+                <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">Level</label>
+                <div className="flex gap-2">
+                  {['100','200','300','400','500'].map(l=>(
+                    <button key={l} onClick={()=>setUpForm({...upForm,level:l})}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${upForm.level===l?'bg-[#1a6b3a] text-white border-[#1a6b3a]':'border-[#e8e8e8] text-[#6b6b6b]'}`}>
+                      {l}L
+                    </button>
+                  ))}
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1 block">File * (PDF, Word, Image)</label>
