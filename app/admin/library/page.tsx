@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import AdminShell from '@/components/AdminShell'
 import { useAdmin } from '@/components/AdminProvider'
-import { Trash2, Loader2, CheckCircle2, Shield, FileText, Upload, X, Save, Lock, Link as LinkIcon } from 'lucide-react'
+import { Trash2, Loader2, CheckCircle2, Shield, FileText, Upload, X, Save, Lock, Link as LinkIcon, Edit2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { COLLEGES } from '@/lib/data'
 
@@ -24,6 +24,9 @@ export default function AdminLibraryPage() {
   const [toast, setToast] = useState('')
   const [tab, setTab] = useState<'all' | 'past-question' | 'note' | 'project'>('all')
   const [showUpload, setShowUpload] = useState(false)
+  const [editMat,    setEditMat]    = useState<Mat|null>(null)
+  const [editForm,   setEditForm]   = useState({ title:'', department:'', level:'', file_url:'' })
+  const [saving,     setSaving]     = useState(false)
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file')
   const [upFile, setUpFile] = useState<File | null>(null)
   const [urlInput, setUrlInput] = useState('')
@@ -105,6 +108,25 @@ export default function AdminLibraryPage() {
   }
 
   const filtered = tab === 'all' ? mats : mats.filter(m => m.type === tab)
+
+  const openEdit = (mat: Mat) => {
+    setEditMat(mat)
+    setEditForm({ title: mat.title, department: mat.department, level: mat.level.replace('L',''), file_url: mat.file_url || '' })
+  }
+
+  const saveEdit = async () => {
+    if (!editMat || !editForm.title.trim()) return
+    setSaving(true)
+    await supabase.from('library_materials').update({
+      title: editForm.title.trim(),
+      department: editForm.department.trim(),
+      level: editForm.level + (editForm.level.endsWith('L') ? '' : 'L'),
+      file_url: editForm.file_url.trim(),
+    }).eq('id', editMat.id)
+    setSaving(false)
+    setEditMat(null)
+    showToast('Material updated'); load()
+  }
 
   return (
     <AdminShell>
@@ -189,6 +211,10 @@ export default function AdminLibraryPage() {
                       <CheckCircle2 className="w-3.5 h-3.5"/>
                     </button>
                   )}
+                  <button onClick={() => openEdit(mat)}
+                    className="p-1.5 rounded-lg hover:bg-blue-50 text-[#aaa] hover:text-blue-500 transition-all" title="Edit">
+                    <Edit2 className="w-3.5 h-3.5"/>
+                  </button>
                   <button onClick={() => del(mat.id)}
                     className="p-1.5 rounded-lg hover:bg-red-50 text-[#aaa] hover:text-red-500 transition-all">
                     <Trash2 className="w-3.5 h-3.5"/>
@@ -339,6 +365,55 @@ export default function AdminLibraryPage() {
           </div>
         )}
       </div>
+      {/* Edit Modal */}
+      {editMat && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={()=>!saving&&setEditMat(null)}/>
+          <div className="relative w-full max-w-md bg-white rounded-t-2xl p-5 animate-slide-up" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-black text-[#0a0a0a]">Edit Material</h3>
+                <p className="text-[10px] text-[#aaa] mt-0.5">by {editMat.uploader}</p>
+              </div>
+              {!saving && <button onClick={()=>setEditMat(null)} className="p-1.5 rounded-full bg-[#f9f9f7]"><X className="w-4 h-4 text-[#6b6b6b]"/></button>}
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-semibold text-[#aaa] uppercase tracking-wide mb-1 block">Title *</label>
+                <input value={editForm.title} onChange={e=>setEditForm(f=>({...f,title:e.target.value}))}
+                  className="input text-sm" placeholder="Material title"/>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-semibold text-[#aaa] uppercase tracking-wide mb-1 block">Department</label>
+                  <input value={editForm.department} onChange={e=>setEditForm(f=>({...f,department:e.target.value}))}
+                    className="input text-sm" placeholder="e.g. General"/>
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-[#aaa] uppercase tracking-wide mb-1 block">Level</label>
+                  <select value={editForm.level} onChange={e=>setEditForm(f=>({...f,level:e.target.value}))} className="input text-sm py-2">
+                    {['100','200','300','400','500'].map(l=><option key={l} value={l}>{l}L</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-[#aaa] uppercase tracking-wide mb-1 block">File URL</label>
+                <textarea rows={3} value={editForm.file_url} onChange={e=>setEditForm(f=>({...f,file_url:e.target.value}))}
+                  className="input resize-none text-xs leading-relaxed" placeholder="https://drive.google.com/... or any file URL"/>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={()=>setEditMat(null)} disabled={saving}
+                  className="flex-1 py-2.5 border border-[#e8e8e8] rounded-xl text-sm font-semibold text-[#6b6b6b]">Cancel</button>
+                <button onClick={saveEdit} disabled={saving}
+                  className="flex-1 py-2.5 bg-[#1a6b3a] rounded-xl text-sm font-bold text-white flex items-center justify-center gap-1.5">
+                  {saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin"/> Saving...</> : <><Save className="w-3.5 h-3.5"/> Save Changes</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </AdminShell>
   )
 }
