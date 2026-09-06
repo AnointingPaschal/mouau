@@ -8,7 +8,7 @@ import { getCampusLocations } from '@/lib/db'
 import {
   MapPin, Navigation2, ArrowRight, Loader2, LocateFixed,
   ChevronDown, ChevronUp, CornerDownRight, MoveRight,
-  AlertCircle, ExternalLink, MapPinOff, ShieldAlert, RefreshCw, X
+  AlertCircle, ExternalLink, MapPinOff, ShieldAlert, RefreshCw, X, Search
 } from 'lucide-react'
 
 type Loc = { id:string; name:string; description:string; lat:number; lng:number; category:string; hours:string; directions:string }
@@ -122,10 +122,10 @@ function NavigateContent() {
     const cached = localStorage.getItem(LOC_KEY) === '1'
     if(cached){
       setLocState('granted')
-      doGetPos(true)
+      doGetPos(true) 
     } else {
       setLocState('requesting')
-      doGetPos(false)
+      doGetPos(false) 
     }
   },[doGetPos])
 
@@ -150,7 +150,7 @@ function NavigateContent() {
     toTimer.current = setTimeout(async()=>{ setToSugg(await fetchSugg(val)); setToLoading(false) }, 400)
   }
 
-  const getDirections = async () => {
+  const searchDirections = async () => {
     if(!toText.trim()){ setDirError('Enter a destination.'); return }
     setDirError(''); setLoadingDir(true); setDirResult(null)
 
@@ -182,7 +182,8 @@ function NavigateContent() {
   const openInApp = () => {
     const from = fromText || (userLat ? `${userLat},${userLng}` : 'Michael Okpara University, Umudike')
     const to   = toText   || 'Michael Okpara University of Agriculture, Umudike'
-    window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}&travelmode=driving`,'_blank')
+    // Adding dir_action=navigate forces immediate turn-by-turn navigation if app is installed
+    window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}&travelmode=driving&dir_action=navigate`,'_blank')
   }
 
   const retryLocation = () => { setLocState('requesting'); doGetPos(false) }
@@ -218,10 +219,13 @@ function NavigateContent() {
               {locState === 'granted' && userLat && !fromLoading && (
                 <button
                   onClick={async () => { 
-                    setGettingLoc(true)
-                    const pos = await doGetPos(true)
-                    setGettingLoc(false)
-                    if(pos) { setFromText(`${pos.lat.toFixed(6)},${pos.lng.toFixed(6)}`); setFromSugg([]) }
+                    setGettingLoc(true);
+                    const pos = await doGetPos(true);
+                    setGettingLoc(false);
+                    if(pos) {
+                      setFromText(`${pos.lat.toFixed(6)},${pos.lng.toFixed(6)}`); 
+                      setFromSugg([]);
+                    }
                   }}
                   className="px-2 text-[#1a6b3a] flex-shrink-0">
                   {gettingLoc ? <Loader2 className="w-4 h-4 animate-spin"/> : <LocateFixed className="w-4 h-4"/>}
@@ -312,14 +316,14 @@ function NavigateContent() {
             </div>
           )}
 
-          <button onClick={getDirections} disabled={loadingDir}
+          <button onClick={searchDirections} disabled={loadingDir}
             className="btn-primary w-full flex items-center justify-center gap-1.5">
             {loadingDir ? (
               <><Loader2 className="w-3.5 h-3.5 animate-spin"/>
-                {gettingLoc ? 'Getting your location...' : 'Finding route...'}
+                {gettingLoc ? 'Getting location...' : 'Searching...'}
               </>
             ) : (
-              <><Navigation2 className="w-3.5 h-3.5"/>Get Directions</>
+              <><Search className="w-3.5 h-3.5"/>Search</>
             )}
           </button>
         </div>
@@ -362,10 +366,10 @@ function NavigateContent() {
                       {totalDur  && <><span className="text-[#aaa] text-xs">·</span><span className="text-xs font-bold text-[#1a6b3a]">{totalDur}</span></>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-3 flex-shrink-0">
                     <button onClick={e => { e.stopPropagation(); openInApp() }}
-                      className="text-[10px] text-[#1a6b3a] font-semibold border border-[#1a6b3a]/20 rounded-full px-2.5 py-1 flex items-center gap-0.5">
-                      <ExternalLink className="w-2.5 h-2.5"/> Open
+                      className="bg-[#1a6b3a] text-white font-semibold rounded-full px-4 py-1.5 flex items-center gap-1 shadow-md hover:bg-[#1a6b3a]/90 transition-colors">
+                      <Navigation2 className="w-3 h-3 fill-current"/> Start
                     </button>
                     {showSteps ? <ChevronDown className="w-4 h-4 text-[#aaa]"/> : <ChevronUp className="w-4 h-4 text-[#aaa]"/>}
                   </div>
@@ -385,7 +389,7 @@ function NavigateContent() {
                       <div className="px-4 py-5 text-center">
                         <p className="text-xs text-[#aaa] mb-3">Route is shown on the map above.</p>
                         <button onClick={openInApp} className="btn-primary mx-auto flex items-center gap-1.5 text-xs">
-                          <ExternalLink className="w-3 h-3"/> Open Navigation
+                          <Navigation2 className="w-3 h-3"/> Start Navigation
                         </button>
                       </div>
                     ) : (
@@ -428,11 +432,11 @@ function NavigateContent() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-[#0a0a0a] text-xs">Route shown on map</p>
-                  <p className="text-[#aaa] text-[10px] mt-0.5">Tap Open for turn-by-turn navigation</p>
+                  <p className="text-[#aaa] text-[10px] mt-0.5">Tap Start for turn-by-turn navigation</p>
                 </div>
                 <button onClick={openInApp}
-                  className="bg-[#1a6b3a] text-white rounded-xl px-3 py-2 text-[10px] font-semibold flex items-center gap-1 flex-shrink-0">
-                  <ExternalLink className="w-3 h-3"/> Open
+                  className="bg-[#1a6b3a] text-white rounded-xl px-4 py-2 text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 shadow-md">
+                  <Navigation2 className="w-3 h-3"/> Start
                 </button>
               </div>
             </div>
