@@ -37,18 +37,43 @@ const TABS = [
 
 type TabId = 'past-question'|'note'|'project'
 
-// Force download via proxy
-async function forceDownload(url: string, title: string) {
+// Download handler — validates content before saving, handles expired S3 URLs
+async function forceDownload(url: string, title: string): Promise<'ok'|'expired'|'opened'> {
   try {
-    const proxyUrl = `/api/download?url=${encodeURIComponent(url)}`
+    const res = await fetch(url, { mode: 'cors' })
+
+    const ct = res.headers.get('content-type') || ''
+    // S3 returns XML on expired/invalid URL, APIs return JSON on error
+    const isError = !res.ok || ct.includes('xml') || ct.includes('json') || ct.includes('html')
+
+    if (isError) {
+      // URL likely expired or invalid — open directly so user sees the real error
+      window.open(url, '_blank')
+      return 'expired'
+    }
+
+    const blob = await res.blob()
+    // Double-check blob is actually a file type we expect
+    if (blob.size < 100) { window.open(url, '_blank'); return 'expired' }
+
+    const rawName = url.split('/').pop()?.split('?')[0] || ''
+    const urlExt  = rawName.includes('.') ? '.' + rawName.split('.').pop() : ''
+    const ctExt   = blob.type.includes('pdf') ? '.pdf'
+                  : blob.type.includes('word') ? '.docx'
+                  : blob.type.includes('image') ? '.jpg' : '.pdf'
+    const ext     = urlExt || ctExt
+    const safe    = title.replace(/[^a-zA-Z0-9\s-]/g, '').trim()
+
+    const blobUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = proxyUrl
-    a.download = title + '.pdf'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    a.href = blobUrl; a.download = (safe||'material') + ext
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000)
+    return 'ok'
   } catch {
+    // CORS blocked — open in browser tab, user can save from PDF viewer
     window.open(url, '_blank')
+    return 'opened'
   }
 }
 
@@ -107,9 +132,11 @@ function LibraryContent() {
     if (!item.file_url) { showToast('No file available'); return }
     setDownloading(item.id)
     await incrementDownload(item.id, item.downloads)
-    await forceDownload(item.file_url, item.title)
+    const dlResult = await forceDownload(item.file_url, item.title)
     setDownloading(null)
-    showToast('Download started')
+    if (dlResult === 'ok') showToast('Download started!')
+    else if (dlResult === 'expired') showToast('Link may have expired — opened in browser')
+    else showToast('Opened in browser — use browser download button to save')
     load()
   }
 
