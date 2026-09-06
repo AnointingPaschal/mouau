@@ -182,7 +182,6 @@ function NavigateContent() {
   const openInApp = () => {
     const from = fromText || (userLat ? `${userLat},${userLng}` : 'Michael Okpara University, Umudike')
     const to   = toText   || 'Michael Okpara University of Agriculture, Umudike'
-    // Adding dir_action=navigate forces immediate turn-by-turn navigation if app is installed
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}&travelmode=driving&dir_action=navigate`,'_blank')
   }
 
@@ -201,9 +200,10 @@ function NavigateContent() {
     <AppShell>
       <TopBar title="Campus Navigation" subtitle="Find your way around MOUAU"/>
 
-      <div className={`relative flex flex-col h-[calc(100vh-104px)] lg:h-[calc(100vh-60px)] transition-all duration-300 ${blur ? 'blur-md pointer-events-none select-none brightness-95' : ''}`}>
+      {/* Changed to dvh to fix address bar jumping, and adjusted height calculation */}
+      <div className={`relative flex flex-col h-[calc(100dvh-104px)] lg:h-[calc(100dvh-60px)] transition-all duration-300 ${blur ? 'blur-md pointer-events-none select-none brightness-95' : ''}`}>
 
-        <div className="bg-white border-b border-[#e8e8e8] px-3 py-3 space-y-2 z-20 relative">
+        <div className="bg-white border-b border-[#e8e8e8] px-3 py-3 space-y-2 z-20 relative shadow-sm">
           <div className="relative">
             <div className={`flex items-center border rounded-xl bg-white shadow-sm transition-colors ${fromFocus ? 'border-[#1a6b3a]' : 'border-[#e8e8e8]'}`}>
               <div className="px-3 flex-shrink-0"><div className="w-2.5 h-2.5 rounded-full bg-[#1a6b3a]"/></div>
@@ -317,7 +317,7 @@ function NavigateContent() {
           )}
 
           <button onClick={searchDirections} disabled={loadingDir}
-            className="btn-primary w-full flex items-center justify-center gap-1.5">
+            className="btn-primary w-full flex items-center justify-center gap-1.5 shadow-sm">
             {loadingDir ? (
               <><Loader2 className="w-3.5 h-3.5 animate-spin"/>
                 {gettingLoc ? 'Getting location...' : 'Searching...'}
@@ -328,7 +328,7 @@ function NavigateContent() {
           </button>
         </div>
 
-        <div className="flex-1 relative">
+        <div className="flex-1 relative bg-[#f9f9f7]">
           <CampusMap src={mapSrc} key={mapKey}/>
 
           <button onClick={openInApp}
@@ -337,7 +337,8 @@ function NavigateContent() {
           </button>
 
           {!dirResult && (
-            <div className="lg:hidden absolute bottom-4 left-0 right-0 z-10 px-3">
+            {/* LIFTED bottom-[80px] to escape bottom navigation */}
+            <div className="lg:hidden absolute bottom-[80px] lg:bottom-4 left-0 right-0 z-10 px-3">
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {locations.map(loc => (
                   <button key={loc.id} onClick={() => setToText(loc.name+', MOUAU Umudike')}
@@ -351,11 +352,12 @@ function NavigateContent() {
           )}
 
           {dirResult && !dirResult._noSteps && leg && (
-            <div className="absolute bottom-0 left-0 right-0 z-10">
-              <div className="bg-white rounded-t-2xl shadow-2xl border-t border-[#e8e8e8] flex flex-col max-h-[52vh]">
+            {/* LIFTED bottom-[72px] to escape bottom navigation */}
+            <div className="absolute bottom-[72px] lg:bottom-0 left-0 right-0 z-10">
+              <div className="bg-white rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)] border-t border-[#e8e8e8] flex flex-col max-h-[52vh]">
 
                 <button onClick={() => setShowSteps(!showSteps)}
-                  className="flex items-center gap-3 px-4 py-3 border-b border-[#f0f0f0] flex-shrink-0 w-full text-left">
+                  className="flex items-center gap-3 px-4 py-3 border-b border-[#f0f0f0] flex-shrink-0 w-full text-left bg-white rounded-t-2xl">
                   <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0">
                     <Navigation2 className="w-4 h-4 text-white"/>
                   </div>
@@ -384,7 +386,7 @@ function NavigateContent() {
                 </div>
 
                 {showSteps && (
-                  <div className="overflow-y-auto flex-1">
+                  <div className="overflow-y-auto flex-1 bg-white">
                     {steps.length === 0 ? (
                       <div className="px-4 py-5 text-center">
                         <p className="text-xs text-[#aaa] mb-3">Route is shown on the map above.</p>
@@ -411,7 +413,7 @@ function NavigateContent() {
                             </div>
                           )
                         })}
-                        <div className="flex items-center gap-2 px-4 py-3 bg-[#1a6b3a]/5">
+                        <div className="flex items-center gap-2 px-4 py-4 bg-[#1a6b3a]/5">
                           <div className="w-3 h-3 rounded-full bg-[#dc2626] flex-shrink-0"/>
                           <p className="text-xs font-semibold text-[#0a0a0a] flex-1">{toText.split(',')[0]}</p>
                           <span className="text-[10px] text-[#1a6b3a] font-semibold">Destination</span>
@@ -425,8 +427,9 @@ function NavigateContent() {
           )}
 
           {dirResult?._noSteps && (
-            <div className="absolute bottom-4 left-3 right-3 z-10">
-              <div className="bg-white rounded-2xl shadow-xl border border-[#e8e8e8] p-4 flex items-center gap-3">
+            {/* LIFTED bottom-[80px] to escape bottom navigation */}
+            <div className="absolute bottom-[80px] lg:bottom-4 left-3 right-3 z-10">
+              <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#e8e8e8] p-4 flex items-center gap-3">
                 <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0">
                   <Navigation2 className="w-4 h-4 text-white"/>
                 </div>
@@ -445,8 +448,8 @@ function NavigateContent() {
       </div>
 
       {showOverlay && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-white/10">
-          <div className="bg-white rounded-2xl shadow-2xl border border-[#e8e8e8] p-6 mx-4 max-w-xs w-full text-center animate-slide-up">
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-white/10 backdrop-blur-[2px]">
+          <div className="bg-white rounded-3xl shadow-2xl border border-[#e8e8e8] p-6 mx-4 max-w-xs w-full text-center animate-slide-up">
             {locState === 'requesting' ? (
               <>
                 <div className="w-16 h-16 bg-[#1a6b3a]/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -475,7 +478,7 @@ function NavigateContent() {
                 </div>
                 <h2 className="font-black text-[#0a0a0a] text-base mb-2">Location Access Denied</h2>
                 <p className="text-[#6b6b6b] text-sm leading-relaxed mb-3">Enable location for precise campus directions.</p>
-                <div className="bg-[#f9f9f7] rounded-xl p-3 mb-4 text-left">
+                <div className="bg-[#f9f9f7] rounded-xl p-3 mb-4 text-left border border-[#e8e8e8]">
                   <p className="text-[10px] font-semibold text-[#0a0a0a] mb-1.5 flex items-center gap-1.5">
                     <ShieldAlert className="w-3 h-3 text-amber-500"/> How to enable:
                   </p>
