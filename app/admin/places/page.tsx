@@ -39,14 +39,14 @@ export default function AdminPlacesPage() {
   const openAdd=()=>{ setEditing(null); setForm(EMPTY); setShowForm(true) }
   const openEdit=(p:Place)=>{
     setEditing(p)
-    setForm({name:p.name,description:p.description,category:p.category,lat:String(p.lat),lng:String(p.lng),hours:p.hours||'',directions:p.directions||'',active:p.active})
+    setForm({name:p.name,description:p.description,category:p.category,lat:String(p.lat),lng:String(p.lng),hours:p.hours||'',directions:p.directions||'',active:p.active!==false})
     setShowForm(true)
   }
 
   const save=async()=>{
     if(!form.name.trim()){ showToast('Name is required'); return }
     setSaving(true)
-    const payload={name:form.name.trim(),description:form.description.trim(),category:form.category,lat:parseFloat(String(form.lat))||5.48,lng:parseFloat(String(form.lng))||7.5455,hours:form.hours.trim(),directions:form.directions.trim(),active:form.active}
+    const payload={name:form.name.trim(),description:form.description.trim(),category:form.category,lat:parseFloat(String(form.lat))||5.48,lng:parseFloat(String(form.lng))||7.5455,hours:form.hours.trim(),directions:form.directions.trim(),active:Boolean(form.active)}
     if(editing){ await supabase.from('campus_locations').update(payload).eq('id',editing.id); showToast('Place updated') }
     else{ await supabase.from('campus_locations').insert(payload); showToast('Place added') }
     setSaving(false); setShowForm(false); load()
@@ -59,7 +59,28 @@ export default function AdminPlacesPage() {
   }
 
   const toggle=async(p:Place)=>{
-    await supabase.from('campus_locations').update({active:!p.active}).eq('id',p.id); load()
+    // null/undefined = was active before this feature existed
+    const wasActive = p.active === false ? false : true
+    await supabase.from('campus_locations').update({active:!wasActive}).eq('id',p.id); load()
+  }
+
+  const isActive=(p:Place)=> p.active !== false   // null/undefined = active (legacy rows)
+
+  const deduplicate=async()=>{
+    if(!confirm('Remove duplicate places? This keeps one copy of each name and deletes the rest.')) return
+    const seen = new Set<string>()
+    const toDelete: string[] = []
+    // Sort by id asc so we keep the oldest entry
+    const sorted = [...places].sort((a,b)=>a.id.localeCompare(b.id))
+    for(const p of sorted){
+      const key = p.name.trim().toLowerCase()
+      if(seen.has(key)) toDelete.push(p.id)
+      else seen.add(key)
+    }
+    if(toDelete.length===0){ showToast('No duplicates found'); return }
+    await Promise.all(toDelete.map(id=>supabase.from('campus_locations').delete().eq('id',id)))
+    showToast(`Removed ${toDelete.length} duplicate${toDelete.length>1?'s':''}`)
+    load()
   }
 
   const filtered=places.filter(p=>{
@@ -80,11 +101,16 @@ export default function AdminPlacesPage() {
           <div>
             <p className="text-[10px] text-[#aaa] uppercase tracking-widest">ADMIN</p>
             <h1 className="font-black text-[#0a0a0a] text-2xl">Campus Places</h1>
-            <p className="text-xs text-[#6b6b6b] mt-0.5">{places.length} locations · {places.filter(p=>p.active).length} active</p>
+            <p className="text-xs text-[#6b6b6b] mt-0.5">{places.length} locations · {places.filter(p=>p.active!==false).length} active</p>
           </div>
-          <button onClick={openAdd} className="flex items-center gap-1.5 bg-[#1a6b3a] text-white text-xs font-bold px-3.5 py-2 rounded-xl">
-            <Plus className="w-3.5 h-3.5"/> Add Place
-          </button>
+          <div className="flex gap-2">
+            <button onClick={deduplicate} className="flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-bold px-3 py-2 rounded-xl border border-red-100">
+              Dedupe
+            </button>
+            <button onClick={openAdd} className="flex items-center gap-1.5 bg-[#1a6b3a] text-white text-xs font-bold px-3.5 py-2 rounded-xl">
+              <Plus className="w-3.5 h-3.5"/> Add Place
+            </button>
+          </div>
         </div>
 
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search places..."
@@ -116,7 +142,7 @@ export default function AdminPlacesPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <p className="font-bold text-[#0a0a0a] text-sm truncate">{p.name}</p>
-                      {!p.active&&<span className="text-[9px] bg-[#f0f0f0] text-[#aaa] px-1.5 py-0.5 rounded-full font-bold">Hidden</span>}
+                      {!isActive(p)&&<span className="text-[9px] bg-[#f0f0f0] text-[#aaa] px-1.5 py-0.5 rounded-full font-bold">Hidden</span>}
                     </div>
                     <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold rounded-full capitalize text-white mb-1" style={{background:CAT_COLORS[p.category]||'#aaa'}}>{p.category}</span>
                     {p.description&&<p className="text-[#6b6b6b] text-xs leading-relaxed line-clamp-2">{p.description}</p>}
@@ -124,8 +150,8 @@ export default function AdminPlacesPage() {
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button onClick={()=>toggle(p)} title={p.active?'Hide':'Show'}
-                      className={`p-1.5 rounded-lg text-xs font-bold transition-all ${p.active?'bg-[#1a6b3a]/10 text-[#1a6b3a]':'bg-[#f0f0f0] text-[#aaa]'}`}>
-                      {p.active?'●':'○'}
+                      className={`p-1.5 rounded-lg text-xs font-bold transition-all ${isActive(p)?'bg-[#1a6b3a]/10 text-[#1a6b3a]':'bg-[#f0f0f0] text-[#aaa]'}`}>
+                      {isActive(p)?'●':'○'}
                     </button>
                     <button onClick={()=>openEdit(p)} className="p-1.5 rounded-lg hover:bg-blue-50 text-[#aaa] hover:text-blue-500 transition-all">
                       <Edit2 className="w-3.5 h-3.5"/>
