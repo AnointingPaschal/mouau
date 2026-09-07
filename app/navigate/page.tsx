@@ -18,7 +18,7 @@ type Step = { html_instructions?:string; instructions?:string; distance?:{ text:
 const COLORS:Record<string,string> = {
   college:'#1a6b3a', admin:'#0a0a0a', hostel:'#6b6b6b',
   social:'#d97706', health:'#dc2626', worship:'#7c3aed',
-  sport:'#2563eb', library:'#0891b2', lecture:'#ea580c'
+  sport:'#2563eb', library:'#0891b2', lecture:'#ea580c', lodge:'#6366f1'
 }
 const DEFAULT_SRC = 'https://maps.google.com/maps?q=Michael+Okpara+University+of+Agriculture+Umudike&output=embed&z=16&t=k'
 const LOC_KEY = 'mouau_location_granted'
