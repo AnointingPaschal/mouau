@@ -12,8 +12,14 @@ export default function NotificationPrompt() {
   useEffect(() => {
     if (!student?.idNumber) return
     if (!('Notification' in window)) return
-    if (Notification.permission === 'granted') return
-    if (Notification.permission === 'denied')  return
+    if (Notification.permission === 'denied') return
+    // If already granted, silently re-subscribe to ensure token is registered
+    if (Notification.permission === 'granted') {
+      import('@/lib/notifications').then(({ subscribeToPush }) => {
+        subscribeToPush(student.idNumber).catch(() => {})
+      })
+      return
+    }
     if (localStorage.getItem('notif_dismissed') === 'yes') return
     const t = setTimeout(() => setShow(true), 3000)
     return () => clearTimeout(t)
@@ -25,8 +31,8 @@ export default function NotificationPrompt() {
       const perm = await Notification.requestPermission()
       if (perm === 'granted') {
         const { subscribeToPush } = await import('@/lib/notifications')
-        await subscribeToPush(student!.idNumber)
-        setStatus('granted')
+        const ok = await subscribeToPush(student!.idNumber)
+        setStatus(ok ? 'granted' : 'denied')
         localStorage.setItem('notif_dismissed', 'yes')
         setTimeout(() => setShow(false), 2500)
       } else {
@@ -41,10 +47,7 @@ export default function NotificationPrompt() {
     setLoading(false)
   }
 
-  const dismiss = () => {
-    localStorage.setItem('notif_dismissed', 'yes')
-    setShow(false)
-  }
+  const dismiss = () => { localStorage.setItem('notif_dismissed', 'yes'); setShow(false) }
 
   if (!show) return null
 
@@ -52,7 +55,6 @@ export default function NotificationPrompt() {
     <div className="fixed bottom-20 left-3 right-3 z-[60] animate-slide-up lg:bottom-6 lg:left-auto lg:right-6 lg:w-80">
       <div className="bg-[#0a0a0a] rounded-2xl shadow-2xl overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-[#1a6b3a] to-[#4ade80]"/>
-
         {status === 'granted' ? (
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0">
@@ -68,7 +70,7 @@ export default function NotificationPrompt() {
             <div className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
               <BellOff className="w-4 h-4 text-white/50"/>
             </div>
-            <p className="text-white/60 text-xs">Enable in browser settings to get notifications.</p>
+            <p className="text-white/60 text-xs">Enable in browser Settings → Site Settings → Notifications to get alerts.</p>
           </div>
         ) : (
           <div className="p-4">
