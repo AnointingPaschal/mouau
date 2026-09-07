@@ -10,8 +10,8 @@ type Place = {
   lat:number; lng:number; hours:string; directions:string; active:boolean
 }
 
-const CATS = ['academic','admin','hostel','social','health','worship','sport','other']
-const CAT_COLORS:Record<string,string> = { academic:'#1a6b3a', admin:'#0a0a0a', hostel:'#6b6b6b', social:'#d97706', health:'#dc2626', worship:'#7c3aed', sport:'#2563eb', other:'#aaa' }
+const CATS = ['academic','admin','hostel','social','health','library','lecture','worship','sport','other']
+const CAT_COLORS:Record<string,string> = { academic:'#1a6b3a', admin:'#0a0a0a', hostel:'#6b6b6b', social:'#d97706', health:'#dc2626', worship:'#7c3aed', sport:'#2563eb', library:'#0891b2', lecture:'#ea580c', other:'#aaa' }
 const EMPTY = { name:'', description:'', category:'academic', lat:'5.4800', lng:'7.5455', hours:'', directions:'', active:true }
 
 export default function AdminPlacesPage() {
