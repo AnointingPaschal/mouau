@@ -140,27 +140,30 @@ export default function PlacesPage() {
                     <div className="grid grid-cols-2 gap-2.5">
                       {items.map(loc => (
                         <div key={loc.id}
-                          className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all active:scale-[0.98]">
+                          className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all active:scale-[0.98] flex flex-col">
                           {/* Colored top strip */}
-                          <div className={`h-1 bg-gradient-to-r ${cfg.gradient}`}/>
+                          <div className={`h-1 bg-gradient-to-r ${cfg.gradient} flex-shrink-0`}/>
 
-                          <div className="p-3">
+                          <div className="p-3 flex flex-col flex-1">
                             {/* Icon circle */}
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2.5 flex-shrink-0"
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-2 flex-shrink-0"
                               style={{background: cfg.color + '15'}}>
-                              <Icon className="w-4 h-4" style={{color: cfg.color}}/>
+                              <Icon className="w-3.5 h-3.5" style={{color: cfg.color}}/>
                             </div>
 
-                            {/* Name */}
-                            <h3 className="font-black text-[#0a0a0a] text-xs leading-tight mb-1 line-clamp-2">{loc.name}</h3>
+                            {/* Name — smaller, max 2 lines */}
+                            <h3 className="font-bold text-[#0a0a0a] text-[11px] leading-snug mb-1 line-clamp-2 flex-shrink-0">{loc.name}</h3>
 
-                            {/* Address - subtle */}
+                            {/* Address — 1 line only */}
                             {loc.description && (
-                              <p className="text-[9px] text-[#aaa] leading-relaxed line-clamp-2 mb-3">{loc.description}</p>
+                              <p className="text-[9px] text-[#bbb] leading-relaxed line-clamp-1 flex-shrink-0">{loc.description}</p>
                             )}
 
-                            {/* Action buttons */}
-                            <div className="flex gap-1.5">
+                            {/* Spacer pushes buttons to bottom */}
+                            <div className="flex-1"/>
+
+                            {/* Action buttons always at bottom */}
+                            <div className="flex gap-1.5 mt-2.5">
                               <button onClick={()=>goToMap(loc)}
                                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-bold border border-[#e8e8e8] text-[#6b6b6b] hover:border-[#0a0a0a] hover:text-[#0a0a0a] transition-all">
                                 <MapPin className="w-2.5 h-2.5"/> View
