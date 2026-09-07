@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import webpush from 'web-push'
 import { supabase } from '@/lib/supabase'
 
-const VAPID_PUBLIC  = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY  || 'BHCnIlIks2ps2aMp_ufHTOjkZrwiRd9hL6u23Z1jAnFcClD-wy-vXCgQxHnQDfxohnQyZVfRadvJL4mRkYVezgo'
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || 'ze6wll79-XpBHxXKNwmG5eRqCUCJ9J8qxszHIYt2GP4'
-const VAPID_EMAIL   = process.env.VAPID_EMAIL || 'mailto:onespiritgate@gmail.com'
+// Lazy-init firebase-admin to avoid SSR issues
+let messaging: any = null
 
-webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE)
+async function getMessaging() {
+  if (messaging) return messaging
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const admin = require('firebase-admin')
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId:   process.env.FIREBASE_ADMIN_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+        privateKey:  (process.env.FIREBASE_ADMIN_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+      }),
+    })
+  }
+  messaging = admin.messaging()
+  return messaging
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,29 +28,41 @@ export async function POST(req: NextRequest) {
 
     const { data: subs } = await supabase
       .from('push_subscriptions')
-      .select('*')
+      .select('fcm_token')
       .eq('student_id', studentId)
 
     if (!subs?.length) return NextResponse.json({ sent: 0 })
 
-    const payload = JSON.stringify({ title, body, url: url || '/forum', tag: 'freshstart-' + Date.now() })
-    const results = await Promise.allSettled(
-      subs.map(sub =>
-        webpush.sendNotification({
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth }
-        }, payload)
-      )
-    )
+    const msg = await getMessaging()
+    const tokens: string[] = subs.map((s: any) => s.fcm_token)
 
-    // Remove expired/invalid subscriptions
-    const failed = results.map((r, i) => r.status === 'rejected' ? subs[i].endpoint : null).filter(Boolean)
-    if (failed.length) {
-      await supabase.from('push_subscriptions').delete().in('endpoint', failed as string[])
-    }
+    const result = await msg.sendEachForMulticast({
+      notification: { title: title || 'MOUAU FreshStart', body: body || '' },
+      data:         { url: url || '/dashboard' },
+      android: {
+        priority: 'high',
+        notification: { color: '#1a6b3a', sound: 'default', channelId: 'freshstart_default' },
+      },
+      webpush: {
+        fcmOptions:   { link: `https://mouau-rose.vercel.app${url || '/dashboard'}` },
+        notification: { icon: '/icon-192.png', badge: '/icon-192.png' },
+      },
+      tokens,
+    })
 
-    return NextResponse.json({ sent: results.filter(r => r.status === 'fulfilled').length })
+    // Remove invalid/expired tokens
+    const bad: string[] = []
+    result.responses.forEach((r: any, i: number) => {
+      const code = r.error?.code || ''
+      if (!r.success && (code.includes('invalid-registration') || code.includes('not-registered'))) {
+        bad.push(tokens[i])
+      }
+    })
+    if (bad.length) await supabase.from('push_subscriptions').delete().in('fcm_token', bad)
+
+    return NextResponse.json({ sent: result.successCount, failed: result.failureCount })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    console.error('FCM send error:', e?.message)
+    return NextResponse.json({ error: e?.message || 'Failed' }, { status: 500 })
   }
 }

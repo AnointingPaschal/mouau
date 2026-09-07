@@ -146,3 +146,18 @@ CREATE POLICY "public_all_push_subs" ON public.push_subscriptions FOR ALL USING 
 -- Add email_notifications and push_notifications prefs to students
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS email_notifications BOOLEAN DEFAULT true;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS push_notifications  BOOLEAN DEFAULT true;
+
+-- ===========================================
+-- 7. FCM PUSH SUBSCRIPTIONS (Firebase)
+-- ===========================================
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  student_id  TEXT NOT NULL,
+  fcm_token   TEXT NOT NULL,
+  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(fcm_token)
+);
+ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "public_all_push_subs" ON public.push_subscriptions;
+CREATE POLICY "public_all_push_subs" ON public.push_subscriptions FOR ALL USING (true) WITH CHECK (true);

@@ -1,26 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
+import nodemailer from 'nodemailer'
 
-const RESEND_KEY = process.env.RESEND_API_KEY
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,  // Gmail App Password (not your login password)
+  },
+})
 
 export async function POST(req: NextRequest) {
-  if (!RESEND_KEY) return NextResponse.json({ error: 'Email not configured' }, { status: 503 })
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    return NextResponse.json({ error: 'Email not configured' }, { status: 503 })
+  }
   try {
     const { to, subject, html } = await req.json()
     if (!to || !subject) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_KEY}` },
-      body: JSON.stringify({
-        from: 'MOUAU FreshStart <notifications@mouaufreshstart.com>',
-        to: Array.isArray(to) ? to : [to],
-        subject,
-        html: html || `<p>${subject}</p>`,
-      })
+    await transporter.sendMail({
+      from: `"MOUAU FreshStart" <${process.env.GMAIL_USER}>`,
+      to:   Array.isArray(to) ? to.join(',') : to,
+      subject,
+      html: html || `<p>${subject}</p>`,
     })
-    const data = await res.json()
-    return NextResponse.json(data)
+    return NextResponse.json({ ok: true })
   } catch (e: any) {
+    console.error('Email error:', e)
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
