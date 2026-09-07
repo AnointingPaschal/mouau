@@ -6,7 +6,7 @@ import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { 
   Camera, Save, Loader2, CheckCircle2, User, Mail, 
-  Phone, BookOpen, GraduationCap, LogOut, Edit3, X 
+  Phone, BookOpen, GraduationCap, LogOut, Edit3, X, AlertCircle 
 } from 'lucide-react'
 
 export default function ProfilePage() {
@@ -22,6 +22,7 @@ export default function ProfilePage() {
   // Edit Mode State
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving]   = useState(false)
+  const [errorMsg, setErrorMsg]   = useState('')
   const [formData, setFormData]   = useState({
     name: '',
     department: '',
@@ -67,10 +68,13 @@ export default function ProfilePage() {
     setUploading(false)
   }
 
-  // Handle Profile Save
+  // Handle Profile Save with Upsert Fallback and Error Handling
   const handleSaveProfile = async () => {
     setIsSaving(true)
-    const { error } = await supabase
+    setErrorMsg('')
+
+    // 1. Attempt standard update and select the modified row to confirm success
+    const { data, error } = await supabase
       .from('students')
       .update({
         name: formData.name,
@@ -80,15 +84,42 @@ export default function ProfilePage() {
         level: formData.level
       })
       .eq('id_number', student?.idNumber)
+      .select()
 
-    if (!error) {
-      // Update local state to reflect changes instantly
-      setDbStudent({ ...dbStudent, ...formData })
-      setIsEditing(false)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+    if (error) {
+      console.error("Update error:", error)
+      setErrorMsg(error.message)
+    } else if (!data || data.length === 0) {
+      // 2. If no error but no rows returned, the student record doesn't exist yet. Fallback to upsert.
+      const { error: upsertError } = await supabase
+        .from('students')
+        .upsert({
+          id_number: student?.idNumber,
+          name: formData.name,
+          department: formData.department,
+          email: formData.email,
+          whatsapp: formData.whatsapp,
+          level: formData.level
+        })
+
+      if (upsertError) {
+        console.error("Upsert error:", upsertError)
+        setErrorMsg(upsertError.message)
+      } else {
+        handleSuccess()
+      }
+    } else {
+      // 3. Update was successful
+      handleSuccess()
     }
     setIsSaving(false)
+  }
+
+  const handleSuccess = () => {
+    setDbStudent({ ...dbStudent, ...formData })
+    setIsEditing(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
   }
 
   const [downloads, setDownloads] = useState(0)
@@ -150,11 +181,11 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#f0f0f0] bg-[#f9f9f7]">
             <h3 className="text-xs font-bold text-[#0a0a0a] uppercase tracking-wide">Personal Details</h3>
             {!isEditing ? (
-              <button onClick={() => setIsEditing(true)} className="text-[11px] font-semibold text-[#1a6b3a] flex items-center gap-1 bg-[#1a6b3a]/10 px-2.5 py-1 rounded-full hover:bg-[#1a6b3a]/20 transition-colors">
+              <button onClick={() => { setIsEditing(true); setErrorMsg(''); }} className="text-[11px] font-semibold text-[#1a6b3a] flex items-center gap-1 bg-[#1a6b3a]/10 px-2.5 py-1 rounded-full hover:bg-[#1a6b3a]/20 transition-colors">
                 <Edit3 className="w-3 h-3"/> Edit
               </button>
             ) : (
-              <button onClick={() => setIsEditing(false)} className="text-[11px] font-semibold text-[#6b6b6b] flex items-center gap-1 bg-white border border-[#e8e8e8] px-2.5 py-1 rounded-full hover:bg-[#f0f0f0]">
+              <button onClick={() => { setIsEditing(false); setErrorMsg(''); }} className="text-[11px] font-semibold text-[#6b6b6b] flex items-center gap-1 bg-white border border-[#e8e8e8] px-2.5 py-1 rounded-full hover:bg-[#f0f0f0]">
                 <X className="w-3 h-3"/> Cancel
               </button>
             )}
@@ -249,6 +280,17 @@ export default function ProfilePage() {
                   placeholder="08012345678"
                 />
               </div>
+
+              {/* Explicit Error Display */}
+              {errorMsg && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-xl mt-2 animate-fade-in">
+                  <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5"/>
+                  <p className="text-xs text-red-600 font-medium leading-relaxed">
+                    Failed to save: {errorMsg}. <br />
+                    <span className="text-[10px] font-normal">If this is an RLS policy issue, check your Supabase dashboard to ensure the user is allowed to update/insert.</span>
+                  </p>
+                </div>
+              )}
 
               <button 
                 onClick={handleSaveProfile} 
