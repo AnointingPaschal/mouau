@@ -85,7 +85,7 @@ export default function Dashboard() {
                 <p className="text-white/40 text-[10px] font-semibold tracking-widest uppercase">MOUAU · 2024/2025</p>
                 <h2 className="text-white font-black text-xl leading-tight mt-1">
                   {student?.name?.split(' ')[0]}'s<br/>
-                  <span className="text-[#1a6b3a]">Campus Hub</span>
+                  <span className="text-[#4ade80]">Campus Hub</span>
                 </h2>
                 <p className="text-white/40 text-xs mt-1">{student?.level || '100'} Level Student</p>
               </div>

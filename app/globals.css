@@ -139,7 +139,7 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #fff; color: #0a
   100% { transform: translateX(300%) skewX(-15deg); }
 }
 .places-banner-gradient {
-  background: linear-gradient(135deg, #1a6b3a, #0f4a28, #2d9e5f, #1a6b3a, #145530, #22c55e, #1a6b3a);
+  background: linear-gradient(135deg, #1a6b3a, #0d4a26, #145530, #0a3d1f, #1a6b3a, #0f5c30, #145530);
   background-size: 400% 400%;
   animation: gradientShift 4s ease infinite;
 }
@@ -147,6 +147,6 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #fff; color: #0a
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
   animation: shimmer 2.5s ease infinite;
 }
