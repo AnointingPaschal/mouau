@@ -16,7 +16,7 @@ type Prediction = { description:string; place_id:string; structured_formatting?:
 type Step = { html_instructions?:string; instructions?:string; distance?:{ text:string }; duration?:{ text:string }; maneuver?:string }
 
 const COLORS:Record<string,string> = {
-  academic:'#1a6b3a', admin:'#0a0a0a', hostel:'#6b6b6b',
+  college:'#1a6b3a', admin:'#0a0a0a', hostel:'#6b6b6b',
   social:'#d97706', health:'#dc2626', worship:'#7c3aed',
   sport:'#2563eb', library:'#0891b2', lecture:'#ea580c'
 }

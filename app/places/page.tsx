@@ -17,7 +17,7 @@ const CAT_CONFIG: Record<string, { label: string; color: string; bg: string; Ico
   worship:  { label: 'Worship',   color: '#7c3aed', bg: 'violet-50',  Icon: BookOpen },
   sport:    { label: 'Sport',     color: '#2563eb', bg: 'blue-50',    Icon: Dumbbell },
 }
-const CATS = ['all', 'academic', 'admin', 'hostel', 'social', 'health', 'library', 'lecture', 'worship', 'sport']
+const CATS = ['all', 'college', 'admin', 'hostel', 'social', 'health', 'library', 'lecture', 'worship', 'sport']
 
 export default function PlacesPage() {
   const router = useRouter()
