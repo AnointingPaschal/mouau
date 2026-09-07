@@ -1,27 +1,25 @@
 'use client'
 import { useEffect, useState } from 'react'
 import AdminShell from '@/components/AdminShell'
-import { useAdmin } from '@/components/AdminProvider'
 import { supabase } from '@/lib/supabase'
 import { Plus, Trash2, Edit2, X, Save, Loader2, MapPin, CheckCircle2 } from 'lucide-react'
 
-type Place = {
-  id:string; name:string; description:string; category:string
-  lat:number; lng:number; hours:string; directions:string; active:boolean
-}
+type Place = { id:string; name:string; description:string; category:string; lat:number; lng:number; hours:string; directions:string; active:boolean }
 
 const CATS = ['college','admin','hostel','lodge','social','health','library','lecture','worship','sport','other']
-const CAT_COLORS:Record<string,string> = { college:'#1a6b3a', admin:'#0a0a0a', hostel:'#6b6b6b', social:'#d97706', health:'#dc2626', worship:'#7c3aed', sport:'#2563eb', library:'#0891b2', lecture:'#ea580c', lodge:'#6366f1', other:'#aaa' }
-const EMPTY = { name:'', description:'', category:'college', lat:'5.4800', lng:'7.5455', hours:'', directions:'', active:true }
+const CAT_COLORS:Record<string,string> = {
+  college:'#1a6b3a', admin:'#1e293b', hostel:'#6b6b6b', lodge:'#6366f1',
+  social:'#d97706', health:'#dc2626', library:'#0891b2',
+  lecture:'#ea580c', worship:'#7c3aed', sport:'#2563eb', other:'#aaa'
+}
 
 export default function AdminPlacesPage() {
-  const { token } = useAdmin()
   const [places,   setPlaces]   = useState<Place[]>([])
   const [loading,  setLoading]  = useState(true)
   const [toast,    setToast]    = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editing,  setEditing]  = useState<Place|null>(null)
-  const [form,     setForm]     = useState(EMPTY)
+  const [form,     setForm]     = useState({ name:'', description:'', category:'college', lat:'5.4800', lng:'7.5455', hours:'', directions:'', active:true })
   const [saving,   setSaving]   = useState(false)
   const [search,   setSearch]   = useState('')
   const [catFilter,setCatFilter]= useState('all')
@@ -36,7 +34,9 @@ export default function AdminPlacesPage() {
   }
   useEffect(()=>{ load() },[])
 
-  const openAdd=()=>{ setEditing(null); setForm(EMPTY); setShowForm(true) }
+  const isActive=(p:Place)=> p.active!==false
+
+  const openAdd=()=>{ setEditing(null); setForm({name:'',description:'',category:'college',lat:'5.4800',lng:'7.5455',hours:'',directions:'',active:true}); setShowForm(true) }
   const openEdit=(p:Place)=>{
     setEditing(p)
     setForm({name:p.name,description:p.description,category:p.category,lat:String(p.lat),lng:String(p.lng),hours:p.hours||'',directions:p.directions||'',active:p.active!==false})
@@ -59,28 +59,19 @@ export default function AdminPlacesPage() {
   }
 
   const toggle=async(p:Place)=>{
-    // null/undefined = was active before this feature existed
-    const wasActive = p.active === false ? false : true
-    await supabase.from('campus_locations').update({active:!wasActive}).eq('id',p.id); load()
+    await supabase.from('campus_locations').update({active:!isActive(p)}).eq('id',p.id); load()
   }
 
-  const isActive=(p:Place)=> p.active !== false   // null/undefined = active (legacy rows)
-
   const deduplicate=async()=>{
-    if(!confirm('Remove duplicate places? This keeps one copy of each name and deletes the rest.')) return
-    const seen = new Set<string>()
-    const toDelete: string[] = []
-    // Sort by id asc so we keep the oldest entry
-    const sorted = [...places].sort((a,b)=>a.id.localeCompare(b.id))
-    for(const p of sorted){
-      const key = p.name.trim().toLowerCase()
-      if(seen.has(key)) toDelete.push(p.id)
-      else seen.add(key)
-    }
+    if(!confirm('Remove duplicate places? Keeps oldest entry per name.')) return
+    const seen:{[k:string]:boolean}={}; const toDelete:string[]=[]
+    places.slice().sort((a,b)=>a.id.localeCompare(b.id)).forEach(p=>{
+      const key=p.name.trim().toLowerCase()
+      if(seen[key]) toDelete.push(p.id); else seen[key]=true
+    })
     if(toDelete.length===0){ showToast('No duplicates found'); return }
     await Promise.all(toDelete.map(id=>supabase.from('campus_locations').delete().eq('id',id)))
-    showToast(`Removed ${toDelete.length} duplicate${toDelete.length>1?'s':''}`)
-    load()
+    showToast(`Removed ${toDelete.length} duplicate${toDelete.length>1?'s':''}`); load()
   }
 
   const filtered=places.filter(p=>{
@@ -89,6 +80,36 @@ export default function AdminPlacesPage() {
     return true
   })
 
+  // Group by category for "all" view
+  const grouped = CATS.reduce((acc,c)=>{
+    const items=filtered.filter(p=>p.category===c)
+    if(items.length>0) acc[c]=items
+    return acc
+  },{} as Record<string,Place[]>)
+  const uncategorized=filtered.filter(p=>!CATS.includes(p.category))
+  if(uncategorized.length>0) grouped['other']=[...(grouped['other']||[]),...uncategorized]
+
+  const PlaceCard=({p}:{p:Place})=>(
+    <div className={`card p-3 ${!isActive(p)?'opacity-50':''}`}>
+      <div className="flex items-start gap-2.5">
+        <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{background:CAT_COLORS[p.category]||'#aaa',minHeight:36,width:3}}/>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <p className="font-bold text-[#0a0a0a] text-sm truncate flex-1">{p.name}</p>
+            {!isActive(p)&&<span className="text-[8px] bg-[#f0f0f0] text-[#aaa] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">Hidden</span>}
+          </div>
+          <p className="text-[10px] text-[#aaa] truncate">{p.description}</p>
+          <p className="text-[9px] text-[#ccc] mt-0.5">📍 {p.lat?.toFixed(4)}, {p.lng?.toFixed(4)}</p>
+        </div>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <button onClick={()=>toggle(p)} className={`p-1.5 rounded-lg text-xs font-bold transition-all ${isActive(p)?'bg-[#1a6b3a]/10 text-[#1a6b3a]':'bg-[#f0f0f0] text-[#aaa]'}`}>{isActive(p)?'●':'○'}</button>
+          <button onClick={()=>openEdit(p)} className="p-1.5 rounded-lg hover:bg-blue-50 text-[#aaa] hover:text-blue-500 transition-all"><Edit2 className="w-3.5 h-3.5"/></button>
+          <button onClick={()=>del(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-[#aaa] hover:text-red-500 transition-all"><Trash2 className="w-3.5 h-3.5"/></button>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <AdminShell>
       {toast&&(
@@ -96,70 +117,72 @@ export default function AdminPlacesPage() {
           <CheckCircle2 className="w-3.5 h-3.5 text-[#1a6b3a]"/> {toast}
         </div>
       )}
+
       <div className="p-4 space-y-4 max-w-2xl mx-auto pb-24">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] text-[#aaa] uppercase tracking-widest">ADMIN</p>
             <h1 className="font-black text-[#0a0a0a] text-2xl">Campus Places</h1>
-            <p className="text-xs text-[#6b6b6b] mt-0.5">{places.length} locations · {places.filter(p=>p.active!==false).length} active</p>
+            <p className="text-xs text-[#6b6b6b] mt-0.5">{places.length} total · {places.filter(p=>p.active!==false).length} active</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={deduplicate} className="flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-bold px-3 py-2 rounded-xl border border-red-100">
-              Dedupe
-            </button>
+            <button onClick={deduplicate} className="bg-red-50 text-red-600 text-xs font-bold px-3 py-2 rounded-xl border border-red-100">Dedupe</button>
             <button onClick={openAdd} className="flex items-center gap-1.5 bg-[#1a6b3a] text-white text-xs font-bold px-3.5 py-2 rounded-xl">
               <Plus className="w-3.5 h-3.5"/> Add Place
             </button>
           </div>
         </div>
 
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search places..."
-          className="input w-full text-sm"/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search places..." className="input w-full text-sm"/>
 
+        {/* Category filter chips */}
         <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {['all',...CATS].map(c=>(
-            <button key={c} onClick={()=>setCatFilter(c)}
-              className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold capitalize transition-all ${catFilter===c?'bg-[#0a0a0a] text-white':'bg-white border border-[#e8e8e8] text-[#6b6b6b]'}`}>
-              {c}
-            </button>
-          ))}
+          <button onClick={()=>setCatFilter('all')}
+            className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${catFilter==='all'?'bg-[#0a0a0a] text-white':'bg-white border border-[#e8e8e8] text-[#6b6b6b]'}`}>
+            All
+          </button>
+          {CATS.map(c=>{
+            const count=places.filter(p=>p.category===c).length
+            if(count===0) return null
+            return (
+              <button key={c} onClick={()=>setCatFilter(catFilter===c?'all':c)}
+                className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold capitalize transition-all border-2 ${catFilter===c?'text-white border-transparent':'border-[#e8e8e8] text-[#6b6b6b]'}`}
+                style={catFilter===c?{background:CAT_COLORS[c]}:{}}>
+                {c} <span className="opacity-60">({count})</span>
+              </button>
+            )
+          })}
         </div>
 
-        {loading?(
+        {/* Content */}
+        {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 text-[#1a6b3a] animate-spin"/></div>
-        ):filtered.length===0?(
-          <div className="card p-10 text-center">
-            <MapPin className="w-8 h-8 text-[#ddd] mx-auto mb-2"/>
-            <p className="text-sm font-semibold text-[#0a0a0a]">No places found</p>
-            <button onClick={openAdd} className="btn-primary mt-3 mx-auto">Add First Place</button>
-          </div>
-        ):(
+        ) : catFilter!=='all' ? (
+          // Single category flat list
           <div className="space-y-2">
-            {filtered.map(p=>(
-              <div key={p.id} className={`card p-3.5 ${!p.active?'opacity-50':''}`}>
-                <div className="flex items-start gap-3">
-                  <div className="w-0.5 self-stretch rounded-full flex-shrink-0 mt-1" style={{background:CAT_COLORS[p.category]||'#aaa',minHeight:40,width:3}}/>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-bold text-[#0a0a0a] text-sm truncate">{p.name}</p>
-                      {!isActive(p)&&<span className="text-[9px] bg-[#f0f0f0] text-[#aaa] px-1.5 py-0.5 rounded-full font-bold">Hidden</span>}
-                    </div>
-                    <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold rounded-full capitalize text-white mb-1" style={{background:CAT_COLORS[p.category]||'#aaa'}}>{p.category}</span>
-                    {p.description&&<p className="text-[#6b6b6b] text-xs leading-relaxed line-clamp-2">{p.description}</p>}
-                    <p className="text-[10px] text-[#aaa] mt-1">📍 {p.lat?.toFixed(4)}, {p.lng?.toFixed(4)}</p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button onClick={()=>toggle(p)} title={p.active?'Hide':'Show'}
-                      className={`p-1.5 rounded-lg text-xs font-bold transition-all ${isActive(p)?'bg-[#1a6b3a]/10 text-[#1a6b3a]':'bg-[#f0f0f0] text-[#aaa]'}`}>
-                      {isActive(p)?'●':'○'}
+            {filtered.length===0 ? (
+              <div className="card p-8 text-center"><p className="text-sm text-[#aaa]">No places in this category</p></div>
+            ) : filtered.map(p=><PlaceCard key={p.id} p={p}/>)}
+          </div>
+        ) : (
+          // All — grouped by category
+          <div className="space-y-5">
+            {Object.entries(grouped).map(([cat,items])=>(
+              <div key={cat}>
+                <div className="flex items-center gap-2 mb-2 cursor-pointer" onClick={()=>setCatFilter(cat)}>
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background:CAT_COLORS[cat]||'#aaa'}}/>
+                  <p className="text-[10px] font-black text-[#0a0a0a] uppercase tracking-widest capitalize">{cat}</p>
+                  <div className="flex-1 h-px bg-[#e8e8e8]"/>
+                  <span className="text-[10px] font-bold text-[#1a6b3a] hover:underline cursor-pointer">{items.length} →</span>
+                </div>
+                <div className="space-y-1.5">
+                  {items.slice(0,3).map(p=><PlaceCard key={p.id} p={p}/>)}
+                  {items.length>3&&(
+                    <button onClick={()=>setCatFilter(cat)}
+                      className="w-full py-2 text-xs font-bold text-[#1a6b3a] bg-[#1a6b3a]/5 rounded-xl hover:bg-[#1a6b3a]/10 transition-colors">
+                      +{items.length-3} more {cat} places
                     </button>
-                    <button onClick={()=>openEdit(p)} className="p-1.5 rounded-lg hover:bg-blue-50 text-[#aaa] hover:text-blue-500 transition-all">
-                      <Edit2 className="w-3.5 h-3.5"/>
-                    </button>
-                    <button onClick={()=>del(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-[#aaa] hover:text-red-500 transition-all">
-                      <Trash2 className="w-3.5 h-3.5"/>
-                    </button>
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -167,6 +190,7 @@ export default function AdminPlacesPage() {
         )}
       </div>
 
+      {/* Add/Edit form */}
       {showForm&&(
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={()=>!saving&&setShowForm(false)}/>
@@ -182,7 +206,7 @@ export default function AdminPlacesPage() {
                 <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} className="input text-sm" placeholder="e.g. University Library"/>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider mb-1 block">Category</label>
+                <label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider mb-1.5 block">Category</label>
                 <div className="flex flex-wrap gap-1.5">
                   {CATS.map(c=>(
                     <button key={c} onClick={()=>setForm(f=>({...f,category:c}))}
@@ -195,7 +219,7 @@ export default function AdminPlacesPage() {
               </div>
               <div>
                 <label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider mb-1 block">Description</label>
-                <textarea rows={2} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} className="input resize-none text-sm" placeholder="Brief description of the place"/>
+                <textarea rows={2} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} className="input resize-none text-sm" placeholder="Brief description"/>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -213,12 +237,12 @@ export default function AdminPlacesPage() {
               </div>
               <div>
                 <label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider mb-1 block">How to Get There</label>
-                <textarea rows={2} value={form.directions} onChange={e=>setForm(f=>({...f,directions:e.target.value}))} className="input resize-none text-sm" placeholder="Walking directions from main gate..."/>
+                <textarea rows={2} value={form.directions} onChange={e=>setForm(f=>({...f,directions:e.target.value}))} className="input resize-none text-sm" placeholder="Walking directions..."/>
               </div>
               <div className="flex items-center justify-between p-3 bg-[#f9f9f7] rounded-xl">
                 <div>
                   <p className="text-sm font-semibold text-[#0a0a0a]">Visible to students</p>
-                  <p className="text-[10px] text-[#aaa]">Show this place in campus map</p>
+                  <p className="text-[10px] text-[#aaa]">Show in campus map</p>
                 </div>
                 <button onClick={()=>setForm(f=>({...f,active:!f.active}))}
                   className={`w-11 h-6 rounded-full transition-all relative ${form.active?'bg-[#1a6b3a]':'bg-[#e8e8e8]'}`}>
