@@ -160,6 +160,11 @@ export default function ProfilePage() {
               <CheckCircle2 className="w-3.5 h-3.5"/> Profile updated!
             </div>
           )}
+          {/* Big visible Edit Profile button */}
+          <button onClick={() => { setIsEditing(e => !e); setErrorMsg('') }}
+            className={`mt-4 flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${isEditing ? 'bg-[#f0f0f0] text-[#6b6b6b]' : 'bg-[#1a6b3a] text-white hover:bg-[#145530] active:scale-95'}`}>
+            {isEditing ? <><X className="w-4 h-4"/> Cancel</> : <><Edit3 className="w-4 h-4"/> Edit Profile</>}
+          </button>
         </div>
 
         {/* Stats */}
