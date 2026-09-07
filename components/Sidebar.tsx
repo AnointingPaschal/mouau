@@ -11,7 +11,7 @@ const nav = [
   { href:'/register', label:'Registration', icon:ClipboardList },
   { href:'/library', label:'Library', icon:BookOpen },
   { href:'/chat', label:'AI Assistant', icon:MessageCircle },
-  { href:'/forum', label:'Community', icon:Users },
+  { href:'/forum', label:'Forum', icon:MessageCircle },
   { href:'/profile', label:'My Profile', icon:User },
 ]
 
