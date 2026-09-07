@@ -1,4 +1,5 @@
 'use client'
+import NotificationPrompt from './NotificationPrompt'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import { useAuth } from './AuthProvider'
@@ -25,6 +26,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       <BottomNav/>
+      <NotificationPrompt/>
     </div>
   )
 }

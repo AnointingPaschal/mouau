@@ -29,7 +29,10 @@ const POST_CATS = ['General','Admissions','Navigation','Accommodation','Study He
 
 const notify = (recipientId:string, type:string, title:string, body:string, postId:string, actor:string) => {
   if(!recipientId?.trim()) return
+  // In-app notification
   supabase.from('notifications').insert({recipient_id:recipientId,type,title,body,post_id:postId,actor,read:false}).then(()=>{})
+  // Push notification
+  fetch('/api/push/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({studentId:recipientId,title,body,url:'/forum'})}).catch(()=>{})
 }
 
 // ─── Toolbar ──────────────────────────────────────────────────────────────────

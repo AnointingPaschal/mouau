@@ -126,3 +126,23 @@ CREATE TABLE IF NOT EXISTS public.ai_training (
 ALTER TABLE public.ai_training ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public_all_ai_training" ON public.ai_training;
 CREATE POLICY "public_all_ai_training" ON public.ai_training FOR ALL USING (true) WITH CHECK (true);
+
+-- ===========================================
+-- 6. PUSH SUBSCRIPTIONS
+-- ===========================================
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  student_id TEXT NOT NULL,
+  endpoint   TEXT NOT NULL,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(endpoint)
+);
+ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "public_all_push_subs" ON public.push_subscriptions;
+CREATE POLICY "public_all_push_subs" ON public.push_subscriptions FOR ALL USING (true) WITH CHECK (true);
+
+-- Add email_notifications and push_notifications prefs to students
+ALTER TABLE public.students ADD COLUMN IF NOT EXISTS email_notifications BOOLEAN DEFAULT true;
+ALTER TABLE public.students ADD COLUMN IF NOT EXISTS push_notifications  BOOLEAN DEFAULT true;
