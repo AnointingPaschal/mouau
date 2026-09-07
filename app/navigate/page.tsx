@@ -54,6 +54,8 @@ function NavigateContent() {
   const fromTimer = useRef<any>(null)
 
   const [toText,     setToText]     = useState('')
+  const [toDisplayText, setToDisplayText] = useState('')  // shown in UI
+  const [toCoords,   setToCoords]   = useState<string>('')  // lat,lng when known
   const [toId,       setToId]       = useState('')
   const [toSugg,     setToSugg]     = useState<Prediction[]>([])
   const [toLoading,  setToLoading]  = useState(false)
@@ -144,7 +146,7 @@ function NavigateContent() {
     fromTimer.current = setTimeout(async()=>{ setFromSugg(await fetchSugg(val)); setFromLoading(false) }, 400)
   }
   const onToChange = (val:string) => {
-    setToText(val); setToId(''); setDirResult(null); clearTimeout(toTimer.current)
+    setToText(val); setToDisplayText(val); setToCoords(''); setToId(''); setDirResult(null); clearTimeout(toTimer.current)
     if(val.length < 2){ setToSugg([]); return }
     setToLoading(true)
     toTimer.current = setTimeout(async()=>{ setToSugg(await fetchSugg(val)); setToLoading(false) }, 400)
@@ -163,7 +165,8 @@ function NavigateContent() {
       origin = pos ? `${pos.lat},${pos.lng}` : 'Michael Okpara University of Agriculture Main Gate, Umudike'
     }
 
-    const dest = toText.trim()
+    // Prefer GPS coordinates over text name to avoid Google misidentifying buildings
+    const dest = (toCoords.trim()) ? toCoords.trim() : toText.trim()
 
     updateMap(`https://maps.google.com/maps?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(dest)}&output=embed&dirflg=d`)
 
@@ -181,7 +184,7 @@ function NavigateContent() {
 
   const openInApp = () => {
     const from = fromText || (userLat ? `${userLat},${userLng}` : 'Michael Okpara University, Umudike')
-    const to   = toText   || 'Michael Okpara University of Agriculture, Umudike'
+    const to   = toCoords || toText || 'Michael Okpara University of Agriculture, Umudike'
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}&travelmode=driving&dir_action=navigate`,'_blank')
   }
 
@@ -257,8 +260,8 @@ function NavigateContent() {
             <div className={`flex items-center border rounded-xl bg-white shadow-sm transition-colors ${toFocus ? 'border-[#dc2626]' : 'border-[#e8e8e8]'}`}>
               <div className="px-3 flex-shrink-0"><div className="w-2.5 h-2.5 rounded-full bg-[#dc2626]"/></div>
               <input
-                value={toText}
-                onChange={e => onToChange(e.target.value)}
+                value={toDisplayText || toText}
+                onChange={e => { onToChange(e.target.value); setToDisplayText(e.target.value) }}
                 onFocus={() => setToFocus(true)}
                 onBlur={() => setTimeout(() => { setToFocus(false); setToSugg([]) }, 180)}
                 placeholder="To: destination on campus..."
@@ -266,7 +269,7 @@ function NavigateContent() {
               />
               {toLoading && <Loader2 className="w-3.5 h-3.5 text-[#1a6b3a] animate-spin mr-2 flex-shrink-0"/>}
               {toText && (
-                <button onClick={() => { setToText(''); setToId(''); setToSugg([]); setDirResult(null) }} className="px-2 flex-shrink-0">
+                <button onClick={() => { setToText(''); setToDisplayText(''); setToCoords(''); setToId(''); setToSugg([]); setDirResult(null) }} className="px-2 flex-shrink-0">
                   <X className="w-3.5 h-3.5 text-[#aaa]"/>
                 </button>
               )}
@@ -274,7 +277,7 @@ function NavigateContent() {
             {(toSugg.length > 0 || locations.some(l => toText.length > 1 && l.name.toLowerCase().includes(toText.toLowerCase()))) && toFocus && (
               <div className="absolute top-full left-0 right-0 z-40 mt-1 bg-white border border-[#e8e8e8] rounded-xl shadow-2xl overflow-hidden">
                 {locations.filter(l => toText.length > 1 && l.name.toLowerCase().includes(toText.toLowerCase())).slice(0,3).map(l => (
-                  <button key={l.id} onMouseDown={() => { setToText(l.name+', MOUAU Umudike'); setToId(''); setToSugg([]) }}
+                  <button key={l.id} onMouseDown={() => { const coords=l.lat&&l.lng?`${l.lat},${l.lng}`:''; setToCoords(coords); setToText(coords||l.name+', MOUAU Umudike'); setToDisplayText(l.name); setToId(''); setToSugg([]) }}
                     className="w-full flex items-start gap-2.5 px-3.5 py-2.5 hover:bg-[#f0f9f4] text-left border-b border-[#f5f5f5]">
                     <div className="w-3 h-3 rounded-full mt-0.5 flex-shrink-0" style={{background: COLORS[l.category]||'#1a6b3a'}}/>
                     <div>
@@ -300,7 +303,7 @@ function NavigateContent() {
           {!toText && (
             <div className="flex gap-1.5 overflow-x-auto pb-0.5">
               {locations.slice(0,8).map(l => (
-                <button key={l.id} onClick={() => { setToText(l.name+', MOUAU Umudike'); setToSugg([]) }}
+                <button key={l.id} onClick={() => { const coords=l.lat&&l.lng?`${l.lat},${l.lng}`:''; setToCoords(coords); setToText(coords||l.name+', MOUAU Umudike'); setToDisplayText(l.name); setToSugg([]) }}
                   className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9f9f7] border border-[#e8e8e8] rounded-full text-[10px] font-semibold text-[#0a0a0a] hover:border-[#1a6b3a]/50 whitespace-nowrap transition-all">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{background: COLORS[l.category]||'#1a6b3a'}}/>
                   {l.name.replace('University ','').replace('College of ','')}
@@ -367,7 +370,7 @@ function NavigateContent() {
                   <div className="w-2 h-2 rounded-full bg-[#1a6b3a] flex-shrink-0"/>
                   <p className="text-[11px] text-[#6b6b6b] truncate flex-1">{fromText.split(',')[0] || 'Your location'}</p>
                   <ArrowRight className="w-3 h-3 text-[#aaa] flex-shrink-0"/>
-                  <p className="text-[11px] font-semibold text-[#0a0a0a] truncate flex-1 text-right">{toText.split(',')[0]}</p>
+                  <p className="text-[11px] font-semibold text-[#0a0a0a] truncate flex-1 text-right">{toDisplayText || toText.split(',')[0]}</p>
                   <div className="w-2 h-2 rounded-full bg-[#dc2626] flex-shrink-0"/>
                 </div>
 
@@ -401,7 +404,7 @@ function NavigateContent() {
                         })}
                         <div className="flex items-center gap-2 px-4 py-4 bg-[#1a6b3a]/5">
                           <div className="w-3 h-3 rounded-full bg-[#dc2626] flex-shrink-0"/>
-                          <p className="text-xs font-semibold text-[#0a0a0a] flex-1">{toText.split(',')[0]}</p>
+                          <p className="text-xs font-semibold text-[#0a0a0a] flex-1">{toDisplayText || toText.split(',')[0]}</p>
                           <span className="text-[10px] text-[#1a6b3a] font-semibold">Destination</span>
                         </div>
                       </>
