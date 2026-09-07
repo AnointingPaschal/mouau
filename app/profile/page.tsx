@@ -43,7 +43,7 @@ export default function ProfilePage() {
   return (
     <AppShell>
       <TopBar title="My Profile" subtitle="Your student profile"/>
-      <div className="max-w-lg mx-auto p-4 lg:p-5 pb-24 space-y-4 animate-fade-in">
+      <div className="w-full p-4 lg:p-6 pb-24 space-y-4 animate-fade-in">
 
         {/* Avatar section */}
         <div className="card p-6 flex flex-col items-center text-center">

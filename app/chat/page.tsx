@@ -210,7 +210,7 @@ export default function ChatPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-3 lg:px-5 py-4 space-y-3 max-w-2xl w-full mx-auto">
+        <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-4 space-y-3 w-full">
 
           {messages.length === 0 && (
             <div className="animate-fade-in">
@@ -306,7 +306,7 @@ export default function ChatPage() {
 
         {/* Input */}
         <div className="border-t border-[#e8e8e8] bg-white px-3 py-2.5 pb-3">
-          <div className="flex items-end gap-2 max-w-2xl mx-auto">
+          <div className="flex items-end gap-2 w-full">
             {messages.length > 0 && (
               <button onClick={startNewSession}
                 className="p-2 rounded-xl border border-[#e8e8e8] text-[#aaa] hover:text-[#0a0a0a] hover:border-[#0a0a0a] transition-all flex-shrink-0 mb-0.5">

@@ -48,7 +48,7 @@ export default function EmergencyPage() {
   return (
     <AppShell>
       <TopBar title="Emergency Contacts" subtitle="Important campus numbers"/>
-      <div className="pb-24 lg:pb-6 max-w-2xl mx-auto">
+      <div className="pb-24 lg:pb-6 w-full">
         {/* Alert banner */}
         <div className="mx-4 mt-4 bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5"/>

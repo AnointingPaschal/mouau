@@ -501,7 +501,7 @@ export default function ForumPage() {
   return (
     <AppShell>
       <TopBar title="Community" subtitle="Ask questions, share knowledge"/>
-      <div className="max-w-2xl mx-auto px-3 lg:px-5 py-4 space-y-3 pb-24 lg:pb-6">
+      <div className="w-full px-4 lg:px-6 py-4 space-y-3 pb-24 lg:pb-6">
         <div className="card p-3.5">
           <div className="flex items-center gap-2.5 cursor-pointer" onClick={()=>setCreate(true)}>
             <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">{av}</div>

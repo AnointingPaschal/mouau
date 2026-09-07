@@ -80,7 +80,7 @@ export default function LoginPage() {
         </div>
 
         <div className="flex-1 flex items-center justify-center p-6 lg:p-16 bg-[#f9f9f7]">
-          <div className="w-full max-w-sm">
+          <div className="w-full max-w-xl">
             <div className="mb-8">
               <h2 className="text-2xl font-black text-[#0a0a0a] mb-1">
                 {mode === 'login' ? 'Welcome back' : 'Create account'}

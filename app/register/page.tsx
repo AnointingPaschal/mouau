@@ -83,7 +83,7 @@ export default function RegisterPage() {
   return (
     <AppShell>
       <TopBar title="Registration Guide" subtitle="Step-by-step admission checklist"/>
-      <div className="p-4 lg:p-5 max-w-2xl mx-auto space-y-4 pb-24 lg:pb-6 animate-fade-in">
+      <div className="p-4 lg:p-6 w-full space-y-4 pb-24 lg:pb-6 animate-fade-in">
 
         {/* Progress card */}
         <div className="bg-[#1a6b3a] rounded-xl p-4 text-white">

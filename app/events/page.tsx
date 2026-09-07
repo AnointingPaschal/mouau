@@ -33,7 +33,7 @@ export default function EventsPage() {
   return (
     <AppShell>
       <TopBar title="Campus Events" subtitle="Upcoming events and deadlines"/>
-      <div className="max-w-2xl mx-auto p-4 pb-24 space-y-4">
+      <div className="w-full p-4 pb-24 space-y-4">
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           {CATS.map(c=>(
             <button key={c} onClick={()=>setCat(c)}

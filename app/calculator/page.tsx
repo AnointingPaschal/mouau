@@ -126,7 +126,7 @@ export default function CalculatorPage() {
   return (
     <AppShell>
       <TopBar title="Calculator" subtitle="CGPA and fee estimator"/>
-      <div className="max-w-lg mx-auto p-4 pb-24 space-y-4">
+      <div className="w-full p-4 pb-24 space-y-4">
         <div className="flex bg-[#f9f9f7] rounded-xl p-1 gap-1">
           {([['cgpa','CGPA Calculator',GraduationCap],['fees','Fee Estimator',DollarSign]] as [string,string,any][]).map(([t,l,Icon])=>(
             <button key={t} onClick={()=>setTab(t as any)}

@@ -100,7 +100,7 @@ export default function MapPage() {
           <CheckCircle2 className="w-3.5 h-3.5 text-[#1a6b3a]"/> {toast}
         </div>
       )}
-      <div className="p-4 space-y-4 max-w-2xl mx-auto pb-24">
+      <div className="p-4 space-y-4 w-full pb-24">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] text-[#aaa] uppercase tracking-widest">ADMIN</p>

@@ -75,7 +75,7 @@ export default function Dashboard() {
   return (
     <AppShell>
       <TopBar/>
-      <div className="p-4 lg:p-5 max-w-2xl mx-auto space-y-5 pb-24 lg:pb-6 animate-fade-in">
+      <div className="p-4 lg:p-6 w-full space-y-5 pb-24 lg:pb-6 animate-fade-in">
         {/* Hero */}
         <div className="bg-[#0a0a0a] rounded-2xl p-5 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-36 h-36 bg-[#1a6b3a]/20 rounded-full -translate-y-1/2 translate-x-1/2"/>
