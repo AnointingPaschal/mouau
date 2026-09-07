@@ -1,31 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,  // Gmail App Password (not your login password)
-  },
-})
+import { getSettings } from '@/lib/settings'
 
 export async function POST(req: NextRequest) {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    return NextResponse.json({ error: 'Email not configured' }, { status: 503 })
-  }
+  const s = await getSettings()
+  const gmailUser = s.gmail_user || process.env.GMAIL_USER || ''
+  const gmailPass = s.gmail_app_password || process.env.GMAIL_APP_PASSWORD || ''
+
+  if (!gmailUser || !gmailPass) return NextResponse.json({ error: 'Gmail not configured in admin settings' }, { status: 503 })
+
   try {
     const { to, subject, html } = await req.json()
     if (!to || !subject) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
+    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } })
     await transporter.sendMail({
-      from: `"MOUAU FreshStart" <${process.env.GMAIL_USER}>`,
-      to:   Array.isArray(to) ? to.join(',') : to,
+      from:    `"${s.site_name || 'MOUAU FreshStart'}" <${gmailUser}>`,
+      to:      Array.isArray(to) ? to.join(',') : to,
       subject,
       html: html || `<p>${subject}</p>`,
     })
     return NextResponse.json({ ok: true })
   } catch (e: any) {
-    console.error('Email error:', e)
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

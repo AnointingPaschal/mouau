@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing } from 'lucide-react'
 
 const nav = [
   { href:'/admin/dashboard', label:'Dashboard', icon:LayoutDashboard },
@@ -13,6 +13,8 @@ const nav = [
   { href:'/admin/places',  label:'Campus Places', icon:MapPin },
   { href:'/admin/announcements', label:'Announcements', icon:Bell },
   { href:'/admin/map', label:'Campus Map', icon:MapPin },
+  { href:'/admin/settings', label:'App Settings', icon:Settings2 },
+  { href:'/admin/notifications', label:'Notification Rules', icon:BellRing },
   { href:'/admin/ai-training', label:'AI Training', icon:Brain },
   { href:'/admin/registration', label:'Registration Guide', icon:ClipboardList },
   { href:'/admin/students', label:'Students', icon:User },
