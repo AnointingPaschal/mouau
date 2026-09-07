@@ -49,14 +49,13 @@ export default function PlacesPage() {
   })
 
   const grouped = CAT_ORDER.reduce((acc,c) => {
-    const items = filtered.filter(l => l.category === c)
+    const items = filtered.filter(l => l.category === c).sort((a,b) => a.name.localeCompare(b.name))
     if(items.length > 0) acc[c] = items
     return acc
   },{} as Record<string,Loc[]>)
 
-  // Also catch uncategorized
   const knownCats = new Set(CAT_ORDER)
-  const other = filtered.filter(l => !knownCats.has(l.category))
+  const other = filtered.filter(l => !knownCats.has(l.category)).sort((a,b) => a.name.localeCompare(b.name))
   if(other.length > 0) grouped['other'] = other
 
   const goToMap  = (loc: Loc) => router.push(`/navigate?to=${encodeURIComponent(loc.name+', MOUAU Umudike')}`)
