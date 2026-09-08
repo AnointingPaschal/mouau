@@ -17,15 +17,15 @@ export default function AdminProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const t = localStorage.getItem('admin_token')
-    if (!t) { setLoading(false); if (pathname !== '/admin') router.replace('/admin'); return }
+    if (!t) { setLoading(false); if (pathname !== '/admin/auth') router.replace('/admin/auth'); return }
     fetch('/api/admin/me', { headers: { Authorization: `Bearer ${t}` } })
       .then(r => r.json())
       .then(d => {
         if (d.admin) { setAdmin(d.admin); setToken(t) }
-        else { localStorage.removeItem('admin_token'); if (pathname !== '/admin') router.replace('/admin') }
+        else { localStorage.removeItem('admin_token'); if (pathname !== '/admin/auth') router.replace('/admin/auth') }
         setLoading(false)
       })
-      .catch(() => { setLoading(false); if (pathname !== '/admin') router.replace('/admin') })
+      .catch(() => { setLoading(false); if (pathname !== '/admin/auth') router.replace('/admin/auth') })
   }, [pathname, router])
 
   const setAuth = (a: AdminUser, t: string) => {
@@ -35,7 +35,7 @@ export default function AdminProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('admin_token')
     setAdmin(null); setToken(null)
-    router.replace('/admin')
+    router.replace('/admin/auth')
   }
 
   return <Ctx.Provider value={{ admin, token, setAuth, logout, loading }}>{children}</Ctx.Provider>

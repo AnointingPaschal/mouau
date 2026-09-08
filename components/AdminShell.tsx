@@ -88,7 +88,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    if (!loading && !admin) router.replace('/admin')
+    if (!loading && !admin) router.replace('/admin/auth')
   }, [admin, loading, router])
 
   if (loading) return (
