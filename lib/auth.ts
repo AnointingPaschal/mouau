@@ -1,31 +1,20 @@
+export type StudentType = 'fresher' | 'returning'
+
 export type Student = {
   id: string
   name: string
-  idNumber: string
+  idNumber: string       // primary login key (JAMB for freshers, matric for returning)
+  studentType: StudentType
+  jambNumber: string     // JAMB reg number (freshers always have this)
+  matricNumber: string   // matric number (freshers get it later, returning always have it)
   department: string
   college: string
   level: string
   email: string
-  phone: string
+  whatsapp: string
   avatar: string
-  registrationProgress: number
   points: number
   downloads: number
-}
-
-const DEFAULT_STUDENT: Student = {
-  id: '1',
-  name: 'Student',
-  idNumber: '',
-  department: '',
-  college: '',
-  level: '100',
-  email: '',
-  phone: '',
-  avatar: '',
-  registrationProgress: 0,
-  points: 0,
-  downloads: 0
 }
 
 export function getStudent(): Student | null {
@@ -39,24 +28,6 @@ export function getStudent(): Student | null {
 export function saveStudent(student: Student): void {
   if (typeof window === 'undefined') return
   localStorage.setItem('mouau_student', JSON.stringify(student))
-}
-
-export function login(idNumber: string, name?: string): Student {
-  const existing = getStudent()
-  if (existing && existing.idNumber === idNumber) {
-    return existing
-  }
-  const initials = (name || 'Student').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0,2)
-  const student: Student = {
-    ...DEFAULT_STUDENT,
-    id: Date.now().toString(),
-    name: name || 'MOUAU Student',
-    idNumber,
-    avatar: initials,
-    email: `${idNumber.toLowerCase()}@student.mouau.edu.ng`
-  }
-  saveStudent(student)
-  return student
 }
 
 export function logout(): void {

@@ -18,6 +18,27 @@ export default function ProfilePage() {
   const [saved, setSaved]         = useState(false)
   const [dbStudent, setDbStudent] = useState<any>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Matric Number upgrade (for freshers)
+  const [matricInput, setMatricInput] = useState('')
+  const [savingMatric, setSavingMatric] = useState(false)
+  const [matricMsg, setMatricMsg] = useState('')
+  const s = student as any
+  const isFresher = !s?.studentType || s.studentType === 'fresher'
+  const hasMatric = !!(s?.matricNumber)
+
+  const saveMatricNumber = async () => {
+    const MATRIC_RE = /^MOUAU\/[A-Z]{2,5}\/\d{2}\/\d+$/i
+    const upper = matricInput.trim().toUpperCase()
+    if (!MATRIC_RE.test(upper)) { setMatricMsg('Format: MOUAU/DEPT/YY/NUMBER'); return }
+    setSavingMatric(true)
+    await supabase.from('students').update({ matric_number: upper }).eq('id_number', student?.idNumber)
+    // Update local storage
+    const { updateStudent } = await import('@/lib/auth')
+    updateStudent({ ...(student as any), matricNumber: upper })
+    setMatricMsg('Matric number saved! Reload to see it.')
+    setSavingMatric(false)
+  }
+
 
   // Edit Mode State
   const [isEditing, setIsEditing] = useState(false)
@@ -309,6 +330,30 @@ export default function ProfilePage() {
         </div>
 
         {/* Sign out */}
+
+        {/* Matric Number Upgrade */}
+        {isFresher && !hasMatric && (
+          <div className="card p-4 border-2 border-amber-200 bg-amber-50">
+            <p className="font-bold text-amber-800 text-sm mb-1">🎓 Add Your Matric Number</p>
+            <p className="text-amber-700 text-xs mb-3">Link your matric number to unlock returning student features.</p>
+            <div className="flex gap-2">
+              <input value={matricInput} onChange={e => setMatricInput(e.target.value.toUpperCase())}
+                placeholder="MOUAU/DEPT/YY/NUMBER"
+                className="flex-1 border border-amber-300 rounded-xl px-3 py-2 text-xs font-mono outline-none bg-white" />
+              <button onClick={saveMatricNumber} disabled={savingMatric || !matricInput.trim()}
+                className="px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold disabled:opacity-50">
+                {savingMatric ? '…' : 'Save'}
+              </button>
+            </div>
+            {matricMsg && <p className="text-xs text-amber-700 mt-2">{matricMsg}</p>}
+          </div>
+        )}
+        {isFresher && hasMatric && (
+          <div className="card p-3 flex items-center gap-3">
+            <span className="text-lg">✅</span>
+            <div><p className="font-bold text-[#0a0a0a] text-sm">Matric Linked</p><p className="text-xs text-[#1a6b3a] font-mono">{s?.matricNumber}</p></div>
+          </div>
+        )}
         <button onClick={logout}
           className="w-full flex items-center justify-center gap-2 py-3 border border-red-100 bg-white rounded-xl text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors shadow-sm">
           <LogOut className="w-4 h-4"/> Sign Out
