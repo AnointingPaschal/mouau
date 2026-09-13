@@ -92,31 +92,49 @@ function NavigateContent() {
         resolve({lat,lng})
       }
 
-      const onFallback = () => {
-        navigator.geolocation.getCurrentPosition(
-          onSuccess,
-          err => {
-            console.warn('Fallback GPS failed:', err.message)
-            if(!silent) setLocState('denied')
-            resolve(null)
-          },
-          { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
-        )
+      let resolved = false
+      let watchId: number | null = null
+
+      const finish = (pos: GeolocationPosition) => {
+        if (resolved) return
+        resolved = true
+        if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null }
+        onSuccess(pos)
       }
 
+      // Primary: high-accuracy GPS
       navigator.geolocation.getCurrentPosition(
-        onSuccess,
+        finish,
         err => {
-          console.warn('High accuracy GPS failed:', err.message)
-          if(err.code === 1) {
-            if(!silent) setLocState('denied')
-            resolve(null)
-          } else {
-            onFallback()
+          if (resolved) return
+          if (err.code === 1) {
+            if (!silent) setLocState('denied')
+            return resolve(null)
           }
+          // Timeout/unavailable — fall back to cell/WiFi location
+          navigator.geolocation.getCurrentPosition(
+            finish,
+            () => { if (!silent) setLocState('denied'); resolve(null) },
+            { enableHighAccuracy: false, timeout: 12000, maximumAge: 30000 }
+          )
         },
-        { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       )
+
+      // Also watch briefly: grab a better fix if accuracy improves within 5s
+      try {
+        watchId = navigator.geolocation.watchPosition(
+          pos => {
+            if (resolved) return
+            if (pos.coords.accuracy < 50) finish(pos) // <50m accuracy = good fix
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 0 }
+        )
+        setTimeout(() => {
+          if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null }
+        }, 5000)
+      } catch { /* watchPosition not supported */ }
     })
   ,[])
 
@@ -147,16 +165,21 @@ function NavigateContent() {
     }
   },[doGetPos])
 
-  // Auto-fire directions once we have a destination AND location is resolved
+  // Auto-fire directions once destination is set AND GPS has actually resolved
+  // Watch userLat so we don't fire before doGetPos() completes (race condition)
   useEffect(() => {
     if (!paramAuto || !paramTo || autoSearchFired.current) return
-    if (locState === 'granted' || locState === 'denied' || locState === 'skipped') {
+
+    const gpsReady    = locState === 'granted' && userLat !== null
+    const locationFailed = locState === 'denied' || locState === 'skipped'
+
+    if (gpsReady || locationFailed) {
       autoSearchFired.current = true
-      // Small delay so state updates (fromText coords) have propagated
-      setTimeout(() => searchDirections(), 300)
+      // fromTextRef is updated by its own effect which runs before this one (declared first)
+      setTimeout(() => searchDirections(), 150)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locState, paramAuto, paramTo])
+  }, [locState, userLat, paramAuto, paramTo])
 
   const fetchSugg = async(val:string):Promise<Prediction[]> => {
     if(val.length < 2) return []
@@ -196,7 +219,7 @@ function NavigateContent() {
     // Prefer GPS coordinates (read from ref) over text name
     const dest = (toCoordsRef.current.trim()) ? toCoordsRef.current.trim() : toText.trim()
 
-    updateMap(`https://maps.google.com/maps?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(dest)}&output=embed&dirflg=d`)
+    updateMap(`https://maps.google.com/maps?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(dest)}&output=embed&dirflg=d&t=k`)
 
     try{
       let url = `/api/maps/directions?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}`
@@ -247,15 +270,24 @@ function NavigateContent() {
                 className="flex-1 py-3 text-xs outline-none bg-transparent text-[#0a0a0a] placeholder-[#aaa]"
               />
               {fromLoading && <Loader2 className="w-3.5 h-3.5 text-[#1a6b3a] animate-spin mr-2 flex-shrink-0"/>}
-              {locState === 'granted' && userLat && !fromLoading && (
+              {locState === 'granted' && !fromLoading && (
                 <button
-                  onClick={async () => { 
-                    setGettingLoc(true);
-                    const pos = await doGetPos(true);
-                    setGettingLoc(false);
-                    if(pos) {
-                      setFromText(`${pos.lat.toFixed(6)},${pos.lng.toFixed(6)}`); 
-                      setFromSugg([]);
+                  title="Refresh my location"
+                  onClick={async () => {
+                    setGettingLoc(true)
+                    setFromText('')
+                    fromTextRef.current = ''
+                    const pos = await doGetPos(true)
+                    setGettingLoc(false)
+                    if (pos) {
+                      const coords = `${pos.lat.toFixed(6)},${pos.lng.toFixed(6)}`
+                      setFromText(coords)
+                      fromTextRef.current = coords
+                      setFromSugg([])
+                      // Re-run directions if we already have a destination
+                      if (toText.trim()) {
+                        setTimeout(() => searchDirections(), 100)
+                      }
                     }
                   }}
                   className="px-2 text-[#1a6b3a] flex-shrink-0">
