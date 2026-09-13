@@ -5,24 +5,25 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images, Cross } from 'lucide-react'
+import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images, Cross, SendHorizontal } from 'lucide-react'
 
 const nav = [
-  { href:'/admin/dashboard',     label:'Dashboard',            icon:LayoutDashboard },
-  { href:'/admin/content',       label:'Site Content',         icon:Type            },
-  { href:'/admin/library',       label:'Library',              icon:BookOpen        },
-  { href:'/admin/pdm',           label:'PDM Content',          icon:Cross           },
-  { href:'/admin/gallery',       label:'Gallery',              icon:Images          },
-  { href:'/admin/places',        label:'Campus Places',        icon:MapPin          },
-  { href:'/admin/announcements', label:'Announcements',        icon:Bell            },
-  { href:'/admin/map',           label:'Campus Map',           icon:MapPin          },
-  { href:'/admin/settings/app',  label:'App Settings',         icon:Settings2       },
-  { href:'/admin/settings',      label:'Notification Settings',icon:BellRing        },
-  { href:'/admin/notifications', label:'Notification Rules',   icon:Bell            },
-  { href:'/admin/ai-training',   label:'AI Training',          icon:Brain           },
-  { href:'/admin/registration',  label:'Registration Guide',   icon:ClipboardList   },
-  { href:'/admin/students',      label:'Students',             icon:User            },
-  { href:'/admin/admins',        label:'Admin Accounts',       icon:Users           },
+  { href:'/admin/dashboard',        label:'Dashboard',            icon:LayoutDashboard },
+  { href:'/admin/content',          label:'Site Content',         icon:Type            },
+  { href:'/admin/library',          label:'Library',              icon:BookOpen        },
+  { href:'/admin/pdm',              label:'PDM Content',          icon:Cross           },
+  { href:'/admin/gallery',          label:'Gallery',              icon:Images          },
+  { href:'/admin/places',           label:'Campus Places',        icon:MapPin          },
+  { href:'/admin/announcements',    label:'Announcements',        icon:Bell            },
+  { href:'/admin/send-notification',label:'Send Notification',    icon:SendHorizontal  },
+  { href:'/admin/map',              label:'Campus Map',           icon:MapPin          },
+  { href:'/admin/settings/app',     label:'App Settings',         icon:Settings2       },
+  { href:'/admin/settings',         label:'Notification Settings',icon:BellRing        },
+  { href:'/admin/notifications',    label:'Notification Rules',   icon:Bell            },
+  { href:'/admin/ai-training',      label:'AI Training',          icon:Brain           },
+  { href:'/admin/registration',     label:'Registration Guide',   icon:ClipboardList   },
+  { href:'/admin/students',         label:'Students',             icon:User            },
+  { href:'/admin/admins',           label:'Admin Accounts',       icon:Users           },
 ]
 
 function AdminLogo({ url, name }: { url: string | null; name: string }) {
