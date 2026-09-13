@@ -17,14 +17,10 @@ import {
 type Ann = { id: string; title: string; body: string; type: string; pinned: boolean; created_at: string }
 
 const QUICK_ACTIONS = [
-  { href:'/navigate',    label:'Campus Map',  icon:MapPin,        color:'#1a6b3a' },
-  { href:'/register',    label:'Register',    icon:ClipboardList, color:'#d97706' },
-  { href:'/library',     label:'Library',     icon:BookOpen,      color:'#2563eb' },
-  { href:'/chat',        label:'AI Chat',     icon:Brain,         color:'#7c3aed' },
-  { href:'/events',      label:'Events',      icon:Calendar,      color:'#e11d48' },
-  { href:'/forum',       label:'Community',   icon:Users,         color:'#dc2626' },
-  { href:'/calculator',  label:'Calculator',  icon:Calculator,    color:'#0284c7' },
-  { href:'/timetable',   label:'Timetable',   icon:Clock,         color:'#059669' },
+  { href:'/register',   label:'Register',    icon:ClipboardList, color:'#d97706' },
+  { href:'/forum',      label:'Community',   icon:Users,         color:'#dc2626' },
+  { href:'/calculator', label:'Calculator',  icon:Calculator,    color:'#0284c7' },
+  { href:'/timetable',  label:'Timetable',   icon:Clock,         color:'#059669' },
 ]
 
 const annIcon = (t: string) => {
@@ -116,15 +112,15 @@ export default function Dashboard() {
         {/* Quick Actions 4×2 */}
         <div>
           <div className="section-label mb-3">QUICK ACTIONS</div>
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-4 gap-2">
             {QUICK_ACTIONS.map(({ href, label, icon: Icon, color }) => (
               <Link key={href + label} href={href}
-                className="card card-hover flex flex-col items-center gap-2 py-3.5 px-1 text-center group">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:scale-105"
+                className="card card-hover flex flex-col items-center gap-1.5 py-2.5 px-1 text-center group">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center transition-all group-hover:scale-105"
                   style={{ background: color + '18' }}>
-                  <Icon className="w-5 h-5" style={{ color }}/>
+                  <Icon className="w-4 h-4" style={{ color }}/>
                 </div>
-                <span className="text-[10px] font-semibold text-[#0a0a0a] leading-tight">{label}</span>
+                <span className="text-[9px] font-semibold text-[#0a0a0a] leading-tight">{label}</span>
               </Link>
             ))}
           </div>
