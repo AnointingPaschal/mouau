@@ -135,7 +135,7 @@ function LibraryContent() {
     }
     if (error) { showToast('Failed: ' + error.message); return }
     const mat = requesting
-    setMyRequests(prev => new Set([...prev, mat.id]))
+    setMyRequests(prev => new Set(Array.from(prev).concat(mat.id)))
     setRequesting(null)
     setSuccessMat(mat)
     await incrementDownload(mat.id, mat.downloads)
