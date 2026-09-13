@@ -18,7 +18,7 @@ type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; 
 
 const QUICK_ACTIONS = [
   { href:'/register',   label:'Register',   icon:ClipboardList, color:'#d97706' },
-  { href:'/forum',      label:'Community',  icon:Users,         color:'#dc2626' },
+  { href:'/pdm',        label:'PDM',        icon:Users,         color:'#b91c1c' },
   { href:'/calculator', label:'Calculator', icon:Calculator,    color:'#0284c7' },
   { href:'/timetable',  label:'Timetable',  icon:Clock,         color:'#059669' },
 ]
