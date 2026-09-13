@@ -36,7 +36,9 @@ function ManeuverIcon({ m }:{ m?:string }){
 
 function NavigateContent() {
   const searchParams = useSearchParams()
-  const paramTo = searchParams.get('to') || ''
+  const paramTo   = searchParams.get('to')   || ''   // coords or text
+  const paramName = searchParams.get('name') || ''   // display label
+  const paramAuto = searchParams.get('auto') === '1' // auto-search flag
 
   type LocState = 'checking'|'granted'|'requesting'|'denied'|'skipped'
   const [locState,   setLocState]   = useState<LocState>('checking')
@@ -116,10 +118,17 @@ function NavigateContent() {
     })
   ,[])
 
+  const autoSearchFired = useRef(false)
+
   useEffect(() => {
     getCampusLocations().then(({data})=>{ if(data) setLocations(data as Loc[]) })
-    if(paramTo) setToText(paramTo)
-  },[paramTo])
+    if (paramTo) {
+      // Pre-fill destination: coords go into toText/toCoords, display name shown separately
+      setToText(paramTo)
+      setToCoords(paramTo)
+      setToDisplayText(paramName || paramTo)
+    }
+  },[paramTo, paramName])
 
   useEffect(()=>{
     const cached = localStorage.getItem(LOC_KEY) === '1'
@@ -131,6 +140,17 @@ function NavigateContent() {
       doGetPos(false) 
     }
   },[doGetPos])
+
+  // Auto-fire directions once we have a destination AND location is resolved
+  useEffect(() => {
+    if (!paramAuto || !paramTo || autoSearchFired.current) return
+    if (locState === 'granted' || locState === 'denied' || locState === 'skipped') {
+      autoSearchFired.current = true
+      // Small delay so state updates (fromText coords) have propagated
+      setTimeout(() => searchDirections(), 300)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locState, paramAuto, paramTo])
 
   const fetchSugg = async(val:string):Promise<Prediction[]> => {
     if(val.length < 2) return []

@@ -164,7 +164,8 @@ export default function Dashboard() {
                 <p className="text-white/50 text-[9px]">Navigate MOUAU</p>
               </div>
             </Link>
-            <button onClick={()=>window.open('https://www.google.com/maps/dir/?api=1&destination=5.478133,7.533195','_blank')}
+            <Link
+              href="/navigate?to=5.478133%2C7.533195&name=Pneuma+Domain+Ministry&auto=1"
               className="relative overflow-hidden rounded-2xl flex items-center gap-2.5 px-3.5 py-3 bg-[#0a0a0a] group">
               <div className="absolute inset-0 opacity-30" style={{background:'linear-gradient(135deg,#b91c1c,#c2410c)'}}/>
               <Navigation2 className="w-4 h-4 text-white relative z-10 flex-shrink-0"/>
@@ -172,7 +173,7 @@ export default function Dashboard() {
                 <p className="text-white font-bold text-xs leading-tight">Pneuma Domain</p>
                 <p className="text-white/50 text-[9px]">Get directions</p>
               </div>
-            </button>
+            </Link>
           </div>
 
           {/* Gallery */}
