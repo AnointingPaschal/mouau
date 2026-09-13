@@ -67,7 +67,7 @@ function LibraryContent() {
   const [requesting,   setRequesting]   = useState<Mat|null>(null)
   const [reqPhone,     setReqPhone]     = useState('')
   const [submitting,   setSubmitting]   = useState(false)
-  const [myRequests,   setMyRequests]   = useState<Set<string>>(new Set())
+  const [myRequests,   setMyRequests]   = useState<Record<string,string>>({})
   const [successMat,   setSuccessMat]   = useState<Mat|null>(null)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
@@ -81,15 +81,20 @@ function LibraryContent() {
 
   useEffect(() => { load() }, [load])
 
-  // Load user's existing requests
-  useEffect(() => {
+  // Load user's existing requests with status
+  const loadMyRequests = () => {
     if (!student?.idNumber) return
     supabase.from('material_requests')
-      .select('material_id').eq('student_id', student.idNumber)
+      .select('material_id,status').eq('student_id', student.idNumber)
       .then(({ data }) => {
-        if (data) setMyRequests(new Set(data.map((r:any) => r.material_id)))
+        if (data) {
+          const map: Record<string,string> = {}
+          data.forEach((r:any) => { map[r.material_id] = r.status })
+          setMyRequests(map)
+        }
       })
-  }, [student?.idNumber])
+  }
+  useEffect(() => { loadMyRequests() }, [student?.idNumber])
 
   useEffect(() => {
     try {
@@ -135,11 +140,12 @@ function LibraryContent() {
     }
     if (error) { showToast('Failed: ' + error.message); return }
     const mat = requesting
-    setMyRequests(prev => new Set(Array.from(prev).concat(mat.id)))
+    setMyRequests(prev => ({...prev, [mat.id]: 'pending'}))
     setRequesting(null)
     setSuccessMat(mat)
     await incrementDownload(mat.id, mat.downloads)
     load()
+    loadMyRequests()
   }
 
   const handleUpload = async () => {
@@ -263,7 +269,7 @@ function LibraryContent() {
               const tabInfo = TABS.find(t => t.id === item.type) || activeTab
               const loveCount = loveCounts[item.id] ?? (item.rating > 0 ? Math.round(item.rating * 10) : 0)
               const isLoved = !!loved[item.id]
-              const hasRequested = myRequests.has(item.id)
+              const reqStatus = myRequests[item.id]
 
               return (
                 <div key={item.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -289,10 +295,23 @@ function LibraryContent() {
                     </div>
                     <div className="flex items-center gap-2">
                       {/* Main CTA: Apply or Already applied */}
-                      {hasRequested ? (
+                      {reqStatus === 'pending' ? (
                         <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-100">
-                          <CheckCircle2 className="w-3.5 h-3.5"/> Applied — Collect Sunday
+                          <CheckCircle2 className="w-3.5 h-3.5"/> Applied — Await Sunday
                         </div>
+                      ) : reqStatus === 'approved' ? (
+                        <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-[#f0f9f4] text-[#1a6b3a] border border-[#1a6b3a]/20">
+                          <CheckCircle2 className="w-3.5 h-3.5"/> Approved — Collect Sunday! 🎉
+                        </div>
+                      ) : reqStatus === 'collected' ? (
+                        <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-[#f0f9f4] text-[#6b6b6b]">
+                          <CheckCircle2 className="w-3.5 h-3.5"/> Collected ✓
+                        </div>
+                      ) : reqStatus === 'cancelled' ? (
+                        <button onClick={() => { setRequesting(item); setReqPhone(student?.phone || '') }}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95 bg-red-500">
+                          Cancelled — Apply Again
+                        </button>
                       ) : (
                         <button onClick={() => { setRequesting(item); setReqPhone(student?.phone || '') }}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95"
