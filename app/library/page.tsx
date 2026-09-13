@@ -41,8 +41,8 @@ function nextSunday() {
   return d.toLocaleDateString('en-NG', { weekday:'long', day:'numeric', month:'long' })
 }
 
-const CHURCH_LAT = 5.4800
-const CHURCH_LNG = 7.5455
+const CHURCH_LAT = 5.478133
+const CHURCH_LNG = 7.533195
 
 function LibraryContent() {
   const { student } = useAuth()
