@@ -15,7 +15,10 @@ export default function AdminPDMPage() {
   const [toast,    setToast]    = useState('')
   const [showForm, setShowForm] = useState(false)
   const [saving,   setSaving]   = useState(false)
+  const [uploading,setUploading]= useState(false)
   const [imgForm,  setImgForm]  = useState({ image_url:'', title:'', caption:'' })
+  const [imgFile,  setImgFile]  = useState<File|null>(null)
+  const [imgPreview,setImgPreview]=useState('')
   const [vidForm,  setVidForm]  = useState({ title:'', youtube_url:'', description:'' })
 
   const showToast=(m:string)=>{setToast(m);setTimeout(()=>setToast(''),3000)}
@@ -33,10 +36,24 @@ export default function AdminPDMPage() {
   useEffect(()=>{load()},[])
 
   const saveImage=async()=>{
-    if(!imgForm.image_url.trim()){showToast('Enter image URL');return}
+    if(!imgFile && !imgForm.image_url.trim()){showToast('Upload a photo or paste an image URL');return}
     setSaving(true)
-    await supabase.from('ministry_gallery').insert({image_url:imgForm.image_url,title:imgForm.title,caption:imgForm.caption,sort_order:0,active:true})
-    setSaving(false);setShowForm(false);setImgForm({image_url:'',title:'',caption:''});showToast('Image added');load()
+    let url = imgForm.image_url.trim()
+    if(imgFile){
+      setUploading(true)
+      const ext = imgFile.name.split('.').pop()
+      const path = `gallery/${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('materials').upload(path, imgFile, { contentType: imgFile.type })
+      if(error){ showToast('Upload failed: '+error.message); setSaving(false); setUploading(false); return }
+      const { data:{ publicUrl } } = supabase.storage.from('materials').getPublicUrl(path)
+      url = publicUrl
+      setUploading(false)
+    }
+    await supabase.from('ministry_gallery').insert({image_url:url,title:imgForm.title,caption:imgForm.caption,sort_order:0,active:true})
+    setSaving(false);setShowForm(false)
+    setImgForm({image_url:'',title:'',caption:''})
+    setImgFile(null);setImgPreview('')
+    showToast('Image added');load()
   }
 
   const saveVideo=async()=>{
@@ -122,13 +139,44 @@ export default function AdminPDMPage() {
             </div>
             {tab==='gallery'?(
               <div className="space-y-3">
-                <div><label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider mb-1 block">Image URL *</label><input value={imgForm.image_url} onChange={e=>setImgForm(f=>({...f,image_url:e.target.value}))} className="input w-full text-sm" placeholder="https://... image link"/></div>
+                {/* Upload area */}
+                <div
+                  className="border-2 border-dashed border-[#e8e8e8] rounded-2xl overflow-hidden cursor-pointer hover:border-[#1e3a8a]/40 transition-colors"
+                  onClick={()=>document.getElementById('pdm-img')?.click()}>
+                  <input id="pdm-img" type="file" accept="image/*" className="hidden"
+                    onChange={e=>{
+                      const f=e.target.files?.[0]
+                      if(!f) return
+                      setImgFile(f)
+                      setImgPreview(URL.createObjectURL(f))
+                      setImgForm(x=>({...x,image_url:''}))
+                    }}/>
+                  {imgPreview ? (
+                    <div className="relative">
+                      <img src={imgPreview} alt="" className="w-full h-40 object-cover"/>
+                      <button onClick={e=>{e.stopPropagation();setImgFile(null);setImgPreview('')}}
+                        className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center text-white">
+                        <X className="w-3.5 h-3.5"/>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background:'linear-gradient(135deg,#1e3a8a20,#b91c1c20)'}}>
+                        <ImageIcon className="w-6 h-6 text-[#aaa]"/>
+                      </div>
+                      <p className="text-sm font-bold text-[#0a0a0a]">Tap to upload photo</p>
+                      <p className="text-xs text-[#aaa]">JPG, PNG, WEBP supported</p>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-[#aaa] text-center">— or paste image URL instead —</p>
+                <input value={imgForm.image_url} onChange={e=>{setImgForm(f=>({...f,image_url:e.target.value}));if(e.target.value){setImgFile(null);setImgPreview('')}}} className="input w-full text-sm" placeholder="https://... image URL"/>
                 <div><label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider mb-1 block">Title</label><input value={imgForm.title} onChange={e=>setImgForm(f=>({...f,title:e.target.value}))} className="input w-full text-sm" placeholder="e.g. Sunday Service"/></div>
                 <div><label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider mb-1 block">Caption</label><input value={imgForm.caption} onChange={e=>setImgForm(f=>({...f,caption:e.target.value}))} className="input w-full text-sm" placeholder="Short caption..."/></div>
                 <div className="flex gap-2 pt-1">
-                  <button onClick={()=>setShowForm(false)} className="flex-1 py-2.5 border border-[#e8e8e8] rounded-xl text-sm font-semibold text-[#6b6b6b]">Cancel</button>
-                  <button onClick={saveImage} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-1.5" style={{background:'linear-gradient(135deg,#1e3a8a,#b91c1c)'}}>
-                    {saving?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<><Save className="w-3.5 h-3.5"/> Add Image</>}
+                  <button onClick={()=>{setShowForm(false);setImgFile(null);setImgPreview('')}} className="flex-1 py-2.5 border border-[#e8e8e8] rounded-xl text-sm font-semibold text-[#6b6b6b]">Cancel</button>
+                  <button onClick={saveImage} disabled={saving||uploading} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-1.5" style={{background:'linear-gradient(135deg,#1e3a8a,#b91c1c)'}}>
+                    {saving||uploading?<><Loader2 className="w-3.5 h-3.5 animate-spin"/>{uploading?'Uploading...':'Saving...'}</>:<><Save className="w-3.5 h-3.5"/> Add Image</>}
                   </button>
                 </div>
               </div>
