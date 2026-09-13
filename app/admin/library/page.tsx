@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import AdminShell from '@/components/AdminShell'
 import { useAdmin } from '@/components/AdminProvider'
-import { Trash2, Loader2, CheckCircle2, Shield, FileText, Upload, X, Save, Lock, Link as LinkIcon, Edit2 } from 'lucide-react'
+import { Trash2, Loader2, CheckCircle2, Shield, FileText, Upload, X, Save, Lock, Link as LinkIcon, Edit2, Users } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { COLLEGES } from '@/lib/data'
 
@@ -22,6 +22,9 @@ export default function AdminLibraryPage() {
   const [mats, setMats] = useState<Mat[]>([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
+  const [viewReqs,   setViewReqs]   = useState<string|null>(null)
+  const [requests,   setRequests]   = useState<any[]>([])
+  const [reqLoading, setReqLoading] = useState(false)
   const [tab, setTab] = useState<'all' | 'past-question' | 'note' | 'project'>('all')
   const [showUpload, setShowUpload] = useState(false)
   const [editMat,    setEditMat]    = useState<Mat|null>(null)
@@ -126,6 +129,18 @@ export default function AdminLibraryPage() {
     setSaving(false)
     setEditMat(null)
     showToast('Material updated'); load()
+  }
+
+  const loadRequests = async (matId: string) => {
+    setViewReqs(matId); setReqLoading(true)
+    const { data } = await supabase.from('material_requests')
+      .select('*').eq('material_id', matId).order('created_at', { ascending: false })
+    setRequests(data || []); setReqLoading(false)
+  }
+
+  const updateReqStatus = async (id: string, status: string) => {
+    await supabase.from('material_requests').update({ status }).eq('id', id)
+    if (viewReqs) loadRequests(viewReqs)
   }
 
   return (
@@ -414,6 +429,42 @@ export default function AdminLibraryPage() {
         </div>
       )}
 
+      {/* Requests Side Sheet */}
+      {viewReqs && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={()=>setViewReqs(null)}/>
+          <div className="relative w-full max-w-md bg-white rounded-t-2xl p-5 animate-slide-up max-h-[80vh] flex flex-col">
+            <div className="w-10 h-1 bg-[#e8e8e8] rounded-full mx-auto mb-4"/>
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <div><h2 className="font-black text-[#0a0a0a]">Student Requests</h2><p className="text-xs text-[#aaa]">{requests.length} total</p></div>
+              <button onClick={()=>setViewReqs(null)} className="p-1.5 rounded-full bg-[#f9f9f7]"><X className="w-4 h-4 text-[#6b6b6b]"/></button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {reqLoading ? (<div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-[#1a6b3a]"/></div>) :
+              requests.length === 0 ? (<div className="text-center py-8 text-sm text-[#aaa]">No requests yet</div>) :
+              requests.map((r:any) => (
+                <div key={r.id} className="card p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-[#0a0a0a] text-sm">{r.student_name}</p>
+                      <p className="text-[10px] font-mono text-[#aaa]">{r.matric_number}</p>
+                      <p className="text-[10px] text-[#6b6b6b] mt-0.5">📞 {r.student_phone}</p>
+                      <p className="text-[9px] text-[#aaa] mt-0.5">{new Date(r.created_at).toLocaleDateString('en-NG')}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full capitalize ${r.status==='pending'?'bg-amber-100 text-amber-700':r.status==='approved'?'bg-green-100 text-green-700':r.status==='collected'?'bg-gray-100 text-gray-600':'bg-red-100 text-red-700'}`}>{r.status}</span>
+                      <select value={r.status} onChange={e=>updateReqStatus(r.id,e.target.value)}
+                        className="text-[9px] border border-[#e8e8e8] rounded-lg px-1.5 py-1 outline-none bg-white">
+                        {['pending','approved','collected','cancelled'].map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </AdminShell>
   )
 }
