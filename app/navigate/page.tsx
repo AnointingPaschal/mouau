@@ -55,15 +55,17 @@ function NavigateContent() {
   const [fromLoading,setFromLoading]= useState(false)
   const [fromFocus,  setFromFocus]  = useState(false)
   const fromTimer = useRef<any>(null)
+  const fromTextRef = useRef('') // always-current mirror for searchDirections
 
   const [toText,     setToText]     = useState('')
-  const [toDisplayText, setToDisplayText] = useState('')  // shown in UI
-  const [toCoords,   setToCoords]   = useState<string>('')  // lat,lng when known
+  const [toDisplayText, setToDisplayText] = useState('')
+  const [toCoords,   setToCoords]   = useState<string>('')
   const [toId,       setToId]       = useState('')
   const [toSugg,     setToSugg]     = useState<Prediction[]>([])
   const [toLoading,  setToLoading]  = useState(false)
   const [toFocus,    setToFocus]    = useState(false)
   const toTimer = useRef<any>(null)
+  const toCoordsRef = useRef('') // always-current mirror for searchDirections
 
   const [loadingDir, setLoadingDir] = useState(false)
   const [gettingLoc, setGettingLoc] = useState(false)
@@ -117,6 +119,10 @@ function NavigateContent() {
       )
     })
   ,[])
+
+  // Keep refs in sync so searchDirections always sees fresh values even in stale closures
+  useEffect(() => { fromTextRef.current = fromText }, [fromText])
+  useEffect(() => { toCoordsRef.current = toCoords }, [toCoords])
 
   const autoSearchFired = useRef(false)
 
@@ -177,8 +183,9 @@ function NavigateContent() {
     if(!toText.trim()){ setDirError('Enter a destination.'); return }
     setDirError(''); setLoadingDir(true); setDirResult(null)
 
-    let origin = fromText.trim()
-    
+    // Read from ref so we always get the freshest GPS value even if called from a stale closure
+    let origin = fromTextRef.current.trim()
+
     if(!origin){
       setGettingLoc(true)
       const pos = await doGetPos(false)
@@ -186,8 +193,8 @@ function NavigateContent() {
       origin = pos ? `${pos.lat},${pos.lng}` : 'Michael Okpara University of Agriculture Main Gate, Umudike'
     }
 
-    // Prefer GPS coordinates over text name to avoid Google misidentifying buildings
-    const dest = (toCoords.trim()) ? toCoords.trim() : toText.trim()
+    // Prefer GPS coordinates (read from ref) over text name
+    const dest = (toCoordsRef.current.trim()) ? toCoordsRef.current.trim() : toText.trim()
 
     updateMap(`https://maps.google.com/maps?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(dest)}&output=embed&dirflg=d`)
 

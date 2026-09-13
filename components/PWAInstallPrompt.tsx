@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Download, X, Share, Plus, ChevronRight } from 'lucide-react'
 import { useAppConfig } from '@/lib/useAppConfig'
+import { usePathname } from 'next/navigation'
 
 /* ─── types ─── */
 interface BeforeInstallPromptEvent extends Event {
@@ -28,63 +29,97 @@ function isInStandaloneMode(): boolean {
   )
 }
 
-const STORAGE_KEY = 'pwa_install_dismissed'
-const DISMISS_DAYS = 7
+const DISMISSED_KEY = 'pwa_install_dismissed'
+const INSTALLED_KEY = 'pwa_installed'
+const DISMISS_DAYS  = 7
 
-function wasDismissedRecently(): boolean {
+function isInstalledOrDismissedRecently(): boolean {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    // Permanently suppressed once actually installed
+    if (localStorage.getItem(INSTALLED_KEY) === '1') return true
+    // Temporarily dismissed
+    const raw = localStorage.getItem(DISMISSED_KEY)
     if (!raw) return false
     return (Date.now() - parseInt(raw, 10)) / 86_400_000 < DISMISS_DAYS
   } catch { return false }
 }
 
-function markDismissed() {
-  try { localStorage.setItem(STORAGE_KEY, String(Date.now())) } catch {}
-}
+function markDismissed()  { try { localStorage.setItem(DISMISSED_KEY, String(Date.now())) } catch {} }
+function markInstalled()  { try { localStorage.setItem(INSTALLED_KEY, '1'); localStorage.removeItem(DISMISSED_KEY) } catch {} }
 
-/* ─── App Icon sub-component ─── */
+/* ─── App Icon ─── */
 function AppIcon({ url, size = 'md' }: { url: string | null; size?: 'sm' | 'md' | 'lg' }) {
   const cls = size === 'lg' ? 'w-16 h-16' : size === 'sm' ? 'w-8 h-8' : 'w-12 h-12'
   return (
     <div className={`${cls} rounded-2xl overflow-hidden flex-shrink-0 shadow-lg bg-white`}>
-      <img
-        src={url || '/icon-192.png'}
-        alt="PDM MOUAU"
-        className="w-full h-full object-contain"
-      />
+      <img src={url || '/icon-192.png'} alt="PDM MOUAU" className="w-full h-full object-contain" />
     </div>
   )
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
 export default function PWAInstallPrompt() {
-  const [step, setStep]         = useState<Step | null>(null)
-  const [platform, setPlatform] = useState<Platform>('other')
+  const [step, setStep]             = useState<Step | null>(null)
+  const [platform, setPlatform]     = useState<Platform>('other')
+  const deferredEvtRef              = useRef<BeforeInstallPromptEvent | null>(null)
   const [deferredEvt, setDeferredEvt] = useState<BeforeInstallPromptEvent | null>(null)
-  const { logoUrl, siteName } = useAppConfig()
+  const { logoUrl, siteName }       = useAppConfig()
+  const pathname                    = usePathname()
 
-  /* capture Android install event */
+  // Pages where we must not show the banner (they have their own overlays / are critical flows)
+  const isSuppressedPage = pathname === '/navigate'
+
+  /* 1. Capture Android install prompt — if this fires, app is NOT yet installed */
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault()
+      deferredEvtRef.current = e as BeforeInstallPromptEvent
       setDeferredEvt(e as BeforeInstallPromptEvent)
     }
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  /* decide when to show */
+  /* 2. Listen for actual installation → suppress permanently */
   useEffect(() => {
-    if (isInStandaloneMode()) return
-    if (wasDismissedRecently()) return
+    const handler = () => {
+      markInstalled()
+      setStep('done')
+    }
+    window.addEventListener('appinstalled', handler)
+    return () => window.removeEventListener('appinstalled', handler)
+  }, [])
+
+  /* 3. Decide whether + when to show */
+  useEffect(() => {
+    if (isInStandaloneMode())           return  // already running as installed app
+    if (isInstalledOrDismissedRecently()) return  // installed or recently dismissed
+
     const p = detectPlatform()
     setPlatform(p)
-    const t = setTimeout(() => {
-      if (p === 'android' || p === 'ios') setStep('prompt')
-    }, 8000)
-    return () => clearTimeout(t)
-  }, [])
+
+    // On the navigate page, suppress entirely (location overlay takes priority;
+    // once they're navigating they shouldn't be interrupted)
+    if (isSuppressedPage) return
+
+    if (p === 'ios') {
+      // iOS: we can't detect installation, show after 8s
+      const t = setTimeout(() => setStep('prompt'), 8000)
+      return () => clearTimeout(t)
+    }
+
+    if (p === 'android') {
+      // Android: only show if Chrome actually fired beforeinstallprompt
+      // (it does NOT fire if the app is already installed).
+      // We wait 10s to give beforeinstallprompt time to arrive, then check.
+      const t = setTimeout(() => {
+        if (deferredEvtRef.current) setStep('prompt')
+        // If no event → already installed or browser won't offer install; stay silent
+      }, 10000)
+      return () => clearTimeout(t)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuppressedPage])
 
   const dismiss = useCallback(() => { markDismissed(); setStep('done') }, [])
 
@@ -92,8 +127,13 @@ export default function PWAInstallPrompt() {
     if (!deferredEvt) return
     await deferredEvt.prompt()
     const { outcome } = await deferredEvt.userChoice
-    if (outcome === 'accepted') setStep('done')
-    else dismiss()
+    if (outcome === 'accepted') {
+      markInstalled()
+      setStep('done')
+    } else {
+      dismiss()
+    }
+    deferredEvtRef.current = null
     setDeferredEvt(null)
   }, [deferredEvt, dismiss])
 
@@ -200,42 +240,25 @@ export default function PWAInstallPrompt() {
               </button>
             </div>
             <div className="space-y-3">
-              <div className="flex items-center gap-4 bg-white/5 rounded-2xl p-3.5">
-                <div className="w-9 h-9 bg-[#1e3a8a] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Share className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-xs font-semibold">Tap the Share icon</p>
-                  <p className="text-white/40 text-[10px] mt-0.5">The <span className="text-white/70">↑</span> icon at the bottom of Safari</p>
-                </div>
-                <span className="w-6 h-6 rounded-full bg-[#1e3a8a] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">1</span>
-              </div>
-              <div className="flex justify-center">
-                <ChevronRight className="w-4 h-4 text-white/20 rotate-90" />
-              </div>
-              <div className="flex items-center gap-4 bg-white/5 rounded-2xl p-3.5">
-                <div className="w-9 h-9 bg-[#C9A227] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Plus className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-xs font-semibold">Tap "Add to Home Screen"</p>
-                  <p className="text-white/40 text-[10px] mt-0.5">Scroll down in the share sheet to find it</p>
-                </div>
-                <span className="w-6 h-6 rounded-full bg-[#C9A227] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">2</span>
-              </div>
-              <div className="flex justify-center">
-                <ChevronRight className="w-4 h-4 text-white/20 rotate-90" />
-              </div>
-              <div className="flex items-center gap-4 bg-white/5 rounded-2xl p-3.5">
-                <div className="w-9 h-9 bg-[#1a6b3a] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Download className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-xs font-semibold">Tap "Add" to confirm</p>
-                  <p className="text-white/40 text-[10px] mt-0.5">The app icon will appear on your home screen</p>
-                </div>
-                <span className="w-6 h-6 rounded-full bg-[#1a6b3a] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">3</span>
-              </div>
+              {[
+                { icon: Share,    bg: '#1e3a8a', label: 'Tap the Share icon',            sub: 'The ↑ icon at the bottom of Safari', n: 1 },
+                { icon: Plus,     bg: '#C9A227', label: 'Tap "Add to Home Screen"',      sub: 'Scroll down in the share sheet to find it', n: 2 },
+                { icon: Download, bg: '#1a6b3a', label: 'Tap "Add" to confirm',          sub: 'The app icon will appear on your home screen', n: 3 },
+              ].map(({ icon: Icon, bg, label, sub, n }) => (
+                <>
+                  {n > 1 && <div key={`arr-${n}`} className="flex justify-center"><ChevronRight className="w-4 h-4 text-white/20 rotate-90" /></div>}
+                  <div key={n} className="flex items-center gap-4 bg-white/5 rounded-2xl p-3.5">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
+                      <Icon className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-xs font-semibold">{label}</p>
+                      <p className="text-white/40 text-[10px] mt-0.5">{sub}</p>
+                    </div>
+                    <span className="w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0" style={{ background: bg }}>{n}</span>
+                  </div>
+                </>
+              ))}
             </div>
             <p className="text-center text-white/25 text-[10px] mt-4">Must be opened in Safari · Works on iPhone & iPad</p>
             <button onClick={dismiss}
