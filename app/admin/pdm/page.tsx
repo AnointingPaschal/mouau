@@ -158,19 +158,31 @@ export default function AdminPDMPage() {
     {id:'gallery',label:'Gallery'},{id:'videos',label:'Videos'},{id:'contact',label:'Contact'},
   ]
 
+  // Pending edits for settings tabs (about + contact)
+  const [pendingSettings, setPendingSettings] = useState<Record<string,string>>({})
+
+  const saveAllSettings = async (fields: typeof SETTING_FIELDS) => {
+    setSaving(true)
+    for (const f of fields) {
+      const val = pendingSettings[f.key] ?? settings[f.key] ?? ''
+      await supabase.from('pdm_settings').upsert({key:f.key,value:val,updated_at:new Date().toISOString()},{onConflict:'key'})
+    }
+    setSaving(false)
+    setPendingSettings({})
+    showToast('Settings saved!')
+    load()
+  }
+
   const SettingRow=({field}:{field:typeof SETTING_FIELDS[0]})=>{
-    const [val,setVal]=useState(settings[field.key]||'')
-    useEffect(()=>setVal(settings[field.key]||''),[settings[field.key]])
+    const val = pendingSettings[field.key] ?? settings[field.key] ?? ''
     return (
       <div className="px-4 py-3.5 border-b border-[#f5f5f5] last:border-0">
         <label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider mb-1.5 block">{field.label}</label>
         {field.type==='textarea'?(
-          <textarea rows={3} value={val} onChange={e=>setVal(e.target.value)}
-            onBlur={()=>val!==settings[field.key]&&saveSetting(field.key,val)}
+          <textarea rows={3} value={val} onChange={e=>setPendingSettings(p=>({...p,[field.key]:e.target.value}))}
             className="input w-full resize-none text-sm" placeholder={field.placeholder}/>
         ):(
-          <input value={val} onChange={e=>setVal(e.target.value)}
-            onBlur={()=>val!==settings[field.key]&&saveSetting(field.key,val)}
+          <input value={val} onChange={e=>setPendingSettings(p=>({...p,[field.key]:e.target.value}))}
             className="input w-full text-sm" placeholder={field.placeholder}/>
         )}
       </div>
@@ -209,6 +221,13 @@ export default function AdminPDMPage() {
                 <p className="text-[10px] text-[#aaa] mt-0.5">Changes save automatically when you leave a field</p>
               </div>
               {SETTING_FIELDS.map(f=><SettingRow key={f.key} field={f}/>)}
+              <div className="px-4 py-3">
+                <button onClick={()=>saveAllSettings(SETTING_FIELDS)} disabled={saving}
+                  className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60"
+                  style={{background:'linear-gradient(135deg,#1e3a8a,#b91c1c)'}}>
+                  {saving?<><Loader2 className="w-4 h-4 animate-spin"/> Saving...</>:<><Save className="w-4 h-4"/> Save Changes</>}
+                </button>
+              </div>
             </div>
           )}
 
@@ -300,6 +319,13 @@ export default function AdminPDMPage() {
                 <p className="text-[10px] text-[#aaa] mt-0.5">Changes save automatically when you leave a field</p>
               </div>
               {CONTACT_FIELDS.map(f=><SettingRow key={f.key} field={f as any}/>)}
+              <div className="px-4 py-3">
+                <button onClick={()=>saveAllSettings(CONTACT_FIELDS as any)} disabled={saving}
+                  className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60"
+                  style={{background:'linear-gradient(135deg,#1e3a8a,#b91c1c)'}}>
+                  {saving?<><Loader2 className="w-4 h-4 animate-spin"/> Saving...</>:<><Save className="w-4 h-4"/> Save Changes</>}
+                </button>
+              </div>
             </div>
           )}
 
