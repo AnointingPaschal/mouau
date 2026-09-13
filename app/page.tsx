@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { saveStudent } from '@/lib/auth'
+import { useAppConfig } from '@/lib/useAppConfig'
 import { Eye, EyeOff, ArrowRight, Loader2, AlertCircle, Mail, KeyRound, CheckCircle2, RefreshCw } from 'lucide-react'
 
 // ─── ID Format Validation ────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ export default function LoginPage() {
   const [info,     setInfo]     = useState('')
   const router = useRouter()
   const { setStudent } = useAuth()
+  const { logoUrl, siteName } = useAppConfig()
 
   const reset = (s: Screen) => { setScreen(s); setError(''); setInfo(''); setCode('') }
 
@@ -165,10 +167,16 @@ export default function LoginPage() {
       <div className="hidden lg:flex flex-col justify-between text-white p-12 w-[440px] flex-shrink-0 pd-gradient">
         <div>
           <div className="flex items-center gap-2 mb-16">
-            <div className="w-8 h-8 bg-[#1a6b3a] rounded flex items-center justify-center">
-              <span className="text-white font-black text-xs">M</span>
-            </div>
-            <span className="font-black text-lg tracking-tight">Pneuma Domain MOUAU</span>
+            {logoUrl ? (
+              <div className="w-8 h-8 rounded overflow-hidden bg-white flex-shrink-0">
+                <img src={logoUrl} alt={siteName} className="w-full h-full object-contain" />
+              </div>
+            ) : (
+              <div className="w-8 h-8 bg-[#1a6b3a] rounded flex items-center justify-center">
+                <span className="text-white font-black text-xs">M</span>
+              </div>
+            )}
+            <span className="font-black text-lg tracking-tight">{siteName}</span>
           </div>
           <h1 className="text-4xl font-black leading-tight mb-6">
             Your ministry &<br/>campus companion<br/>
@@ -186,10 +194,16 @@ export default function LoginPage() {
       {/* Right form panel */}
       <div className="flex-1 flex flex-col">
         <div className="lg:hidden flex items-center gap-2 px-5 py-4 border-b border-[#e8e8e8]">
-          <div className="w-7 h-7 bg-[#1a6b3a] rounded flex items-center justify-center">
-            <span className="text-white font-black text-xs">M</span>
-          </div>
-          <span className="font-black text-base tracking-tight">Pneuma Domain MOUAU</span>
+          {logoUrl ? (
+            <div className="w-7 h-7 rounded overflow-hidden bg-[#f9f9f7] flex-shrink-0">
+              <img src={logoUrl} alt={siteName} className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-7 h-7 bg-[#1a6b3a] rounded flex items-center justify-center">
+              <span className="text-white font-black text-xs">M</span>
+            </div>
+          )}
+          <span className="font-black text-base tracking-tight">{siteName}</span>
         </div>
 
         <div className="flex-1 flex items-center justify-center p-6 lg:p-16 bg-[#f9f9f7]">

@@ -1,5 +1,6 @@
 'use client'
 import { useAdmin } from './AdminProvider'
+import { useAppConfig } from '@/lib/useAppConfig'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -7,35 +8,51 @@ import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images, Cross } from 'lucide-react'
 
 const nav = [
-  { href:'/admin/dashboard', label:'Dashboard', icon:LayoutDashboard },
-  { href:'/admin/content', label:'Site Content', icon:Type },
-  { href:'/admin/library', label:'Library', icon:BookOpen },
-  { href:'/admin/pdm',     label:'PDM Content', icon:Cross },
-  { href:'/admin/gallery', label:'Gallery', icon:Images },
-  { href:'/admin/places',  label:'Campus Places', icon:MapPin },
-  { href:'/admin/announcements', label:'Announcements', icon:Bell },
-  { href:'/admin/map', label:'Campus Map', icon:MapPin },
-  { href:'/admin/settings/app', label:'App Settings', icon:Settings2 },
-  { href:'/admin/settings', label:'Notification Settings', icon:BellRing },
-  { href:'/admin/notifications', label:'Notification Rules', icon:Bell },
-  { href:'/admin/ai-training', label:'AI Training', icon:Brain },
-  { href:'/admin/registration', label:'Registration Guide', icon:ClipboardList },
-  { href:'/admin/students', label:'Students', icon:User },
-  { href:'/admin/admins', label:'Admin Accounts', icon:Users },
+  { href:'/admin/dashboard',     label:'Dashboard',            icon:LayoutDashboard },
+  { href:'/admin/content',       label:'Site Content',         icon:Type            },
+  { href:'/admin/library',       label:'Library',              icon:BookOpen        },
+  { href:'/admin/pdm',           label:'PDM Content',          icon:Cross           },
+  { href:'/admin/gallery',       label:'Gallery',              icon:Images          },
+  { href:'/admin/places',        label:'Campus Places',        icon:MapPin          },
+  { href:'/admin/announcements', label:'Announcements',        icon:Bell            },
+  { href:'/admin/map',           label:'Campus Map',           icon:MapPin          },
+  { href:'/admin/settings/app',  label:'App Settings',         icon:Settings2       },
+  { href:'/admin/settings',      label:'Notification Settings',icon:BellRing        },
+  { href:'/admin/notifications', label:'Notification Rules',   icon:Bell            },
+  { href:'/admin/ai-training',   label:'AI Training',          icon:Brain           },
+  { href:'/admin/registration',  label:'Registration Guide',   icon:ClipboardList   },
+  { href:'/admin/students',      label:'Students',             icon:User            },
+  { href:'/admin/admins',        label:'Admin Accounts',       icon:Users           },
 ]
+
+function AdminLogo({ url, name }: { url: string | null; name: string }) {
+  const initials = (name || 'PDM').substring(0, 1).toUpperCase()
+  if (url) {
+    return (
+      <div className="w-6 h-6 rounded overflow-hidden flex-shrink-0 bg-white">
+        <img src={url} alt={name} className="w-full h-full object-contain" />
+      </div>
+    )
+  }
+  return (
+    <div className="w-6 h-6 bg-[#1a6b3a] rounded flex items-center justify-center flex-shrink-0">
+      <span className="text-white font-black text-[10px]">{initials}</span>
+    </div>
+  )
+}
 
 function NavContent({ onClose }: { onClose?: () => void }) {
   const { admin, logout } = useAdmin()
+  const { logoUrl, siteName } = useAppConfig()
   const pathname = usePathname()
+
   return (
     <>
       <div className="flex items-center gap-2.5 px-4 py-4 border-b border-white/5">
-        <div className="w-6 h-6 bg-[#1a6b3a] rounded flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-black text-[10px]">M</span>
-        </div>
-        <div className="flex-1">
-          <p className="text-white font-black text-xs tracking-tight">Admin Panel</p>
-          <p className="text-white/30 text-[9px]">MOUAU FreshStart</p>
+        <AdminLogo url={logoUrl} name={siteName} />
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-black text-xs tracking-tight truncate">Admin Panel</p>
+          <p className="text-white/30 text-[9px] truncate">{siteName}</p>
         </div>
         {onClose && (
           <button onClick={onClose} className="text-white/30 hover:text-white lg:hidden">
@@ -64,7 +81,9 @@ function NavContent({ onClose }: { onClose?: () => void }) {
         })}
       </nav>
       <div className="p-2 border-t border-white/5">
-        <Link href="/dashboard" onClick={onClose} className="admin-nav-item mb-0.5 text-xs"><ChevronRight className="w-3.5 h-3.5"/>Student View</Link>
+        <Link href="/dashboard" onClick={onClose} className="admin-nav-item mb-0.5 text-xs">
+          <ChevronRight className="w-3.5 h-3.5"/>Student View
+        </Link>
         <button onClick={logout} className="admin-nav-item w-full text-xs text-red-400/70 hover:text-red-400 hover:bg-red-500/10">
           <LogOut className="w-3.5 h-3.5"/> Sign Out
         </button>
@@ -75,8 +94,9 @@ function NavContent({ onClose }: { onClose?: () => void }) {
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const { admin, loading, logout } = useAdmin()
+  const { logoUrl, siteName } = useAppConfig()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const router = useRouter()
+  const router  = useRouter()
   const pathname = usePathname()
 
   useEffect(() => { if (!loading && !admin) router.replace('/admin') }, [admin, loading, router])
@@ -96,7 +116,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <NavContent/>
       </aside>
 
-      {/* Mobile drawer overlay */}
+      {/* Mobile drawer */}
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-black/60" onClick={() => setDrawerOpen(false)}/>
@@ -112,9 +132,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <button onClick={() => setDrawerOpen(true)} className="text-white/60 hover:text-white p-1 -ml-1">
             <Menu className="w-5 h-5"/>
           </button>
-          <div className="w-5 h-5 bg-[#1a6b3a] rounded flex items-center justify-center">
-            <span className="text-white font-black text-[9px]">M</span>
-          </div>
+          <AdminLogo url={logoUrl} name={siteName} />
           <p className="text-white font-black text-sm">Admin Panel</p>
         </div>
         <button onClick={logout} className="text-white/40 hover:text-red-400 transition-colors p-1">

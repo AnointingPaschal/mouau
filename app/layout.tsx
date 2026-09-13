@@ -24,7 +24,6 @@ export const metadata: Metadata = {
     title: 'PDM MOUAU',
   },
   formatDetection: { telephone: false },
-  manifest: '/manifest.json',
   icons: {
     icon: [
       { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
