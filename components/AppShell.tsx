@@ -1,5 +1,6 @@
 'use client'
 import NotificationPrompt from './NotificationPrompt'
+import PWAInstallPrompt from './PWAInstallPrompt'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import { useAuth } from './AuthProvider'
@@ -27,6 +28,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <BottomNav/>
       <NotificationPrompt/>
+      <PWAInstallPrompt/>
     </div>
   )
 }
