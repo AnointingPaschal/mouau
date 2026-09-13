@@ -150,3 +150,24 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #fff; color: #0a
   background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
   animation: shimmer 2.5s ease infinite;
 }
+
+/* ── Pneuma Domain Ministry color palette ─────────────────────── */
+:root {
+  --pd-blue:   #1e3a8a;
+  --pd-blue2:  #1d4ed8;
+  --pd-red:    #b91c1c;
+  --pd-orange: #c2410c;
+  --pd-grad:   linear-gradient(135deg, #1e3a8a 0%, #b91c1c 50%, #c2410c 100%);
+  --pd-grad2:  linear-gradient(90deg,  #1e3a8a, #b91c1c);
+}
+
+/* Gallery slideshow */
+.gallery-slide { animation: galleryFade 0.6s ease; }
+@keyframes galleryFade { from { opacity:0; transform:scale(1.02); } to { opacity:1; transform:scale(1); } }
+.pd-gradient { background: var(--pd-grad); }
+.pd-gradient-text {
+  background: var(--pd-grad2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
