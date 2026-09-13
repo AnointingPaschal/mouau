@@ -1,5 +1,6 @@
 'use client'
 import { useAuth } from './AuthProvider'
+import { useAppConfig } from '@/lib/useAppConfig'
 import { Bell, Search, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -10,6 +11,7 @@ type Notif = { id:string; type:string; title:string; body:string; post_id:string
 
 export default function TopBar({ title, subtitle }: { title?: string; subtitle?: string }) {
   const { student } = useAuth()
+  const { logoUrl }  = useAppConfig()
   const [showSearch, setShowSearch] = useState(false)
   const [query, setQuery]           = useState('')
   const [showNotifs, setShowNotifs] = useState(false)
@@ -68,14 +70,22 @@ export default function TopBar({ title, subtitle }: { title?: string; subtitle?:
     <>
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#e8e8e8] px-4 lg:px-5 py-2.5">
         <div className="flex items-center justify-between">
-          <div>
-            {title ? (
-              <><h1 className="font-black text-[#0a0a0a] text-sm leading-tight">{title}</h1>
-              {subtitle && <p className="text-[11px] text-[#aaa]">{subtitle}</p>}</>
-            ) : (
-              <><p className="text-[11px] text-[#aaa]">{greet},</p>
-              <h1 className="font-black text-[#0a0a0a] text-sm">{student?.name?.split(' ')[0]||'Student'}</h1></>
+          <div className="flex items-center gap-2.5">
+            {/* App logo — shown on mobile only (desktop sidebar already has it) */}
+            {logoUrl && (
+              <div className="lg:hidden w-7 h-7 rounded-lg overflow-hidden flex-shrink-0 bg-white border border-[#f0f0f0]">
+                <img src={logoUrl} alt="PDM MOUAU" className="w-full h-full object-contain" />
+              </div>
             )}
+            <div>
+              {title ? (
+                <><h1 className="font-black text-[#0a0a0a] text-sm leading-tight">{title}</h1>
+                {subtitle && <p className="text-[11px] text-[#aaa]">{subtitle}</p>}</>
+              ) : (
+                <><p className="text-[11px] text-[#aaa]">{greet},</p>
+                <h1 className="font-black text-[#0a0a0a] text-sm">{student?.name?.split(' ')[0]||'Student'}</h1></>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
             {showSearch ? (
