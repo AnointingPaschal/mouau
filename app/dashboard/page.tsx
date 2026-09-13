@@ -10,7 +10,7 @@ import Link from 'next/link'
 import {
   ClipboardList, Users, Calculator, Clock,
   AlertTriangle, Info, CheckCircle2, Calendar,
-  ChevronRight, Navigation2, MapPin, BookOpen,
+  ChevronRight, Navigation2, MapPin,
   MessageCircle, Star, TrendingUp
 } from 'lucide-react'
 
@@ -42,18 +42,9 @@ export default function Dashboard() {
   const [pct,         setPct]         = useState(0)
   const [doneCount,   setDoneCount]   = useState(0)
   const [totalCount,  setTotalCount]  = useState(0)
-  const [stats,       setStats]       = useState({ posts:0, materials:0 })
 
   useEffect(() => {
     getAnnouncements().then(({ data }) => { if(data) setAnns(data as Ann[]) })
-
-    // Load stats
-    Promise.all([
-      supabase.from('forum_posts').select('id', { count:'exact', head:true }),
-      supabase.from('library_materials').select('id', { count:'exact', head:true }).eq('verified', true),
-    ]).then(([posts, mats]) => {
-      setStats({ posts: posts.count||0, materials: mats.count||0 })
-    })
 
     if(!student?.idNumber) return
     try {
@@ -141,20 +132,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Stats strip */}
-          <div className="grid grid-cols-3 gap-0 border-t border-white/5 mx-0">
-            {[
-              { label:'Posts',     val:stats.posts,     icon:MessageCircle },
-              { label:'Materials', val:stats.materials, icon:BookOpen },
-              { label:'Progress',  val:`${pct}%`,       icon:TrendingUp },
-            ].map(({ label, val, icon:Icon }) => (
-              <div key={label} className="flex flex-col items-center py-3 border-r border-white/5 last:border-0">
-                <Icon className="w-3.5 h-3.5 text-white/30 mb-1"/>
-                <p className="text-white font-black text-lg leading-tight">{val}</p>
-                <p className="text-white/30 text-[9px] uppercase tracking-wide">{label}</p>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="px-4 pt-4 space-y-4">
@@ -229,16 +206,6 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-
-          {/* Pneuma Domain footer tag */}
-          <div className="flex items-center justify-center gap-2 py-3">
-            <div className="flex gap-1">
-              <div className="w-2 h-2 rounded-full" style={{background:'#1e3a8a'}}/>
-              <div className="w-2 h-2 rounded-full" style={{background:'#b91c1c'}}/>
-              <div className="w-2 h-2 rounded-full" style={{background:'#c2410c'}}/>
-            </div>
-            <p className="text-[9px] text-[#aaa] font-semibold tracking-wider uppercase">Pneuma Domain Ministry · MOUAU</p>
-          </div>
 
         </div>
       </div>
