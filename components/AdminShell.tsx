@@ -4,13 +4,12 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Package, Images } from 'lucide-react'
+import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images } from 'lucide-react'
 
 const nav = [
   { href:'/admin/dashboard', label:'Dashboard', icon:LayoutDashboard },
   { href:'/admin/content', label:'Site Content', icon:Type },
   { href:'/admin/library', label:'Library', icon:BookOpen },
-  { href:'/admin/materials', label:'Ministry Materials', icon:Package },
   { href:'/admin/gallery', label:'Gallery', icon:Images },
   { href:'/admin/places',  label:'Campus Places', icon:MapPin },
   { href:'/admin/announcements', label:'Announcements', icon:Bell },
