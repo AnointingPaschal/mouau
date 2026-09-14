@@ -1,10 +1,10 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import AdminShell from '@/components/AdminShell'
+import { useAdmin } from '@/components/AdminProvider'
 import {
   Send, Loader2, CheckCircle2, AlertCircle,
-  Smartphone, Mail, Monitor, Users, BookOpen,
-  ChevronDown, ChevronUp, Info
+  Smartphone, Mail, Monitor, Users, ChevronDown, ChevronUp, Info
 } from 'lucide-react'
 
 /* ─── Audience definitions ──────────────────────────────────────────────── */
@@ -60,6 +60,9 @@ type Channels = { push: boolean; inapp: boolean; email: boolean }
 type AudienceInfo = { total: number; pushEnabled: number } | null
 
 export default function SendNotificationPage() {
+  const { token } = useAdmin()
+  const authHeader = { Authorization: `Bearer ${token}` }
+
   const [audience,   setAudience]   = useState('all')
   const [title,      setTitle]      = useState('')
   const [body,       setBody]       = useState('')
@@ -76,15 +79,17 @@ export default function SendNotificationPage() {
 
   /* Load audience count whenever audience changes */
   const loadPreview = useCallback(async (aud: string) => {
+    if (!token) return
     setPreviewLoading(true)
     setPreview(null)
     try {
-      const r = await fetch(`/api/admin/send-notification?audience=${aud}`)
+      const r = await fetch(`/api/admin/send-notification?audience=${aud}`, { headers: authHeader })
       const d = await r.json()
       setPreview(d)
     } catch {}
     setPreviewLoading(false)
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
 
   useEffect(() => { loadPreview(audience) }, [audience, loadPreview])
 
@@ -98,11 +103,11 @@ export default function SendNotificationPage() {
     try {
       const r = await fetch('/api/admin/send-notification', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({ audience, title, body, url, channels }),
       })
       const d = await r.json()
-      if (!d.ok) { setError(d.error || 'Send failed'); }
+      if (!d.ok) { setError(d.error || 'Send failed') }
       else { setResult(d.results); setTitle(''); setBody('') }
     } catch (e: any) {
       setError(e.message || 'Network error')
