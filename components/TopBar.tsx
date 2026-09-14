@@ -141,17 +141,36 @@ export default function TopBar({ title, subtitle }: { title?: string; subtitle?:
                   <Bell className="w-8 h-8 text-[#ddd] mx-auto mb-2"/>
                   <p className="text-xs text-[#aaa]">No notifications yet</p>
                 </div>
-              ) : notifs.map(n=>(
-                <div key={n.id} className={`flex items-start gap-3 px-4 py-3 border-b border-[#f5f5f5] hover:bg-[#f9f9f7] transition-colors ${!n.read?'bg-[#f0f9f4]':''}`}>
-                  <span className="text-xl flex-shrink-0 mt-0.5">{notifIcon(n.type)}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-[#0a0a0a] leading-tight">{n.title}</p>
-                    {n.body&&<p className="text-[10px] text-[#6b6b6b] mt-0.5 truncate">{n.body}</p>}
-                    <p className="text-[10px] text-[#aaa] mt-1">{formatDistanceToNow(new Date(n.created_at),{addSuffix:true})}</p>
-                  </div>
-                  {!n.read&&<div className="w-2 h-2 bg-[#1a6b3a] rounded-full flex-shrink-0 mt-1"/>}
-                </div>
-              ))}
+              ) : notifs.map(n => {
+                // post_id doubles as nav URL when it starts with '/'
+                // Otherwise fall back to type-based defaults
+                const navUrl = n.post_id?.startsWith('/')
+                  ? n.post_id
+                  : n.type === 'forum_reply' || n.type === 'mention' ? '/forum'
+                  : n.type === 'library_approved' || n.type === 'library' ? '/library'
+                  : n.type === 'pdm' ? '/pdm'
+                  : n.type === 'event' ? '/events'
+                  : '/dashboard'
+
+                return (
+                  <button
+                    key={n.id}
+                    onClick={async () => {
+                      setShowNotifs(false)
+                      await supabase.from('notifications').update({ read: true }).eq('id', n.id)
+                      router.push(navUrl)
+                    }}
+                    className={`w-full text-left flex items-start gap-3 px-4 py-3 border-b border-[#f5f5f5] hover:bg-[#f9f9f7] active:bg-[#f0f0f0] transition-colors ${!n.read ? 'bg-[#f0f9f4]' : ''}`}>
+                    <span className="text-xl flex-shrink-0 mt-0.5">{notifIcon(n.type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-[#0a0a0a] leading-tight">{n.title}</p>
+                      {n.body && <p className="text-[10px] text-[#6b6b6b] mt-0.5 line-clamp-2">{n.body}</p>}
+                      <p className="text-[10px] text-[#aaa] mt-1">{formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}</p>
+                    </div>
+                    {!n.read && <div className="w-2 h-2 bg-[#1a6b3a] rounded-full flex-shrink-0 mt-1.5 flex-shrink-0"/>}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </>

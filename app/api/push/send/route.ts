@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     const notifTitle = title   || appName
     const notifBody  = msgBody || ''
-    const notifIcon  = `${appUrl}/notification-icon.png`  // transparent PNG, no background
+    const notifIcon  = (s.logo_url && s.logo_url.startsWith("http")) ? s.logo_url : `${appUrl}/notification-icon.png`
     const notifBadge = `${appUrl}/badge-icon.png`
 
     const result = await messaging.sendEachForMulticast({

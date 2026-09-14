@@ -142,22 +142,22 @@ async function broadcastAnnouncement({ title, body }: { title: string; body: str
         .neq('email', 'N/A')
 
       if (students?.length) {
+        const siteName = s.site_name || 'PDM MOUAU'
+        const logoUrl  = s.logo_url?.startsWith('http') ? s.logo_url : undefined
         const html = emailTemplate({
-          title,
-          body:  body || title,
-          type:  'announcement',
-          cta:   { text: 'Open FreshStart', url: 'https://mouau-rose.vercel.app/dashboard' },
+          title, body: body || title, type: 'announcement',
+          siteName, logoUrl,
+          cta: { text: 'Open App', url: 'https://mouau-rose.vercel.app/dashboard' },
         })
         const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } })
-        // Send in sequence to respect Gmail rate limits
         for (const st of students as any[]) {
           if (!st.email) continue
           await transporter.sendMail({
-            from:    `"${s.site_name || 'MOUAU FreshStart'}" <${gmailUser}>`,
-            to:      st.email,
-            subject: `📢 ${title}`,
+            from: `"${siteName}" <${gmailUser}>`,
+            to:   st.email,
+            subject: title,
             html,
-          }).catch(() => {}) // continue on individual failure
+          }).catch(() => {})
         }
       }
     }

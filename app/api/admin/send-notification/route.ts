@@ -1,51 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminDb, getAdminFromRequest } from '@/lib/admin'
+import { getAdminFromRequest } from '@/lib/admin'
 import { supabase } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
 import { emailTemplate } from '@/lib/emailTemplate'
 import nodemailer from 'nodemailer'
 
-/* ─── Audience resolver ───────────────────────────────────────────────────── */
+const APP_URL = 'https://mouau-rose.vercel.app'
+
+/* ─── Audience resolver ──────────────────────────────────────────────────── */
 async function resolveRecipients(audience: string): Promise<string[]> {
   if (audience === 'all') {
     const { data } = await supabase.from('students').select('id_number')
     return (data || []).map((s: any) => s.id_number)
   }
-
   if (audience === 'pwa_installed') {
     const { data } = await supabase.from('push_subscriptions').select('student_id')
     const seen = new Set<string>()
     return (data || []).map((s: any) => s.student_id).filter((id: string) => { if (seen.has(id)) return false; seen.add(id); return true })
   }
-
   if (audience.startsWith('material_')) {
     const status = audience.replace('material_', '')
     const { data } = await supabase.from('material_requests').select('student_id').eq('status', status)
     const seen = new Set<string>()
     return (data || []).map((s: any) => s.student_id).filter((id: string) => { if (seen.has(id)) return false; seen.add(id); return true })
   }
-
   if (audience.startsWith('level_')) {
-    const level = audience.replace('level_', '')
-    const { data } = await supabase.from('students').select('id_number').eq('level', level)
+    const { data } = await supabase.from('students').select('id_number').eq('level', audience.replace('level_', ''))
     return (data || []).map((s: any) => s.id_number)
   }
-
   if (audience.startsWith('dept_')) {
-    const dept = audience.replace('dept_', '')
-    const { data } = await supabase.from('students').select('id_number').ilike('department', `%${dept}%`)
+    const { data } = await supabase.from('students').select('id_number').ilike('department', `%${audience.replace('dept_', '')}%`)
     return (data || []).map((s: any) => s.id_number)
   }
-
   return []
 }
 
-/* ─── FCM multicast helper ────────────────────────────────────────────────── */
+/* ─── FCM push ──────────────────────────────────────────────────────────── */
 async function sendPush(recipientIds: string[], title: string, body: string, url: string, s: any) {
-  const appUrl     = 'https://mouau-rose.vercel.app'
-  const notifIcon  = `${appUrl}/notification-icon.png`  // transparent PNG
-  const notifBadge = `${appUrl}/badge-icon.png`
-
   let query = supabase.from('push_subscriptions').select('fcm_token, student_id')
   if (recipientIds.length > 0) query = query.in('student_id', recipientIds)
   const { data: subs } = await query
@@ -61,10 +52,14 @@ async function sendPush(recipientIds: string[], title: string, body: string, url
   if (!getApps().length) initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) })
   const messaging = getMessaging()
 
-  const tokens = subs
-    .map((sub: any) => sub.fcm_token)
-    .filter((t: string) => t && !t.startsWith('pwa:'))
+  const tokens = subs.map((sub: any) => sub.fcm_token).filter((t: string) => t && !t.startsWith('pwa:'))
   if (!tokens.length) return { sent: 0, failed: 0 }
+
+  // Use admin-uploaded logo; fall back to transparent notification icon
+  const logoUrl    = s.logo_url?.startsWith('http') ? s.logo_url : null
+  const notifIcon  = logoUrl || `${APP_URL}/notification-icon.png`
+  const notifBadge = `${APP_URL}/badge-icon.png`
+  const destUrl    = `${APP_URL}${url || '/dashboard'}`
 
   let totalSent = 0, totalFailed = 0
   const badTokens: string[] = []
@@ -72,46 +67,46 @@ async function sendPush(recipientIds: string[], title: string, body: string, url
   for (let i = 0; i < tokens.length; i += 500) {
     const batch = tokens.slice(i, i + 500)
     const result = await messaging.sendEachForMulticast({
-      // Top-level notification for native apps
       notification: { title, body },
-      // Data payload — service worker reads this for foreground handling
       data: { title, body, url: url || '/dashboard', icon: notifIcon },
       android: {
         priority: 'high',
         notification: { title, body, color: '#1a6b3a', sound: 'default', channelId: 'freshstart_default', imageUrl: notifIcon },
       },
-      // webpush: title + body REQUIRED here for Chrome/PWA to show them
       webpush: {
         notification: {
-          title,
-          body,
+          title, body,
           icon:    notifIcon,
           badge:   notifBadge,
           vibrate: [200, 100, 200],
           data:    { url: url || '/dashboard' },
           actions: [{ action: 'open', title: 'Open App' }],
         },
-        fcmOptions: { link: `${appUrl}${url || '/dashboard'}` },
+        fcmOptions: { link: destUrl },
       },
       tokens: batch,
     })
     totalSent   += result.successCount
     totalFailed += result.failureCount
     result.responses.forEach((r: any, idx: number) => {
-      if (!r.success && (r.error?.code || '').match(/invalid-registration|not-registered/)) {
-        badTokens.push(batch[idx])
-      }
+      if (!r.success && (r.error?.code || '').match(/invalid-registration|not-registered/)) badTokens.push(batch[idx])
     })
   }
   if (badTokens.length) await supabase.from('push_subscriptions').delete().in('fcm_token', badTokens)
   return { sent: totalSent, failed: totalFailed }
 }
 
-/* ─── In-app notifications ────────────────────────────────────────────────── */
-async function sendInApp(recipientIds: string[], title: string, body: string, url: string) {
+/* ─── In-app — store url in post_id so TopBar can navigate ─────────────── */
+async function sendInApp(recipientIds: string[], title: string, body: string, url: string, s: any) {
+  const siteName = s.site_name || 'PDM MOUAU'
   const rows = recipientIds.map(id => ({
-    recipient_id: id, type: 'announcement', title, body: body || '',
-    post_id: '', actor: 'Admin', read: false,
+    recipient_id: id,
+    type:         'announcement',
+    title,
+    body:         body || '',
+    post_id:      url || '/dashboard',   // reuse post_id as nav URL
+    actor:        siteName,
+    read:         false,
   }))
   for (let i = 0; i < rows.length; i += 50) {
     await supabase.from('notifications').insert(rows.slice(i, i + 50))
@@ -119,86 +114,71 @@ async function sendInApp(recipientIds: string[], title: string, body: string, ur
   return { sent: rows.length }
 }
 
-/* ─── Email ───────────────────────────────────────────────────────────────── */
+/* ─── Email ─────────────────────────────────────────────────────────────── */
 async function sendEmail(recipientIds: string[], title: string, body: string, url: string, s: any) {
   const gmailUser = (s.gmail_user || s.gmail_email || '').trim()
   const gmailPass = (s.gmail_password || s.gmail_app_password || '').trim()
   if (!gmailUser || !gmailPass) return { sent: 0, error: 'Gmail not configured' }
 
-  const { data: students } = await supabase
-    .from('students').select('id_number, name, email').in('id_number', recipientIds)
+  const { data: students } = await supabase.from('students').select('id_number, name, email').in('id_number', recipientIds)
   if (!students?.length) return { sent: 0 }
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail', auth: { user: gmailUser, pass: gmailPass },
-  })
+  const siteName = s.site_name || 'PDM MOUAU'
+  const logoUrl  = s.logo_url?.startsWith('http') ? s.logo_url : undefined
+  const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } })
 
-  const appName = s.site_name || 'MOUAU FreshStart'
-  const appUrl  = 'https://mouau-rose.vercel.app'
   let sent = 0
-
   for (const st of students) {
     if (!st.email) continue
     try {
       await transporter.sendMail({
-        from: `"${appName}" <${gmailUser}>`,
-        to: st.email,
+        from: `"${siteName}" <${gmailUser}>`,
+        to:   st.email,
         subject: title,
         html: emailTemplate({
-          title, body, recipientName: st.name, type: 'announcement',
-          cta: url ? { text: 'Open App', url: `${appUrl}${url}` } : undefined,
+          title, body,
+          recipientName: st.name,
+          type:          'announcement',
+          siteName,
+          logoUrl,
+          cta: url ? { text: 'Open App', url: `${APP_URL}${url}` } : undefined,
         }),
       })
       sent++
-    } catch { /* individual failure — continue */ }
+    } catch { /* continue on individual failure */ }
   }
   return { sent }
 }
 
-/* ─── Preview endpoint ────────────────────────────────────────────────────── */
+/* ─── Preview ────────────────────────────────────────────────────────────── */
 export async function GET(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const audience = req.nextUrl.searchParams.get('audience') || 'all'
-  const ids = await resolveRecipients(audience)
-
-  const { data: pushSubs } = await supabase
-    .from('push_subscriptions').select('student_id').in('student_id', ids)
+  const ids      = await resolveRecipients(audience)
+  const { data: pushSubs } = await supabase.from('push_subscriptions').select('student_id').in('student_id', ids)
   const pushCount = new Set((pushSubs || []).map((s: any) => s.student_id)).size
-
   return NextResponse.json({ total: ids.length, pushEnabled: pushCount })
 }
 
-/* ─── Send endpoint ───────────────────────────────────────────────────────── */
+/* ─── Send ───────────────────────────────────────────────────────────────── */
 export async function POST(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const {
-    audience = 'all', title, body,
-    url = '/dashboard',
-    channels = { push: true, inapp: true, email: false },
-  } = await req.json()
-
+  const { audience = 'all', title, body, url = '/dashboard', channels = { push: true, inapp: true, email: false } } = await req.json()
   if (!title?.trim()) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
   const recipientIds = await resolveRecipients(audience)
-  if (!recipientIds.length) return NextResponse.json({ error: 'No recipients found for this audience' }, { status: 400 })
+  if (!recipientIds.length) return NextResponse.json({ error: 'No recipients found' }, { status: 400 })
 
   const s = await getSettings()
   const results: Record<string, any> = { recipients: recipientIds.length }
   const tasks: Promise<void>[] = []
 
-  if (channels.push) {
-    tasks.push(sendPush(recipientIds, title, body || '', url, s).then(r => { results.push = r }).catch(e => { results.push = { error: e.message } }))
-  }
-  if (channels.inapp) {
-    tasks.push(sendInApp(recipientIds, title, body || '', url).then(r => { results.inapp = r }).catch(e => { results.inapp = { error: e.message } }))
-  }
-  if (channels.email) {
-    tasks.push(sendEmail(recipientIds, title, body || '', url, s).then(r => { results.email = r }).catch(e => { results.email = { error: e.message } }))
-  }
+  if (channels.push)  tasks.push(sendPush(recipientIds, title, body || '', url, s).then(r => { results.push  = r }).catch(e => { results.push  = { error: e.message } }))
+  if (channels.inapp) tasks.push(sendInApp(recipientIds, title, body || '', url, s).then(r => { results.inapp = r }).catch(e => { results.inapp = { error: e.message } }))
+  if (channels.email) tasks.push(sendEmail(recipientIds, title, body || '', url, s).then(r => { results.email = r }).catch(e => { results.email = { error: e.message } }))
 
   await Promise.all(tasks)
   return NextResponse.json({ ok: true, results })

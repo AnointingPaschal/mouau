@@ -1,75 +1,87 @@
+const APP_URL = 'https://mouau-rose.vercel.app'
+
 export function emailTemplate(opts: {
   title: string
   body: string
   cta?: { text: string; url: string }
   recipientName?: string
-  type?: 'info'|'success'|'warning'|'announcement'
+  type?: 'info' | 'success' | 'warning' | 'announcement'
+  siteName?: string   // from admin settings
+  logoUrl?: string    // from admin settings (Supabase URL)
 }): string {
   const colors = {
-    info:         { accent:'#1a6b3a', badge:'#f0f9f4', badgeText:'#1a6b3a' },
-    success:      { accent:'#1a6b3a', badge:'#f0f9f4', badgeText:'#1a6b3a' },
-    warning:      { accent:'#d97706', badge:'#fffbeb', badgeText:'#92400e' },
-    announcement: { accent:'#1a6b3a', badge:'#f0f9f4', badgeText:'#1a6b3a' },
+    info:         { accent: '#1a6b3a', badge: '#f0f9f4', badgeText: '#1a6b3a' },
+    success:      { accent: '#1a6b3a', badge: '#f0f9f4', badgeText: '#1a6b3a' },
+    warning:      { accent: '#d97706', badge: '#fffbeb', badgeText: '#92400e' },
+    announcement: { accent: '#1a6b3a', badge: '#f0f9f4', badgeText: '#1a6b3a' },
   }
-  const c = colors[opts.type || 'info']
-  const year = new Date().getFullYear()
+  const c        = colors[opts.type || 'info']
+  const year     = new Date().getFullYear()
+  const name     = opts.siteName || 'PDM MOUAU'
+  const logoUrl  = opts.logoUrl  || ''
+  const hasLogo  = !!logoUrl
+
+  const logoHtml = hasLogo
+    ? `<img src="${logoUrl}" alt="${name}" width="36" height="36"
+         style="width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;display:inline-block;vertical-align:middle;">`
+    : `<div style="width:36px;height:36px;background:${c.accent};border-radius:8px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;">
+         <span style="color:white;font-weight:900;font-size:18px;line-height:1;">${name.charAt(0).toUpperCase()}</span>
+       </div>`
+
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${opts.title}</title></head>
-<body style="margin:0;padding:0;background:#f5f5f3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f3;padding:32px 16px;">
+<html><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${opts.title}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f3;padding:28px 16px;">
     <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
 
         <!-- Header -->
-        <tr><td style="background:#0a0a0a;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
-          <div style="display:inline-flex;align-items:center;gap:10px;">
-            <div style="width:36px;height:36px;background:${c.accent};border-radius:8px;display:inline-flex;align-items:center;justify-content:center;">
-              <span style="color:white;font-weight:900;font-size:18px;">M</span>
-            </div>
-            <span style="color:white;font-weight:900;font-size:18px;letter-spacing:-0.5px;">MOUAU FreshStart</span>
-          </div>
-          <div style="width:60px;height:3px;background:${c.accent};border-radius:2px;margin:16px auto 0;"></div>
+        <tr><td style="background:#0a0a0a;border-radius:14px 14px 0 0;padding:22px 28px;text-align:center;">
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr>
+              <td style="vertical-align:middle;padding-right:10px;">${logoHtml}</td>
+              <td style="vertical-align:middle;">
+                <span style="color:white;font-weight:900;font-size:17px;letter-spacing:-0.5px;">${name}</span>
+              </td>
+            </tr>
+          </table>
+          <div style="width:50px;height:3px;background:${c.accent};border-radius:2px;margin:14px auto 0;"></div>
         </td></tr>
 
         <!-- Body -->
-        <tr><td style="background:white;padding:36px 32px;">
-          ${opts.recipientName ? `<p style="color:#aaa;font-size:13px;margin:0 0 4px 0;">Hello,</p><p style="color:#0a0a0a;font-weight:800;font-size:20px;margin:0 0 24px 0;">${opts.recipientName}</p>` : ''}
-          
-          <h2 style="color:#0a0a0a;font-size:22px;font-weight:900;margin:0 0 16px 0;line-height:1.3;">${opts.title}</h2>
-          
-          <div style="color:#4b4b4b;font-size:15px;line-height:1.7;margin:0 0 28px 0;">
-            ${opts.body}
-          </div>
+        <tr><td style="background:#ffffff;padding:30px 28px;">
+          ${opts.recipientName
+            ? `<p style="color:#aaa;font-size:12px;margin:0 0 3px;">Hello,</p>
+               <p style="color:#0a0a0a;font-weight:800;font-size:19px;margin:0 0 20px;">${opts.recipientName}</p>`
+            : ''}
 
-          ${opts.cta ? `
-          <div style="text-align:center;margin:28px 0 0 0;">
-            <a href="${opts.cta.url}" style="display:inline-block;background:${c.accent};color:white;font-weight:700;font-size:14px;padding:14px 32px;border-radius:12px;text-decoration:none;letter-spacing:0.3px;">
-              ${opts.cta.text} →
-            </a>
-          </div>` : ''}
-        </td></tr>
+          <h2 style="color:#0a0a0a;font-size:20px;font-weight:900;margin:0 0 14px;line-height:1.3;">${opts.title}</h2>
 
-        <!-- Divider + campus badge -->
-        <tr><td style="background:white;padding:0 32px;">
-          <div style="background:${c.badge};border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:12px;margin-bottom:0;">
-            <span style="font-size:20px;">🎓</span>
-            <div>
-              <p style="margin:0;font-weight:700;font-size:13px;color:${c.badgeText};">Michael Okpara University of Agriculture</p>
-              <p style="margin:0;font-size:12px;color:#888;">Umudike, Abia State, Nigeria</p>
-            </div>
-          </div>
+          ${opts.body
+            ? opts.body.split('\n').map(line => line.trim()
+                ? `<p style="color:#444;font-size:14px;line-height:1.7;margin:0 0 12px;">${line}</p>`
+                : '').join('')
+            : ''}
+
+          ${opts.cta
+            ? `<div style="margin:24px 0 8px;">
+                 <a href="${opts.cta.url}"
+                   style="display:inline-block;background:${c.accent};color:white;font-weight:700;font-size:14px;
+                          padding:12px 28px;border-radius:10px;text-decoration:none;letter-spacing:-0.2px;">
+                   ${opts.cta.text}
+                 </a>
+               </div>`
+            : ''}
         </td></tr>
 
         <!-- Footer -->
-        <tr><td style="background:white;border-radius:0 0 16px 16px;padding:20px 32px 28px;border-top:1px solid #f0f0f0;margin-top:20px;">
-          <p style="margin:16px 0 0 0;color:#aaa;font-size:11px;line-height:1.6;text-align:center;">
-            You received this because you're registered on MOUAU FreshStart.<br>
-            <a href="https://mouau-rose.vercel.app/profile" style="color:${c.accent};text-decoration:none;font-weight:600;">Manage notifications</a>
-            &nbsp;·&nbsp;
-            <a href="https://mouau-rose.vercel.app" style="color:${c.accent};text-decoration:none;font-weight:600;">Open app</a>
-          </p>
-          <p style="margin:12px 0 0 0;color:#ccc;font-size:10px;text-align:center;">© ${year} MOUAU FreshStart · All rights reserved</p>
+        <tr><td style="background:#f5f5f3;border-radius:0 0 14px 14px;padding:18px 28px;text-align:center;border-top:1px solid #e8e8e8;">
+          <p style="color:#aaa;font-size:11px;margin:0 0 4px;">&copy; ${year} ${name} &middot; Michael Okpara University, Umudike</p>
+          <a href="${APP_URL}" style="color:${c.accent};font-size:11px;text-decoration:none;font-weight:600;">Open App</a>
         </td></tr>
 
       </table>
