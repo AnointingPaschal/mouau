@@ -51,29 +51,46 @@ export async function POST(req: NextRequest) {
       .map((s: any) => s.fcm_token)
       .filter((t: string) => t && !t.startsWith('pwa:'))  // exclude install-only sentinels
 
+    const notifTitle = title   || appName
+    const notifBody  = msgBody || ''
+    const notifIcon  = `${appUrl}/notification-icon.png`  // transparent PNG, no background
+    const notifBadge = `${appUrl}/badge-icon.png`
+
     const result = await messaging.sendEachForMulticast({
+      // Top-level notification (used by native Android/iOS apps)
       notification: {
-        title: title || appName,
-        body:  msgBody || '',
-        imageUrl: icon || (appIcon.startsWith('http') ? appIcon : `${appUrl}${appIcon}`),
+        title: notifTitle,
+        body:  notifBody,
       },
-      data: { url: url || '/dashboard' },
+      // Data payload — service worker reads this for foreground handling
+      data: {
+        title:  notifTitle,
+        body:   notifBody,
+        url:    url || '/dashboard',
+        icon:   notifIcon,
+      },
       android: {
         priority: 'high',
         notification: {
-          color: '#1a6b3a',
-          sound: 'default',
+          title:     notifTitle,
+          body:      notifBody,
+          color:     '#1a6b3a',
+          sound:     'default',
           channelId: 'freshstart_default',
-          icon: 'ic_notification',
-          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          imageUrl:  notifIcon,
         },
       },
+      // Web push — this is what Chrome/PWA uses; title+body MUST be here
       webpush: {
-        fcmOptions:   { link: `${appUrl}${url || '/dashboard'}` },
+        fcmOptions: { link: `${appUrl}${url || '/dashboard'}` },
         notification: {
-          icon:  appIcon.startsWith('http') ? appIcon : `${appUrl}${appIcon}`,
-          badge: `${appUrl}/icon-192.png`,
+          title:   notifTitle,
+          body:    notifBody,
+          icon:    notifIcon,    // transparent PNG logo
+          badge:   notifBadge,   // small monochrome badge
           vibrate: [200, 100, 200],
+          data:    { url: url || '/dashboard' },
+          actions: [{ action: 'open', title: 'Open App' }],
         },
       },
       tokens,

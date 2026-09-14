@@ -7,39 +7,33 @@ import nodemailer from 'nodemailer'
 
 /* ─── Audience resolver ───────────────────────────────────────────────────── */
 async function resolveRecipients(audience: string): Promise<string[]> {
-  // Returns array of id_numbers
-
   if (audience === 'all') {
     const { data } = await supabase.from('students').select('id_number')
     return (data || []).map((s: any) => s.id_number)
   }
 
   if (audience === 'pwa_installed') {
-    const { data } = await supabase
-      .from('push_subscriptions').select('student_id')
+    const { data } = await supabase.from('push_subscriptions').select('student_id')
     const seen = new Set<string>()
     return (data || []).map((s: any) => s.student_id).filter((id: string) => { if (seen.has(id)) return false; seen.add(id); return true })
   }
 
   if (audience.startsWith('material_')) {
     const status = audience.replace('material_', '')
-    const { data } = await supabase
-      .from('material_requests').select('student_id').eq('status', status)
+    const { data } = await supabase.from('material_requests').select('student_id').eq('status', status)
     const seen = new Set<string>()
     return (data || []).map((s: any) => s.student_id).filter((id: string) => { if (seen.has(id)) return false; seen.add(id); return true })
   }
 
   if (audience.startsWith('level_')) {
-    const level = audience.replace('level_', '') // 100 | 200 | 300 | 400 | 500
-    const { data } = await supabase
-      .from('students').select('id_number').eq('level', level)
+    const level = audience.replace('level_', '')
+    const { data } = await supabase.from('students').select('id_number').eq('level', level)
     return (data || []).map((s: any) => s.id_number)
   }
 
   if (audience.startsWith('dept_')) {
     const dept = audience.replace('dept_', '')
-    const { data } = await supabase
-      .from('students').select('id_number').ilike('department', `%${dept}%`)
+    const { data } = await supabase.from('students').select('id_number').ilike('department', `%${dept}%`)
     return (data || []).map((s: any) => s.id_number)
   }
 
@@ -48,10 +42,10 @@ async function resolveRecipients(audience: string): Promise<string[]> {
 
 /* ─── FCM multicast helper ────────────────────────────────────────────────── */
 async function sendPush(recipientIds: string[], title: string, body: string, url: string, s: any) {
-  const appUrl  = 'https://mouau-rose.vercel.app'
-  const appIcon = s.logo_url?.startsWith('http') ? s.logo_url : `${appUrl}/icon-192.png`
+  const appUrl     = 'https://mouau-rose.vercel.app'
+  const notifIcon  = `${appUrl}/notification-icon.png`  // transparent PNG
+  const notifBadge = `${appUrl}/badge-icon.png`
 
-  // Get all FCM tokens for these recipients
   let query = supabase.from('push_subscriptions').select('fcm_token, student_id')
   if (recipientIds.length > 0) query = query.in('student_id', recipientIds)
   const { data: subs } = await query
@@ -69,21 +63,34 @@ async function sendPush(recipientIds: string[], title: string, body: string, url
 
   const tokens = subs
     .map((sub: any) => sub.fcm_token)
-    .filter((t: string) => t && !t.startsWith('pwa:'))  // exclude install-only sentinels
+    .filter((t: string) => t && !t.startsWith('pwa:'))
+  if (!tokens.length) return { sent: 0, failed: 0 }
+
   let totalSent = 0, totalFailed = 0
   const badTokens: string[] = []
 
   for (let i = 0; i < tokens.length; i += 500) {
     const batch = tokens.slice(i, i + 500)
     const result = await messaging.sendEachForMulticast({
+      // Top-level notification for native apps
       notification: { title, body },
-      data: { url: url || '/dashboard' },
+      // Data payload — service worker reads this for foreground handling
+      data: { title, body, url: url || '/dashboard', icon: notifIcon },
       android: {
         priority: 'high',
-        notification: { color: '#1a6b3a', sound: 'default', channelId: 'freshstart_default' },
+        notification: { title, body, color: '#1a6b3a', sound: 'default', channelId: 'freshstart_default', imageUrl: notifIcon },
       },
+      // webpush: title + body REQUIRED here for Chrome/PWA to show them
       webpush: {
-        notification: { icon: appIcon, badge: `${appUrl}/icon-192.png`, vibrate: [200, 100, 200] },
+        notification: {
+          title,
+          body,
+          icon:    notifIcon,
+          badge:   notifBadge,
+          vibrate: [200, 100, 200],
+          data:    { url: url || '/dashboard' },
+          actions: [{ action: 'open', title: 'Open App' }],
+        },
         fcmOptions: { link: `${appUrl}${url || '/dashboard'}` },
       },
       tokens: batch,
@@ -103,13 +110,8 @@ async function sendPush(recipientIds: string[], title: string, body: string, url
 /* ─── In-app notifications ────────────────────────────────────────────────── */
 async function sendInApp(recipientIds: string[], title: string, body: string, url: string) {
   const rows = recipientIds.map(id => ({
-    recipient_id: id,
-    type: 'announcement',
-    title,
-    body: body || '',
-    post_id: '',
-    actor: 'Admin',
-    read: false,
+    recipient_id: id, type: 'announcement', title, body: body || '',
+    post_id: '', actor: 'Admin', read: false,
   }))
   for (let i = 0; i < rows.length; i += 50) {
     await supabase.from('notifications').insert(rows.slice(i, i + 50))
@@ -143,10 +145,7 @@ async function sendEmail(recipientIds: string[], title: string, body: string, ur
         to: st.email,
         subject: title,
         html: emailTemplate({
-          title,
-          body,
-          recipientName: st.name,
-          type: 'announcement',
+          title, body, recipientName: st.name, type: 'announcement',
           cta: url ? { text: 'Open App', url: `${appUrl}${url}` } : undefined,
         }),
       })
@@ -156,7 +155,7 @@ async function sendEmail(recipientIds: string[], title: string, body: string, ur
   return { sent }
 }
 
-/* ─── Preview endpoint: count audience ───────────────────────────────────── */
+/* ─── Preview endpoint ────────────────────────────────────────────────────── */
 export async function GET(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -164,7 +163,6 @@ export async function GET(req: NextRequest) {
   const audience = req.nextUrl.searchParams.get('audience') || 'all'
   const ids = await resolveRecipients(audience)
 
-  // Also count how many have push tokens
   const { data: pushSubs } = await supabase
     .from('push_subscriptions').select('student_id').in('student_id', ids)
   const pushCount = new Set((pushSubs || []).map((s: any) => s.student_id)).size
@@ -172,15 +170,13 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ total: ids.length, pushEnabled: pushCount })
 }
 
-/* ─── Send endpoint ────────────────────────────────────────────────────────── */
+/* ─── Send endpoint ───────────────────────────────────────────────────────── */
 export async function POST(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const {
-    audience = 'all',
-    title,
-    body,
+    audience = 'all', title, body,
     url = '/dashboard',
     channels = { push: true, inapp: true, email: false },
   } = await req.json()
@@ -192,32 +188,16 @@ export async function POST(req: NextRequest) {
 
   const s = await getSettings()
   const results: Record<string, any> = { recipients: recipientIds.length }
-
-  // Fire channels in parallel
   const tasks: Promise<void>[] = []
 
   if (channels.push) {
-    tasks.push(
-      sendPush(recipientIds, title, body || '', url, s)
-        .then(r => { results.push = r })
-        .catch(e => { results.push = { error: e.message } })
-    )
+    tasks.push(sendPush(recipientIds, title, body || '', url, s).then(r => { results.push = r }).catch(e => { results.push = { error: e.message } }))
   }
-
   if (channels.inapp) {
-    tasks.push(
-      sendInApp(recipientIds, title, body || '', url)
-        .then(r => { results.inapp = r })
-        .catch(e => { results.inapp = { error: e.message } })
-    )
+    tasks.push(sendInApp(recipientIds, title, body || '', url).then(r => { results.inapp = r }).catch(e => { results.inapp = { error: e.message } }))
   }
-
   if (channels.email) {
-    tasks.push(
-      sendEmail(recipientIds, title, body || '', url, s)
-        .then(r => { results.email = r })
-        .catch(e => { results.email = { error: e.message } })
-    )
+    tasks.push(sendEmail(recipientIds, title, body || '', url, s).then(r => { results.email = r }).catch(e => { results.email = { error: e.message } }))
   }
 
   await Promise.all(tasks)
