@@ -26,8 +26,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     const s = getStudent()
     setStudentState(s)
     setLoading(false)
-    if (!s && pathname !== '/') {
-      router.replace('/')
+    if (!s && pathname !== '/' && pathname !== '/login') {
+      router.replace('/login')
     }
   }, [pathname, router])
 
@@ -36,7 +36,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     doLogout()
     setStudentState(null)
-    router.replace('/')
+    router.replace('/login')
   }
 
   return (

@@ -71,7 +71,7 @@ export default function AdminLogin() {
           </button>
         </form>
         <p className="text-center text-white/20 text-xs mt-6">
-          <a href="/" className="hover:text-white/40 transition-colors">Back to student portal</a>
+          <a href="/login" className="hover:text-white/40 transition-colors">Back to student portal</a>
         </p>
       </div>
     </div>

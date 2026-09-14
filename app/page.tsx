@@ -1,353 +1,211 @@
-'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/components/AuthProvider'
-import { saveStudent } from '@/lib/auth'
-import { useAppConfig } from '@/lib/useAppConfig'
-import { Eye, EyeOff, ArrowRight, Loader2, AlertCircle, Mail, KeyRound, CheckCircle2, RefreshCw } from 'lucide-react'
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import InstallButtons from '@/components/InstallButtons'
 
-// ─── ID Format Validation ────────────────────────────────────────────────────
-// JAMB:   10–11 digits           e.g. 20241234567
-// Matric: MOUAU/ABC/YY/NNNNN     e.g. MOUAU/CMP/18/30239
-const JAMB_RE   = /^\d{10,11}$/
-const MATRIC_RE = /^MOUAU\/[A-Z]{2,5}\/\d{2}\/\d+$/i
-
-function validateId(id: string): string | null {
-  const upper = id.trim().toUpperCase()
-  if (!upper) return 'Enter your JAMB or Matric number'
-  if (JAMB_RE.test(upper) || MATRIC_RE.test(upper)) return null
-  if (upper.startsWith('MOUAU/')) return 'Matric format: MOUAU/CMP/18/30239'
-  if (/^\d+$/.test(upper)) return 'JAMB number should be 10–11 digits (e.g. 20241234567)'
-  return 'Enter a valid JAMB number or Matric number (MOUAU/CMP/18/30239)'
+export const metadata: Metadata = {
+  title: 'PDM MOUAU — Student Companion App for Michael Okpara University',
+  description:
+    'Navigate MOUAU campus, access past questions & study materials, track your registration, and stay connected with Pneuma Domain Ministry. Download free for Android and iPhone.',
+  keywords:
+    'MOUAU, Michael Okpara University, Agriculture, Umudike, PDM, Pneuma Domain Ministry, student app, campus navigation, past questions, freshers, 100 level',
+  openGraph: {
+    title: 'PDM MOUAU — Student Companion App',
+    description: 'Your all-in-one MOUAU student app. Campus map, study library, PDM ministry, CGPA calculator & more.',
+    url: 'https://mouau-rose.vercel.app',
+    siteName: 'PDM MOUAU',
+    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'PDM MOUAU' }],
+    type: 'website',
+  },
+  twitter: { card: 'summary_large_image', title: 'PDM MOUAU', description: 'Your all-in-one MOUAU student companion app.' },
+  robots: { index: true, follow: true },
 }
 
-type Screen = 'signin' | 'register' | 'verify' | 'forgot' | 'reset'
+const FEATURES = [
+  {
+    icon: '🗺️',
+    title: 'Campus Navigation',
+    desc: 'Real-time GPS directions to every building, hostel, and facility on MOUAU campus. Never get lost again.',
+    color: '#1e3a8a',
+  },
+  {
+    icon: '📚',
+    title: 'Study Library',
+    desc: 'Access past questions, lecture notes, and projects. Apply and collect materials every Sunday.',
+    color: '#1a6b3a',
+  },
+  {
+    icon: '✝️',
+    title: 'Pneuma Domain Ministry',
+    desc: 'Connect with PDM MOUAU — gallery, programs, videos, events, and live service directions.',
+    color: '#7c3aed',
+  },
+  {
+    icon: '📋',
+    title: 'Registration Guide',
+    desc: '49-step guide covering every stage of MOUAU registration, from O\'level upload to departmental clearance.',
+    color: '#d97706',
+  },
+  {
+    icon: '🧮',
+    title: 'CGPA Calculator',
+    desc: 'Calculate your CGPA and estimate school fees instantly. Know exactly where you stand academically.',
+    color: '#0891b2',
+  },
+  {
+    icon: '📢',
+    title: 'Announcements',
+    desc: 'Instant push notifications for campus news, library pickups, and ministry announcements.',
+    color: '#b91c1c',
+  },
+]
 
-export default function LoginPage() {
-  const [screen,   setScreen]   = useState<Screen>('signin')
-  const [idNumber, setIdNumber] = useState('')
-  const [name,     setName]     = useState('')
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [confirm,  setConfirm]  = useState('')
-  const [code,     setCode]     = useState('')
-  const [showPw,   setShowPw]   = useState(false)
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState('')
-  const [info,     setInfo]     = useState('')
-  const router = useRouter()
-  const { setStudent } = useAuth()
-  const { logoUrl, siteName } = useAppConfig()
+const STATS = [
+  { value: '49',   label: 'Registration steps guided' },
+  { value: '100+', label: 'Campus locations mapped' },
+  { value: '24/7', label: 'Available anytime' },
+]
 
-  const reset = (s: Screen) => { setScreen(s); setError(''); setInfo(''); setCode('') }
-
-  // ── Sign In ──────────────────────────────────────────────────────────────
-  const handleSignIn = async () => {
-    setError('')
-    const idErr = validateId(idNumber)
-    if (idErr) { setError(idErr); return }
-    if (!password) { setError('Enter your password'); return }
-    setLoading(true)
-    const r = await fetch('/api/auth/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idNumber: idNumber.trim().toUpperCase(), password })
-    })
-    const d = await r.json()
-    setLoading(false)
-    if (!d.ok) { setError(d.error || 'Login failed'); return }
-    saveStudent(d.student)
-    setStudent(d.student)
-    router.push('/dashboard')
-  }
-
-  // ── Register step 1: send verification email ─────────────────────────────
-  const handleSendCode = async () => {
-    setError('')
-    const idErr = validateId(idNumber)
-    if (idErr) { setError(idErr); return }
-    if (!name.trim())  { setError('Enter your full name'); return }
-    if (!email.trim() || !email.includes('@')) { setError('Enter a valid email address'); return }
-    if (!password || password.length < 6) { setError('Password must be at least 6 characters'); return }
-    if (password !== confirm) { setError('Passwords do not match'); return }
-    setLoading(true)
-    const r = await fetch('/api/auth/verify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idNumber: idNumber.trim().toUpperCase(), name, email })
-    })
-    const d = await r.json()
-    setLoading(false)
-    if (d.error) { setError(d.error); return }
-    setInfo(d.emailSent ? `Verification code sent to ${email}` : 'Code generated (email not configured — ask admin for code)')
-    setScreen('verify')
-  }
-
-  // ── Register step 2: verify code + create account ────────────────────────
-  const handleVerifyAndRegister = async () => {
-    setError('')
-    if (code.length !== 6) { setError('Enter the 6-digit code from your email'); return }
-    setLoading(true)
-    const r = await fetch('/api/auth/register', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idNumber: idNumber.trim().toUpperCase(), name, email, password, code })
-    })
-    const d = await r.json()
-    setLoading(false)
-    if (!d.ok) { setError(d.error || 'Registration failed'); return }
-    saveStudent(d.student)
-    setStudent(d.student)
-    router.push('/dashboard')
-  }
-
-  // ── Forgot password: send reset code ─────────────────────────────────────
-  const handleForgotSend = async () => {
-    setError('')
-    if (!email.includes('@')) { setError('Enter your registered email address'); return }
-    setLoading(true)
-    await fetch('/api/auth/forgot-password', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    })
-    setLoading(false)
-    setInfo(`If that email is registered, a reset code was sent to ${email}`)
-    setScreen('reset')
-  }
-
-  // ── Reset password: apply new password ───────────────────────────────────
-  const handleReset = async () => {
-    setError('')
-    if (code.length !== 6) { setError('Enter the 6-digit code from your email'); return }
-    if (!password || password.length < 6) { setError('Password must be at least 6 characters'); return }
-    if (password !== confirm) { setError('Passwords do not match'); return }
-    setLoading(true)
-    const r = await fetch('/api/auth/reset-password', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, code, newPassword: password })
-    })
-    const d = await r.json()
-    setLoading(false)
-    if (!d.ok) { setError(d.error || 'Reset failed'); return }
-    setInfo('Password reset successfully! Sign in with your new password.')
-    reset('signin')
-  }
-
-  const IdInput = () => (
-    <div>
-      <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">JAMB / Matric Number *</label>
-      <input value={idNumber} onChange={e => setIdNumber(e.target.value.toUpperCase())}
-        placeholder="e.g. 20241234567 or MOUAU/CMP/18/30239"
-        className="w-full border border-[#e8e8e8] rounded-xl px-3.5 py-3 text-sm outline-none focus:border-[#1a6b3a] focus:ring-2 focus:ring-[#1a6b3a]/10 transition-all font-mono"/>
-      <p className="text-[10px] text-[#aaa] mt-1">JAMB: 10–11 digits · Matric: MOUAU/DEPT/YY/NUMBER</p>
-    </div>
-  )
-
-  const PwInput = ({ label = 'Password *', value, onChange }: { label?: string; value: string; onChange: (v: string) => void }) => (
-    <div>
-      <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">{label}</label>
-      <div className="relative">
-        <input type={showPw ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)}
-          placeholder="Enter password" className="w-full border border-[#e8e8e8] rounded-xl px-3.5 py-3 text-sm outline-none focus:border-[#1a6b3a] focus:ring-2 focus:ring-[#1a6b3a]/10 transition-all pr-10"/>
-        <button type="button" onClick={() => setShowPw(p => !p)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#aaa] hover:text-[#6b6b6b]">
-          {showPw ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
-        </button>
-      </div>
-    </div>
-  )
-
-  const SubmitBtn = ({ label, onClick }: { label: string; onClick: () => void }) => (
-    <button onClick={onClick} disabled={loading}
-      className="w-full bg-[#1a6b3a] text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#145530] active:scale-[0.98] transition-all disabled:opacity-60 mt-2">
-      {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : <>{label} <ArrowRight className="w-4 h-4"/></>}
-    </button>
-  )
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white flex flex-col lg:flex-row">
-      {/* Left branding panel */}
-      <div className="hidden lg:flex flex-col justify-between text-white p-12 w-[440px] flex-shrink-0 pd-gradient">
-        <div>
-          <div className="flex items-center gap-2 mb-16">
-            {logoUrl ? (
-              <div className="w-8 h-8 rounded overflow-hidden bg-white flex-shrink-0">
-                <img src={logoUrl} alt={siteName} className="w-full h-full object-contain" />
-              </div>
-            ) : (
-              <div className="w-8 h-8 bg-[#1a6b3a] rounded flex items-center justify-center">
-                <span className="text-white font-black text-xs">M</span>
-              </div>
-            )}
-            <span className="font-black text-lg tracking-tight">{siteName}</span>
+    <div className="min-h-screen bg-[#060c16] text-white">
+
+      {/* ── NAV ── */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#060c16]/80 backdrop-blur-xl border-b border-white/5">
+        <div className="max-w-5xl mx-auto px-5 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <img src="/icon-192.png" alt="PDM MOUAU" className="w-8 h-8 rounded-lg" />
+            <span className="font-black text-sm tracking-tight">PDM MOUAU</span>
           </div>
-          <h1 className="text-4xl font-black leading-tight mb-6">
-            Your ministry &<br/>campus companion<br/>
-            <span className="text-[#1a6b3a]">at MOUAU.</span>
-          </h1>
-          <p className="text-white/60 text-base leading-relaxed">Access ministry resources, navigate MOUAU campus, connect with fellow believers and students at Pneuma Domain Ministry.</p>
+          <Link href="/login"
+            className="text-xs font-bold text-white bg-[#1a6b3a] hover:bg-[#145530] px-4 py-2 rounded-full transition-all">
+            Sign In
+          </Link>
         </div>
-        <div className="grid grid-cols-3 gap-6 pt-8 border-t border-white/10">
-          {[['5,000+','STUDENTS'],['500+','MATERIALS'],['30+','DEPTS']].map(([n,l])=>(
-            <div key={l}><div className="text-2xl font-black">{n}</div><div className="text-[10px] font-semibold text-white/40 tracking-widest mt-0.5">{l}</div></div>
+      </nav>
+
+      {/* ── HERO ── */}
+      <section className="relative pt-28 pb-24 px-5 overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[#1a6b3a]/20 rounded-full blur-[120px]" />
+          <div className="absolute top-20 left-1/4 w-[200px] h-[200px] bg-[#1e3a8a]/20 rounded-full blur-[80px]" />
+          <div className="absolute top-20 right-1/4 w-[200px] h-[200px] bg-[#7c3aed]/15 rounded-full blur-[80px]" />
+        </div>
+
+        <div className="max-w-2xl mx-auto text-center relative">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 bg-white/8 border border-white/10 rounded-full px-4 py-1.5 mb-6 text-xs font-semibold text-white/70">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#1a6b3a] animate-pulse" />
+            Free for all MOUAU students
+          </div>
+
+          {/* Logo + Title */}
+          <div className="flex justify-center mb-5">
+            <img src="/icon-192.png" alt="PDM MOUAU" className="w-20 h-20 rounded-3xl shadow-2xl shadow-[#1a6b3a]/30" />
+          </div>
+
+          <h1 className="text-4xl sm:text-5xl font-black leading-tight mb-4 tracking-tight">
+            Your MOUAU
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4ade80] via-[#34d399] to-[#6ee7b7]">
+              Campus Companion
+            </span>
+          </h1>
+
+          <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-8 max-w-lg mx-auto">
+            Navigate campus, access study materials, track your registration, and stay connected — all in one app for Michael Okpara University students.
+          </p>
+
+          <InstallButtons />
+
+          <p className="text-white/25 text-xs mt-5">
+            Free · No account needed to browse · Works offline
+          </p>
+        </div>
+      </section>
+
+      {/* ── STATS ── */}
+      <section className="py-10 px-5 border-y border-white/5 bg-white/[0.02]">
+        <div className="max-w-2xl mx-auto grid grid-cols-3 gap-4">
+          {STATS.map(s => (
+            <div key={s.label} className="text-center">
+              <p className="text-2xl sm:text-3xl font-black text-[#4ade80]">{s.value}</p>
+              <p className="text-[10px] sm:text-xs text-white/40 mt-1 leading-snug">{s.label}</p>
+            </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Right form panel */}
-      <div className="flex-1 flex flex-col">
-        <div className="lg:hidden flex items-center gap-2 px-5 py-4 border-b border-[#e8e8e8]">
-          {logoUrl ? (
-            <div className="w-7 h-7 rounded overflow-hidden bg-[#f9f9f7] flex-shrink-0">
-              <img src={logoUrl} alt={siteName} className="w-full h-full object-contain" />
-            </div>
-          ) : (
-            <div className="w-7 h-7 bg-[#1a6b3a] rounded flex items-center justify-center">
-              <span className="text-white font-black text-xs">M</span>
-            </div>
-          )}
-          <span className="font-black text-base tracking-tight">{siteName}</span>
-        </div>
+      {/* ── FEATURES ── */}
+      <section className="py-20 px-5">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-[#4ade80] text-xs font-bold uppercase tracking-widest mb-2">Everything you need</p>
+            <h2 className="text-2xl sm:text-3xl font-black">Built for MOUAU students</h2>
+            <p className="text-white/40 text-sm mt-2">From freshers to finalists, we've got you covered.</p>
+          </div>
 
-        <div className="flex-1 flex items-center justify-center p-6 lg:p-16 bg-[#f9f9f7]">
-          <div className="w-full max-w-xl">
-
-            {/* Error / Info banners */}
-            {error && (
-              <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl px-3.5 py-3 mb-4">
-                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"/>
-                <span>{error}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {FEATURES.map(f => (
+              <div key={f.title}
+                className="group bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl p-5 transition-all">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 text-xl"
+                  style={{ background: `${f.color}25` }}>
+                  {f.icon}
+                </div>
+                <h3 className="font-bold text-sm text-white mb-1.5">{f.title}</h3>
+                <p className="text-white/45 text-xs leading-relaxed">{f.desc}</p>
               </div>
-            )}
-            {info && (
-              <div className="flex items-start gap-2.5 bg-[#f0f9f4] border border-[#1a6b3a]/20 text-[#1a6b3a] text-xs rounded-xl px-3.5 py-3 mb-4">
-                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"/>
-                <span>{info}</span>
-              </div>
-            )}
-
-            {/* ── SIGN IN ── */}
-            {screen === 'signin' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-[#e8e8e8] p-6 lg:p-8 space-y-4">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-black text-[#0a0a0a]">Welcome back</h2>
-                  <p className="text-[#6b6b6b] text-sm mt-1">Sign in with your JAMB or Matric number and password</p>
-                </div>
-                <IdInput/>
-                <PwInput value={password} onChange={setPassword}/>
-                <SubmitBtn label="Sign In" onClick={handleSignIn}/>
-                <div className="flex items-center justify-between pt-2 text-xs">
-                  <button onClick={() => reset('forgot')} className="text-[#6b6b6b] hover:text-[#1a6b3a] transition-colors">Forgot password?</button>
-                  <button onClick={() => { reset('register'); setPassword(''); setConfirm('') }}
-                    className="text-[#1a6b3a] font-semibold hover:underline">New student? Register →</button>
-                </div>
-                <div className="border-t border-[#f0f0f0] pt-3 text-center">
-                  <a href="/admin" className="text-[10px] text-[#aaa] hover:text-[#6b6b6b]">Admin? Sign in to admin panel</a>
-                </div>
-              </div>
-            )}
-
-            {/* ── REGISTER ── */}
-            {screen === 'register' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-[#e8e8e8] p-6 lg:p-8 space-y-4">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-black text-[#0a0a0a]">Create account</h2>
-                  <p className="text-[#6b6b6b] text-sm mt-1">Register as a MOUAU student</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">Full Name *</label>
-                  <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Anointing Paschal"
-                    className="w-full border border-[#e8e8e8] rounded-xl px-3.5 py-3 text-sm outline-none focus:border-[#1a6b3a] focus:ring-2 focus:ring-[#1a6b3a]/10 transition-all"/>
-                </div>
-                <IdInput/>
-                <div>
-                  <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">Email Address *</label>
-                  <input value={email} onChange={e => setEmail(e.target.value.toLowerCase())} type="email" placeholder="your@email.com"
-                    className="w-full border border-[#e8e8e8] rounded-xl px-3.5 py-3 text-sm outline-none focus:border-[#1a6b3a] focus:ring-2 focus:ring-[#1a6b3a]/10 transition-all"/>
-                  <p className="text-[10px] text-[#aaa] mt-1">For verification code and password reset</p>
-                </div>
-                <PwInput value={password} onChange={setPassword} label="Password * (min 6 chars)"/>
-                <PwInput value={confirm} onChange={setConfirm} label="Confirm Password *"/>
-                <SubmitBtn label="Send Verification Code" onClick={handleSendCode}/>
-                <div className="text-center pt-2">
-                  <button onClick={() => reset('signin')} className="text-xs text-[#6b6b6b] hover:text-[#1a6b3a]">← Already have an account? Sign in</button>
-                </div>
-              </div>
-            )}
-
-            {/* ── VERIFY EMAIL ── */}
-            {screen === 'verify' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-[#e8e8e8] p-6 lg:p-8 space-y-4">
-                <div className="flex items-center justify-center w-14 h-14 bg-[#f0f9f4] rounded-2xl mx-auto mb-4">
-                  <Mail className="w-7 h-7 text-[#1a6b3a]"/>
-                </div>
-                <div className="text-center mb-4">
-                  <h2 className="text-xl font-black text-[#0a0a0a]">Check your email</h2>
-                  <p className="text-[#6b6b6b] text-sm mt-1">Enter the 6-digit code sent to <strong>{email}</strong></p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">6-Digit Verification Code</label>
-                  <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g,'').slice(0,6))}
-                    placeholder="000000" maxLength={6}
-                    className="w-full border border-[#e8e8e8] rounded-xl px-3.5 py-4 text-3xl font-mono font-black text-center tracking-[1rem] outline-none focus:border-[#1a6b3a] focus:ring-2 focus:ring-[#1a6b3a]/10 transition-all"/>
-                </div>
-                <SubmitBtn label="Verify & Create Account" onClick={handleVerifyAndRegister}/>
-                <div className="flex items-center justify-between pt-1 text-xs">
-                  <button onClick={handleSendCode} disabled={loading} className="text-[#6b6b6b] hover:text-[#1a6b3a] flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3"/> Resend code
-                  </button>
-                  <button onClick={() => reset('register')} className="text-[#6b6b6b] hover:text-[#1a6b3a]">← Change details</button>
-                </div>
-              </div>
-            )}
-
-            {/* ── FORGOT PASSWORD ── */}
-            {screen === 'forgot' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-[#e8e8e8] p-6 lg:p-8 space-y-4">
-                <div className="flex items-center justify-center w-14 h-14 bg-amber-50 rounded-2xl mx-auto mb-4">
-                  <KeyRound className="w-7 h-7 text-amber-600"/>
-                </div>
-                <div className="text-center mb-4">
-                  <h2 className="text-xl font-black text-[#0a0a0a]">Forgot password?</h2>
-                  <p className="text-[#6b6b6b] text-sm mt-1">Enter your registered email to receive a reset code</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">Registered Email *</label>
-                  <input value={email} onChange={e => setEmail(e.target.value.toLowerCase())} type="email" placeholder="your@email.com"
-                    className="w-full border border-[#e8e8e8] rounded-xl px-3.5 py-3 text-sm outline-none focus:border-[#1a6b3a] focus:ring-2 focus:ring-[#1a6b3a]/10 transition-all"/>
-                </div>
-                <SubmitBtn label="Send Reset Code" onClick={handleForgotSend}/>
-                <div className="text-center pt-1">
-                  <button onClick={() => reset('signin')} className="text-xs text-[#6b6b6b] hover:text-[#1a6b3a]">← Back to sign in</button>
-                </div>
-              </div>
-            )}
-
-            {/* ── RESET PASSWORD ── */}
-            {screen === 'reset' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-[#e8e8e8] p-6 lg:p-8 space-y-4">
-                <div className="text-center mb-4">
-                  <h2 className="text-xl font-black text-[#0a0a0a]">Reset password</h2>
-                  <p className="text-[#6b6b6b] text-sm mt-1">Enter the code from your email and your new password</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">6-Digit Reset Code</label>
-                  <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g,'').slice(0,6))}
-                    placeholder="000000" maxLength={6}
-                    className="w-full border border-[#e8e8e8] rounded-xl px-3.5 py-4 text-3xl font-mono font-black text-center tracking-[1rem] outline-none focus:border-[#1a6b3a] focus:ring-2 focus:ring-[#1a6b3a]/10 transition-all"/>
-                </div>
-                <PwInput value={password} onChange={setPassword} label="New Password * (min 6 chars)"/>
-                <PwInput value={confirm} onChange={setConfirm} label="Confirm New Password *"/>
-                <SubmitBtn label="Reset Password" onClick={handleReset}/>
-                <div className="flex items-center justify-between pt-1 text-xs">
-                  <button onClick={handleForgotSend} disabled={loading} className="text-[#6b6b6b] hover:text-[#1a6b3a] flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3"/> Resend code
-                  </button>
-                  <button onClick={() => reset('signin')} className="text-[#6b6b6b] hover:text-[#1a6b3a]">← Back to sign in</button>
-                </div>
-              </div>
-            )}
-
+            ))}
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* ── PDM HIGHLIGHT ── */}
+      <section className="py-16 px-5 bg-gradient-to-b from-transparent via-[#1a6b3a]/8 to-transparent">
+        <div className="max-w-lg mx-auto text-center">
+          <div className="w-16 h-16 mx-auto rounded-3xl overflow-hidden mb-5 shadow-xl">
+            <img src="/icon-192.png" alt="PDM" className="w-full h-full object-contain" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black mb-3">
+            Presented by <span className="text-[#4ade80]">Pneuma Domain Ministry</span>
+          </h2>
+          <p className="text-white/50 text-sm leading-relaxed mb-6">
+            PDM MOUAU is more than an app — it's a ministry tool. We serve every student at Michael Okpara University of Agriculture, Umudike, connecting you to resources, community, and faith.
+          </p>
+          <div className="flex items-center justify-center gap-2 text-white/30 text-xs">
+            <span>📍</span>
+            <span>Michael Okpara University of Agriculture, Umudike, Abia State</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ── DOWNLOAD CTA ── */}
+      <section className="py-20 px-5">
+        <div className="max-w-lg mx-auto bg-gradient-to-br from-[#1a6b3a]/20 to-[#1e3a8a]/20 border border-white/10 rounded-3xl p-8 sm:p-10 text-center">
+          <div className="text-3xl mb-3">📱</div>
+          <h2 className="text-xl sm:text-2xl font-black mb-2">Get the app today</h2>
+          <p className="text-white/50 text-sm mb-7">
+            Free for every MOUAU student. Works on Android and iPhone.
+          </p>
+          <InstallButtons />
+        </div>
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer className="border-t border-white/5 py-8 px-5">
+        <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/30">
+          <div className="flex items-center gap-2">
+            <img src="/icon-192.png" alt="" className="w-5 h-5 rounded" />
+            <span>PDM MOUAU · Pneuma Domain Ministry</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="hover:text-white/60 transition-colors">Student Login</Link>
+            <Link href="/pdm"   className="hover:text-white/60 transition-colors">About PDM</Link>
+            <Link href="/admin" className="hover:text-white/60 transition-colors">Admin</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

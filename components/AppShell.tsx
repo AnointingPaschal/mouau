@@ -11,7 +11,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { student, loading } = useAuth()
   const router = useRouter()
 
-  useEffect(() => { if (!loading && !student) router.replace('/') }, [student, loading, router])
+  useEffect(() => { if (!loading && !student) router.replace('/login') }, [student, loading, router])
 
   // Track PWA installs independently of notification permission
   useEffect(() => {
