@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import Link from 'next/link'
-import { Zap, Search, ChevronRight, Clock, BarChart2, User } from 'lucide-react'
+import { Zap, Search, ChevronRight, Clock, User, Briefcase, Globe, Users } from 'lucide-react'
 import { useAuth } from '@/components/AuthProvider'
 
 type Skill = { id:string; title:string; tagline:string; category:string; level:string; duration:string; instructor:string; image_url:string }
@@ -11,13 +11,19 @@ type Skill = { id:string; title:string; tagline:string; category:string; level:s
 const LEVEL_COLOR: Record<string,string> = { beginner:'#1a6b3a', intermediate:'#d97706', advanced:'#b91c1c' }
 const CATEGORIES = ['All','Tech','Business','Creative','Vocational','Ministry','Academic']
 
+const WHY_SKILLS = [
+  { icon: Briefcase, label: 'Career ready',  color: '#1e3a8a' },
+  { icon: Globe,     label: 'Global skills', color: '#1a6b3a' },
+  { icon: Users,     label: 'Network & grow',color: '#7c3aed' },
+]
+
 export default function SkillsPage() {
   const { student } = useAuth()
-  const [skills,      setSkills]      = useState<Skill[]>([])
-  const [applied,     setApplied]     = useState<Record<string,string>>({}) // skill_id → status
-  const [loading,     setLoading]     = useState(true)
-  const [query,       setQuery]       = useState('')
-  const [cat,         setCat]         = useState('All')
+  const [skills,  setSkills]  = useState<Skill[]>([])
+  const [applied, setApplied] = useState<Record<string,string>>({})
+  const [loading, setLoading] = useState(true)
+  const [query,   setQuery]   = useState('')
+  const [cat,     setCat]     = useState('All')
 
   useEffect(() => {
     fetch('/api/skills').then(r => r.json()).then(d => { setSkills(d.data || []); setLoading(false) })
@@ -25,7 +31,7 @@ export default function SkillsPage() {
 
   useEffect(() => {
     if (!student?.idNumber) return
-    fetch(`/api/skills/apply?student_id=${student.idNumber}`)
+    fetch(`/api/skills/apply?student_id=${encodeURIComponent(student.idNumber)}`)
       .then(r => r.json()).then(d => {
         const map: Record<string,string> = {}
         for (const a of d.data || []) map[a.skill_id] = a.status
@@ -35,23 +41,24 @@ export default function SkillsPage() {
 
   const filtered = skills.filter(s =>
     (cat === 'All' || s.category === cat) &&
-    (!query || s.title.toLowerCase().includes(query.toLowerCase()) || s.category?.toLowerCase().includes(query.toLowerCase()))
+    (!query || s.title.toLowerCase().includes(query.toLowerCase()) ||
+               s.category?.toLowerCase().includes(query.toLowerCase()))
   )
 
   return (
     <AppShell>
       <TopBar title="Skill Acquisition" subtitle="Learn. Grow. Excel."/>
 
-      {/* Hero banner */}
-      <div className="relative bg-gradient-to-br from-[#0a0a0a] via-[#1a1a2e] to-[#0a0a0a] px-4 py-8 overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-[#1a6b3a]/20 rounded-full blur-3xl"/>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#1e3a8a]/20 rounded-full blur-2xl"/>
+      {/* Hero */}
+      <div className="relative bg-gradient-to-br from-[#0a0a0a] via-[#1a1a2e] to-[#0a0a0a] px-4 py-7 overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-[#1a6b3a]/20 rounded-full blur-3xl pointer-events-none"/>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#1e3a8a]/20 rounded-full blur-2xl pointer-events-none"/>
         <div className="relative max-w-lg">
           <div className="flex items-center gap-1.5 mb-2">
-            <Zap className="w-4 h-4 text-[#C9A227]"/>
-            <span className="text-[#C9A227] text-xs font-bold uppercase tracking-widest">Skill Acquisition</span>
+            <Zap className="w-3.5 h-3.5 text-[#C9A227]"/>
+            <span className="text-[#C9A227] text-[10px] font-bold uppercase tracking-widest">Skill Acquisition</span>
           </div>
-          <h1 className="text-white font-black text-2xl leading-tight mb-2">
+          <h1 className="text-white font-black text-xl leading-tight mb-2">
             Invest in <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4ade80] to-[#34d399]">yourself</span>
           </h1>
           <p className="text-white/50 text-xs leading-relaxed">
@@ -60,16 +67,14 @@ export default function SkillsPage() {
         </div>
       </div>
 
-      {/* Why skills matter */}
+      {/* Why skills */}
       <div className="px-4 py-4 grid grid-cols-3 gap-2.5 border-b border-[#e8e8e8]">
-        {[
-          { icon:'💼', text:'Career ready' },
-          { icon:'🌍', text:'Global skills' },
-          { icon:'🤝', text:'Network & grow' },
-        ].map(n => (
-          <div key={n.text} className="bg-[#f9f9f7] rounded-xl p-2.5 text-center">
-            <div className="text-lg mb-1">{n.icon}</div>
-            <p className="text-[10px] font-semibold text-[#0a0a0a]">{n.text}</p>
+        {WHY_SKILLS.map(({ icon: Icon, label, color }) => (
+          <div key={label} className="bg-[#f9f9f7] rounded-xl p-3 text-center">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center mx-auto mb-1.5" style={{background:`${color}15`}}>
+              <Icon className="w-3.5 h-3.5" style={{color}}/>
+            </div>
+            <p className="text-[10px] font-semibold text-[#0a0a0a] leading-tight">{label}</p>
           </div>
         ))}
       </div>
@@ -88,16 +93,15 @@ export default function SkillsPage() {
           {CATEGORIES.map(c => (
             <button key={c} onClick={() => setCat(c)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all
-                ${cat === c ? 'bg-[#1a6b3a] text-white border-[#1a6b3a]' : 'bg-white text-[#6b6b6b] border-[#e8e8e8]'}`}>
+                ${cat === c ? 'bg-[#1a6b3a] text-white border-[#1a6b3a]' : 'bg-white text-[#6b6b6b] border-[#e8e8e8] hover:border-[#1a6b3a]/40'}`}>
               {c}
             </button>
           ))}
         </div>
 
-        {/* Count */}
         <p className="text-[10px] text-[#aaa] font-medium">{filtered.length} skill{filtered.length !== 1 ? 's' : ''} available</p>
 
-        {/* Skills grid */}
+        {/* Skills */}
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-5 h-5 border-2 border-[#1a6b3a] border-t-transparent rounded-full animate-spin"/>
@@ -111,44 +115,50 @@ export default function SkillsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 pb-24">
             {filtered.map(skill => {
-              const status  = applied[skill.id]
+              const status     = applied[skill.id]
               const levelColor = LEVEL_COLOR[skill.level?.toLowerCase()] || '#1a6b3a'
               return (
                 <Link key={skill.id} href={`/skills/${skill.id}`}
-                  className="card overflow-hidden flex flex-col group hover:shadow-md transition-all">
-                  {/* Image / gradient */}
+                  className="card overflow-hidden flex flex-col group hover:shadow-md transition-all active:scale-[0.99]">
+
+                  {/* Image area */}
                   <div className="relative h-32 overflow-hidden">
                     {skill.image_url ? (
                       <img src={skill.image_url} alt={skill.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] to-[#1a1a2e] flex items-center justify-center">
-                        <Zap className="w-10 h-10 text-white/20"/>
+                        <Zap className="w-10 h-10 text-white/10"/>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"/>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"/>
+
                     {/* Badges */}
                     <div className="absolute top-2.5 left-2.5 flex gap-1.5">
                       {skill.category && (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-white backdrop-blur-sm border border-white/20">{skill.category}</span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-white backdrop-blur-sm border border-white/20">
+                          {skill.category}
+                        </span>
                       )}
                       {skill.level && (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full text-white" style={{background: levelColor+'cc'}}>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full text-white" style={{background:`${levelColor}cc`}}>
                           {skill.level}
                         </span>
                       )}
                     </div>
+
                     {/* Applied badge */}
                     {status && (
                       <div className={`absolute top-2.5 right-2.5 text-[9px] font-bold px-2 py-0.5 rounded-full
                         ${status==='approved'?'bg-[#1a6b3a] text-white':status==='pending'?'bg-amber-500 text-white':'bg-[#e8e8e8] text-[#6b6b6b]'}`}>
-                        {status === 'approved' ? '✓ Approved' : status === 'pending' ? 'Applied' : status}
+                        {status === 'approved' ? 'Approved' : status === 'pending' ? 'Applied' : status}
                       </div>
                     )}
                   </div>
 
+                  {/* Card body */}
                   <div className="p-3.5 flex-1 flex flex-col">
                     <h3 className="font-black text-[#0a0a0a] text-sm mb-0.5">{skill.title}</h3>
-                    {skill.tagline && <p className="text-[11px] text-[#6b6b6b] mb-2">{skill.tagline}</p>}
+                    {skill.tagline && <p className="text-[11px] text-[#6b6b6b] mb-2 leading-snug">{skill.tagline}</p>}
                     <div className="flex items-center gap-3 mt-auto">
                       {skill.duration && (
                         <div className="flex items-center gap-1 text-[10px] text-[#aaa]">

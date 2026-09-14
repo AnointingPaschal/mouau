@@ -126,7 +126,7 @@ export default function SkillDetailPage() {
         {applied && (
           <div className={`ml-auto flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full
             ${applied==='approved'?'bg-[#1a6b3a] text-white':applied==='pending'?'bg-amber-100 text-amber-700':'bg-[#f0f0f0] text-[#6b6b6b]'}`}>
-            {applied === 'approved' ? '✓ Approved' : applied === 'pending' ? 'Applied — Pending' : applied}
+            {applied === 'approved' ? 'Approved' : applied === 'pending' ? 'Applied — Pending' : applied}
           </div>
         )}
       </div>
