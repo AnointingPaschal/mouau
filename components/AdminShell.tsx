@@ -9,6 +9,7 @@ import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogO
 
 const nav = [
   { href:'/admin/dashboard',        label:'Dashboard',            icon:LayoutDashboard },
+  { href:'/admin/landing',          label:'Landing Page',         icon:LayoutDashboard },
   { href:'/admin/content',          label:'Site Content',         icon:Type            },
   { href:'/admin/library',          label:'Library',              icon:BookOpen        },
   { href:'/admin/pdm',              label:'PDM Content',          icon:Cross           },

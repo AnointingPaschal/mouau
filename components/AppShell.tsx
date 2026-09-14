@@ -47,8 +47,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       <BottomNav/>
-      <NotificationPrompt/>
-      <PWAInstallPrompt/>
     </div>
   )
 }

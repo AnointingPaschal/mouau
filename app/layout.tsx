@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
+import GlobalPrompts from '@/components/GlobalPrompts'
 
 /* ─── Viewport ─── */
 export const viewport: Viewport = {
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-mouau-bg">
         <AuthProvider>
           {children}
+          <GlobalPrompts />
         </AuthProvider>
       </body>
     </html>
