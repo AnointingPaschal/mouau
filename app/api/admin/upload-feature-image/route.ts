@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminFromRequest } from '@/lib/admin'
 import { supabase } from '@/lib/supabase'
+import { clearSettingsCache } from '@/lib/settings'
+import { revalidatePath } from 'next/cache'
 
 export async function POST(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
@@ -15,7 +17,8 @@ export async function POST(req: NextRequest) {
   const path = `landing/${slot}-${Date.now()}.${ext}`
   const buf  = Buffer.from(await file.arrayBuffer())
 
-  const { error } = await supabase.storage.from('materials').upload(path, buf, { contentType: file.type, upsert: true })
+  const { error } = await supabase.storage
+    .from('materials').upload(path, buf, { contentType: file.type, upsert: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const { data: { publicUrl } } = supabase.storage.from('materials').getPublicUrl(path)
@@ -24,5 +27,9 @@ export async function POST(req: NextRequest) {
     { key: slot, value: publicUrl, category: 'landing', label: slot, is_secret: false },
     { onConflict: 'key' }
   )
+
+  clearSettingsCache()
+  try { revalidatePath('/') } catch {}
+
   return NextResponse.json({ ok: true, url: publicUrl })
 }

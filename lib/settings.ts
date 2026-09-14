@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 type Settings = Record<string, string>
 let cache: Settings | null = null
 let cacheTime = 0
-const TTL = 60_000 // 1 minute
+const TTL = 5_000 // 5 s — short enough to see updates right away
 
 export async function getSettings(): Promise<Settings> {
   if (cache && Date.now() - cacheTime < TTL) return cache
@@ -15,9 +15,9 @@ export async function getSettings(): Promise<Settings> {
   return s
 }
 
-export function clearSettingsCache() { cache = null }
+export function clearSettingsCache() { cache = null; cacheTime = 0 }
 
 export async function getSetting(key: string, fallback = ''): Promise<string> {
   const s = await getSettings()
-  return s[key] || fallback
+  return s[key] ?? fallback
 }

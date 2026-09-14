@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminFromRequest } from '@/lib/admin'
 import { supabase } from '@/lib/supabase'
+import { clearSettingsCache } from '@/lib/settings'
+import { revalidatePath } from 'next/cache'
 
 const LANDING_KEYS = [
   'landing_badge','landing_title1','landing_title2','landing_description',
@@ -18,8 +20,11 @@ const LANDING_KEYS = [
 export async function GET(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { data } = await supabase.from('app_settings').select('key,value').in('key', LANDING_KEYS)
-  const settings: Record<string,string> = {}
+
+  // Always read directly from DB — never use cached settings here
+  const { data } = await supabase
+    .from('app_settings').select('key,value').in('key', LANDING_KEYS)
+  const settings: Record<string, string> = {}
   for (const row of data || []) settings[row.key] = row.value
   return NextResponse.json({ data: settings })
 }
@@ -27,12 +32,27 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const body = await req.json()
   const rows = Object.entries(body)
     .filter(([k]) => LANDING_KEYS.includes(k))
-    .map(([key, value]) => ({ key, value: String(value), category: 'landing', label: key, is_secret: false }))
+    .map(([key, value]) => ({
+      key,
+      value:     String(value),
+      category:  'landing',
+      label:     key,
+      is_secret: false,
+    }))
+
   if (rows.length) {
-    await supabase.from('app_settings').upsert(rows, { onConflict: 'key' })
+    const { error } = await supabase
+      .from('app_settings').upsert(rows, { onConflict: 'key' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
-  return NextResponse.json({ ok: true })
+
+  // Bust the in-process settings cache + Next.js page cache
+  clearSettingsCache()
+  try { revalidatePath('/') } catch { /* not critical */ }
+
+  return NextResponse.json({ ok: true, saved: rows.length })
 }

@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import Image from 'next/image'
-import { MapPin, BookOpen, Users, ClipboardList, Calculator, Bell, ArrowRight, Star } from 'lucide-react'
+import { MapPin, BookOpen, Users, ClipboardList, Calculator, Bell, Star } from 'lucide-react'
 import InstallButtons from '@/components/InstallButtons'
 import { getSetting } from '@/lib/settings'
+
+// Always fetch fresh from DB — never serve a cached page
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export const metadata: Metadata = {
   title: 'PDM MOUAU — Student Companion App for Michael Okpara University',

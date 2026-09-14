@@ -40,13 +40,18 @@ export default function AdminLandingPage() {
 
   const save = async () => {
     setSaving(true)
-    await fetch('/api/admin/landing', {
+    const r = await fetch('/api/admin/landing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authH },
       body: JSON.stringify(vals),
     })
+    const d = await r.json()
     setSaving(false)
-    showToast('Landing page saved!')
+    if (d.ok) {
+      showToast(`Saved! ${d.saved} settings updated — reload landing page to see changes.`)
+    } else {
+      showToast(d.error || 'Save failed')
+    }
   }
 
   const uploadImage = async (slot: string, file: File, idx: number) => {
