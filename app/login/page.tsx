@@ -24,11 +24,13 @@ function validateId(id: string): string | null {
 type Screen = 'signin' | 'register' | 'verify' | 'forgot' | 'reset'
 
 export default function LoginPage() {
-  const [screen,   setScreen]   = useState<Screen>('signin')
-  const [idNumber, setIdNumber] = useState('')
-  const [name,     setName]     = useState('')
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
+  const [screen,    setScreen]   = useState<Screen>('signin')
+  const [idNumber,  setIdNumber]  = useState('')
+  const [name,      setName]      = useState('')
+  const [email,     setEmail]     = useState('')
+  const [level,     setLevel]     = useState('100')
+  const [department,setDept]      = useState('')
+  const [password,  setPassword]  = useState('')
   const [confirm,  setConfirm]  = useState('')
   const [code,     setCode]     = useState('')
   const [showPw,   setShowPw]   = useState(false)
@@ -88,7 +90,7 @@ export default function LoginPage() {
     setLoading(true)
     const r = await fetch('/api/auth/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idNumber: idNumber.trim().toUpperCase(), name, email, password, code })
+      body: JSON.stringify({ idNumber: idNumber.trim().toUpperCase(), name, email, password, code, level, department })
     })
     const d = await r.json()
     setLoading(false)
@@ -257,6 +259,28 @@ export default function LoginPage() {
                     className="w-full border border-[#e8e8e8] rounded-xl px-3.5 py-3 text-sm outline-none focus:border-[#1a6b3a] focus:ring-2 focus:ring-[#1a6b3a]/10 transition-all"/>
                 </div>
                 <IdInput/>
+                {/* Level selector */}
+                <div>
+                  <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-2 block">Current Level *</label>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {(['100','200','300','400','500'] as const).map(l => (
+                      <button key={l} type="button" onClick={() => setLevel(l)}
+                        className={`py-2.5 rounded-xl text-sm font-black border-2 transition-all
+                          ${level === l ? 'bg-[#1a6b3a] text-white border-[#1a6b3a]' : 'bg-white text-[#6b6b6b] border-[#e8e8e8] hover:border-[#1a6b3a]/30'}`}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-[#aaa] mt-1.5">
+                    {level === '100' ? 'Welcome, Fresher! The app is designed to help you settle in.' : `${level} Level — returning student. Your dashboard will reflect this.`}
+                  </p>
+                </div>
+                {/* Department */}
+                <div>
+                  <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">Department <span className="font-normal normal-case text-[#aaa]">(optional)</span></label>
+                  <input value={department} onChange={e => setDept(e.target.value)} placeholder="e.g. Computer Science, Agronomy"
+                    className="w-full border border-[#e8e8e8] rounded-xl px-3.5 py-3 text-sm outline-none focus:border-[#1a6b3a] focus:ring-2 focus:ring-[#1a6b3a]/10 transition-all"/>
+                </div>
                 <div>
                   <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">Email Address *</label>
                   <input value={email} onChange={e => setEmail(e.target.value.toLowerCase())} type="email" placeholder="your@email.com"

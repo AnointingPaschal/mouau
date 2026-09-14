@@ -213,6 +213,24 @@ export default function ProfilePage() {
                   </div>
                 </div>
               ))}
+              {/* Level as visual pill row */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <GraduationCap className="w-4 h-4 text-[#1a6b3a] flex-shrink-0"/>
+                <div className="flex-1">
+                  <p className="text-[10px] font-semibold text-[#aaa] uppercase tracking-wide mb-1.5">Academic Level</p>
+                  <div className="flex gap-1.5">
+                    {['100','200','300','400','500'].map(l => (
+                      <div key={l} className={`px-2.5 py-1 rounded-lg text-[11px] font-black
+                        ${displayLevel === l ? 'bg-[#1a6b3a] text-white' : 'bg-[#f0f0f0] text-[#aaa]'}`}>
+                        {l}L
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-[#aaa] mt-1.5">
+                    {displayLevel === '100' ? 'Fresher — registration guide is your priority' : `${displayLevel} Level returning student`}
+                  </p>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="p-4 space-y-4 animate-fade-in">
@@ -238,19 +256,20 @@ export default function ProfilePage() {
                 <p className="text-[9px] text-[#aaa]">ID Number cannot be changed.</p>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-[#aaa] uppercase tracking-wide">Level</label>
-                <select 
-                  value={formData.level}
-                  onChange={e => setFormData({...formData, level: e.target.value})}
-                  className="w-full border border-[#e8e8e8] rounded-xl px-3 py-2 text-sm focus:border-[#1a6b3a] outline-none transition-colors bg-white"
-                >
-                  <option value="100">100 Level</option>
-                  <option value="200">200 Level</option>
-                  <option value="300">300 Level</option>
-                  <option value="400">400 Level</option>
-                  <option value="500">500 Level</option>
-                </select>
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-[#aaa] uppercase tracking-wide block">Academic Level</label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {(['100','200','300','400','500'] as const).map(l => (
+                    <button key={l} type="button" onClick={() => setFormData({...formData, level: l})}
+                      className={`py-2.5 rounded-xl text-sm font-black border-2 transition-all
+                        ${formData.level === l ? 'bg-[#1a6b3a] text-white border-[#1a6b3a]' : 'bg-white text-[#6b6b6b] border-[#e8e8e8] hover:border-[#1a6b3a]/30'}`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-[#aaa]">
+                  {formData.level === '100' ? 'Fresher — registration-focused dashboard' : `${formData.level} Level — returning student dashboard`}
+                </p>
               </div>
 
               <div className="space-y-1">

@@ -11,16 +11,25 @@ import {
   ClipboardList, Users, Calculator, Clock,
   AlertTriangle, Info, CheckCircle2, Calendar,
   ChevronRight, Navigation2, MapPin, Zap,
-  MessageCircle, Star, TrendingUp
+  BookOpen, GraduationCap, TrendingUp, Star
 } from 'lucide-react'
 
 type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; created_at:string }
 
-const QUICK_ACTIONS = [
+// Level-specific quick actions
+const FRESHER_ACTIONS = [
   { href:'/register',   label:'Register',   icon:ClipboardList, color:'#d97706' },
+  { href:'/navigate',   label:'Map',        icon:MapPin,        color:'#1e3a8a' },
+  { href:'/library',    label:'Library',    icon:BookOpen,      color:'#1a6b3a' },
   { href:'/pdm',        label:'PDM',        icon:Users,         color:'#b91c1c' },
+  { href:'/timetable',  label:'Timetable',  icon:Clock,         color:'#059669' },
+]
+
+const RETURNING_ACTIONS = [
   { href:'/skills',     label:'Skills',     icon:Zap,           color:'#7c3aed' },
-  { href:'/calculator', label:'Calculator', icon:Calculator,    color:'#0284c7' },
+  { href:'/calculator', label:'CGPA',       icon:Calculator,    color:'#0284c7' },
+  { href:'/library',    label:'Library',    icon:BookOpen,      color:'#1a6b3a' },
+  { href:'/pdm',        label:'PDM',        icon:Users,         color:'#b91c1c' },
   { href:'/timetable',  label:'Timetable',  icon:Clock,         color:'#059669' },
 ]
 
@@ -69,7 +78,9 @@ export default function Dashboard() {
 
   const h = new Date().getHours()
   const greet = h<5?'Good night':h<12?'Good morning':h<17?'Good afternoon':'Good evening'
-  const firstName = student?.name?.split(' ')[0] || 'Student'
+  const firstName  = student?.name?.split(' ')[0] || 'Student'
+  const isFresher  = !student?.level || student.level === '100'
+  const quickActions = isFresher ? FRESHER_ACTIONS : RETURNING_ACTIONS
 
   return (
     <AppShell>
@@ -100,11 +111,20 @@ export default function Dashboard() {
                 <p className="text-white/40 text-xs">{greet},</p>
                 <h1 className="text-white font-black text-2xl leading-tight">
                   {firstName}'s<br/>
-                  <span style={{background:'linear-gradient(90deg,#60a5fa,#f87171,#fb923c)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>
-                    Campus Hub
+                  <span style={{background: isFresher
+                    ? 'linear-gradient(90deg,#fbbf24,#f87171)'
+                    : 'linear-gradient(90deg,#60a5fa,#f87171,#fb923c)',
+                    WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>
+                    {isFresher ? 'Fresher Hub' : 'Campus Hub'}
                   </span>
                 </h1>
-                <p className="text-white/40 text-xs mt-1">MOUAU · 2024/2025 · {student?.level||'100'} Level</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-white/40 text-xs">MOUAU · 2024/2025</p>
+                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full
+                    ${isFresher ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-white/60'}`}>
+                    {student?.level || '100'}L {isFresher ? '• Fresher' : ''}
+                  </span>
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-3xl font-black text-white">{pct}%</div>
@@ -137,11 +157,11 @@ export default function Dashboard() {
 
         <div className="px-4 pt-4 space-y-4">
 
-          {/* Quick Actions — small */}
+          {/* Quick Actions — level-aware */}
           <div>
             <p className="section-label mb-2.5">QUICK ACTIONS</p>
-            <div className="grid grid-cols-4 gap-2">
-              {QUICK_ACTIONS.map(({ href, label, icon:Icon, color }) => (
+            <div className="grid grid-cols-5 gap-2">
+              {quickActions.map(({ href, label, icon:Icon, color }) => (
                 <Link key={href} href={href}
                   className="card card-hover flex flex-col items-center gap-1.5 py-2.5 px-1 text-center group">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center transition-all group-hover:scale-105"
@@ -153,6 +173,56 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {/* Level-specific featured section */}
+          {isFresher ? (
+            <div>
+              <p className="section-label mb-2.5">FRESHER CORNER</p>
+              <div className="space-y-2">
+                <Link href="/register" className="card flex items-center gap-3 p-3.5 border-l-4 border-l-amber-400 hover:shadow-md transition-all">
+                  <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center flex-shrink-0"><ClipboardList className="w-5 h-5 text-amber-500"/></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-[#0a0a0a] text-sm">Complete Your Registration</p>
+                    <p className="text-[11px] text-[#6b6b6b]">Follow our 49-step guide to complete MOUAU registration</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-amber-400 flex-shrink-0"/>
+                </Link>
+                <Link href="/navigate" className="card flex items-center gap-3 p-3.5 border-l-4 border-l-[#1e3a8a] hover:shadow-md transition-all">
+                  <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0"><MapPin className="w-5 h-5 text-[#1e3a8a]"/></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-[#0a0a0a] text-sm">Explore the Campus</p>
+                    <p className="text-[11px] text-[#6b6b6b]">GPS map of hostels, lecture halls, admin blocks & more</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#1e3a8a] flex-shrink-0"/>
+                </Link>
+                <Link href="/pdm" className="card flex items-center gap-3 p-3.5 border-l-4 border-l-[#1a6b3a] hover:shadow-md transition-all">
+                  <div className="w-9 h-9 bg-[#1a6b3a]/10 rounded-xl flex items-center justify-center flex-shrink-0"><Users className="w-5 h-5 text-[#1a6b3a]"/></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-[#0a0a0a] text-sm">Join Pneuma Domain Ministry</p>
+                    <p className="text-[11px] text-[#6b6b6b]">Faith, fellowship & growth for every MOUAU student</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#1a6b3a] flex-shrink-0"/>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="section-label mb-2.5">STUDENT TOOLS</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { href:'/skills',     label:'Skill Acquisition', sub:'Learn new practical skills',   icon:Zap,        bg:'bg-purple-50',   color:'#7c3aed' },
+                  { href:'/calculator', label:'CGPA Calculator',   sub:'Track academic progress',       icon:Calculator, bg:'bg-blue-50',     color:'#0284c7' },
+                  { href:'/library',    label:'Study Library',     sub:'Past questions & notes',        icon:BookOpen,   bg:'bg-[#1a6b3a]/10',color:'#1a6b3a' },
+                  { href:'/timetable',  label:'Class Timetable',   sub:'Weekly schedule builder',       icon:Clock,      bg:'bg-green-50',    color:'#059669' },
+                ].map(({ href, label, sub, icon:Icon, bg, color }) => (
+                  <Link key={href} href={href} className="card p-3.5 flex flex-col gap-2 hover:shadow-md transition-all group">
+                    <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center`}><Icon className="w-5 h-5" style={{color}}/></div>
+                    <div><p className="font-bold text-[#0a0a0a] text-sm">{label}</p><p className="text-[10px] text-[#aaa]">{sub}</p></div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Navigate to Church + Explore Campus */}
           <div className="grid grid-cols-2 gap-2.5">
