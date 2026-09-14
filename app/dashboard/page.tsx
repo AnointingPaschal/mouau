@@ -19,7 +19,7 @@ type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; 
 // Level-specific quick actions
 const FRESHER_ACTIONS = [
   { href:'/register',   label:'Register',   icon:ClipboardList, color:'#d97706' },
-  { href:'/navigate',   label:'Map',        icon:MapPin,        color:'#1e3a8a' },
+  { href:'/skills',     label:'Skills',     icon:Zap,           color:'#7c3aed' },
   { href:'/library',    label:'Library',    icon:BookOpen,      color:'#1a6b3a' },
   { href:'/pdm',        label:'PDM',        icon:Users,         color:'#b91c1c' },
   { href:'/timetable',  label:'Timetable',  icon:Clock,         color:'#059669' },
@@ -174,56 +174,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Level-specific featured section */}
-          {isFresher ? (
-            <div>
-              <p className="section-label mb-2.5">FRESHER CORNER</p>
-              <div className="space-y-2">
-                <Link href="/register" className="card flex items-center gap-3 p-3.5 border-l-4 border-l-amber-400 hover:shadow-md transition-all">
-                  <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center flex-shrink-0"><ClipboardList className="w-5 h-5 text-amber-500"/></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[#0a0a0a] text-sm">Complete Your Registration</p>
-                    <p className="text-[11px] text-[#6b6b6b]">Follow our 49-step guide to complete MOUAU registration</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-amber-400 flex-shrink-0"/>
-                </Link>
-                <Link href="/navigate" className="card flex items-center gap-3 p-3.5 border-l-4 border-l-[#1e3a8a] hover:shadow-md transition-all">
-                  <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0"><MapPin className="w-5 h-5 text-[#1e3a8a]"/></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[#0a0a0a] text-sm">Explore the Campus</p>
-                    <p className="text-[11px] text-[#6b6b6b]">GPS map of hostels, lecture halls, admin blocks & more</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#1e3a8a] flex-shrink-0"/>
-                </Link>
-                <Link href="/pdm" className="card flex items-center gap-3 p-3.5 border-l-4 border-l-[#1a6b3a] hover:shadow-md transition-all">
-                  <div className="w-9 h-9 bg-[#1a6b3a]/10 rounded-xl flex items-center justify-center flex-shrink-0"><Users className="w-5 h-5 text-[#1a6b3a]"/></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[#0a0a0a] text-sm">Join Pneuma Domain Ministry</p>
-                    <p className="text-[11px] text-[#6b6b6b]">Faith, fellowship & growth for every MOUAU student</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#1a6b3a] flex-shrink-0"/>
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p className="section-label mb-2.5">STUDENT TOOLS</p>
-              <div className="grid grid-cols-2 gap-2.5">
-                {[
-                  { href:'/skills',     label:'Skill Acquisition', sub:'Learn new practical skills',   icon:Zap,        bg:'bg-purple-50',   color:'#7c3aed' },
-                  { href:'/calculator', label:'CGPA Calculator',   sub:'Track academic progress',       icon:Calculator, bg:'bg-blue-50',     color:'#0284c7' },
-                  { href:'/library',    label:'Study Library',     sub:'Past questions & notes',        icon:BookOpen,   bg:'bg-[#1a6b3a]/10',color:'#1a6b3a' },
-                  { href:'/timetable',  label:'Class Timetable',   sub:'Weekly schedule builder',       icon:Clock,      bg:'bg-green-50',    color:'#059669' },
-                ].map(({ href, label, sub, icon:Icon, bg, color }) => (
-                  <Link key={href} href={href} className="card p-3.5 flex flex-col gap-2 hover:shadow-md transition-all group">
-                    <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center`}><Icon className="w-5 h-5" style={{color}}/></div>
-                    <div><p className="font-bold text-[#0a0a0a] text-sm">{label}</p><p className="text-[10px] text-[#aaa]">{sub}</p></div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Navigate to Church + Explore Campus */}
           <div className="grid grid-cols-2 gap-2.5">
             <Link href="/places"
@@ -255,6 +205,21 @@ export default function Dashboard() {
             </div>
             <GallerySlideshow/>
           </div>
+
+          {/* Join Pneuma Domain Ministry — shown after gallery */}
+          <Link href="/pdm"
+            className="flex items-center gap-3.5 p-4 rounded-2xl overflow-hidden relative group hover:shadow-md transition-all"
+            style={{background:'linear-gradient(135deg,#0a0a0a,#1a1a0a)'}}>
+            <div className="absolute inset-0 opacity-20" style={{background:'linear-gradient(135deg,#1a6b3a,#C9A227)'}}/>
+            <div className="relative w-11 h-11 bg-[#1a6b3a]/30 rounded-2xl flex items-center justify-center flex-shrink-0 border border-[#1a6b3a]/40">
+              <Users className="w-5 h-5 text-[#4ade80]"/>
+            </div>
+            <div className="relative flex-1 min-w-0">
+              <p className="text-white font-black text-sm leading-tight">Join Pneuma Domain Ministry</p>
+              <p className="text-white/50 text-[10px] mt-0.5">Faith, fellowship & growth for every MOUAU student</p>
+            </div>
+            <ChevronRight className="relative w-4 h-4 text-[#4ade80] flex-shrink-0"/>
+          </Link>
 
           {/* Announcements */}
           {anns.length > 0 && (

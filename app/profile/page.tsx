@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
+import { saveStudent } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { 
   Camera, Save, Loader2, CheckCircle2, User, Mail, 
@@ -10,7 +11,7 @@ import {
 } from 'lucide-react'
 
 export default function ProfilePage() {
-  const { student, logout } = useAuth()
+  const { student, setStudent, logout } = useAuth()
   
   // Profile & Avatar State
   const [avatarUrl, setAvatarUrl] = useState<string|null>(null)
@@ -120,6 +121,13 @@ export default function ProfilePage() {
     setIsEditing(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
+    // Persist updated fields (especially level) to localStorage so dashboard
+    // reflects the change immediately and on next reload
+    if (student) {
+      const updated = { ...student, ...formData }
+      saveStudent(updated)
+      setStudent(updated)
+    }
   }
 
   const [downloads, setDownloads] = useState(0)
