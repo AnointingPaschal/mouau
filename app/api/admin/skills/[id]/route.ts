@@ -16,17 +16,31 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const body = await req.json()
-  const { data, error } = await adminDb.from('skills')
-    .update({ ...body, updated_at: new Date().toISOString() })
-    .eq('id', params.id).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Strip fields that must NOT be in an UPDATE (primary key, timestamps set by DB)
+  const { id: _id, created_at: _ca, ...updateFields } = body
+
+  const { error } = await adminDb
+    .from('skills')
+    .update({ ...updateFields, updated_at: new Date().toISOString() })
+    .eq('id', params.id)
+
+  if (error) {
+    console.error('Skills update error:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Re-fetch the updated row to return fresh data
+  const { data } = await adminDb.from('skills').select('*').eq('id', params.id).single()
   return NextResponse.json({ data })
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  await adminDb.from('skills').delete().eq('id', params.id)
+  const { error } = await adminDb.from('skills').delete().eq('id', params.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
