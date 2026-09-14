@@ -47,7 +47,9 @@ export async function POST(req: NextRequest) {
     if (!subs?.length) return NextResponse.json({ sent: 0, message: 'No devices registered for this student' })
 
     const messaging = await getMessaging()
-    const tokens: string[] = subs.map((s: any) => s.fcm_token)
+    const tokens: string[] = subs
+      .map((s: any) => s.fcm_token)
+      .filter((t: string) => t && !t.startsWith('pwa:'))  // exclude install-only sentinels
 
     const result = await messaging.sendEachForMulticast({
       notification: {

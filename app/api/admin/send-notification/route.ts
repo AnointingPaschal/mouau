@@ -67,7 +67,9 @@ async function sendPush(recipientIds: string[], title: string, body: string, url
   if (!getApps().length) initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) })
   const messaging = getMessaging()
 
-  const tokens = subs.map((sub: any) => sub.fcm_token)
+  const tokens = subs
+    .map((sub: any) => sub.fcm_token)
+    .filter((t: string) => t && !t.startsWith('pwa:'))  // exclude install-only sentinels
   let totalSent = 0, totalFailed = 0
   const badTokens: string[] = []
 
