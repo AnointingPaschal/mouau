@@ -36,9 +36,9 @@ function ManeuverIcon({ m }:{ m?:string }){
 
 function NavigateContent() {
   const searchParams = useSearchParams()
-  const paramTo   = searchParams.get('to')   || ''   // coords or text
-  const paramName = searchParams.get('name') || ''   // display label
-  const paramAuto = searchParams.get('auto') === '1' // auto-search flag
+  const paramTo   = searchParams.get('to')   || ''
+  const paramName = searchParams.get('name') || ''
+  const paramAuto = searchParams.get('auto') === '1'
 
   type LocState = 'checking'|'granted'|'requesting'|'denied'|'skipped'
   const [locState,   setLocState]   = useState<LocState>('checking')
@@ -55,7 +55,7 @@ function NavigateContent() {
   const [fromLoading,setFromLoading]= useState(false)
   const [fromFocus,  setFromFocus]  = useState(false)
   const fromTimer = useRef<any>(null)
-  const fromTextRef = useRef('') // always-current mirror for searchDirections
+  const fromTextRef = useRef('')
 
   const [toText,     setToText]     = useState('')
   const [toDisplayText, setToDisplayText] = useState('')
@@ -65,7 +65,7 @@ function NavigateContent() {
   const [toLoading,  setToLoading]  = useState(false)
   const [toFocus,    setToFocus]    = useState(false)
   const toTimer = useRef<any>(null)
-  const toCoordsRef = useRef('') // always-current mirror for searchDirections
+  const toCoordsRef = useRef('')
 
   const [loadingDir, setLoadingDir] = useState(false)
   const [gettingLoc, setGettingLoc] = useState(false)
@@ -75,70 +75,79 @@ function NavigateContent() {
 
   const updateMap = (src:string) => { setMapSrc(src); setMapKey(k=>k+1) }
 
-  const doGetPos = useCallback((silent=false): Promise<{lat:number;lng:number}|null> =>
+  // Gemini's improved doGetPos — watchPosition-based with bestPos accumulation
+  const doGetPos = useCallback((silent = false): Promise<{lat: number; lng: number} | null> =>
     new Promise(resolve => {
-      if(!navigator.geolocation){ 
-        if(!silent) setLocState('denied')
-        return resolve(null) 
+      if (!navigator.geolocation) {
+        if (!silent) setLocState('denied')
+        return resolve(null)
       }
 
-      const onSuccess = (pos: GeolocationPosition) => {
-        const { latitude:lat, longitude:lng } = pos.coords
-        setUserLat(lat); setUserLng(lng)
-        setLocState('granted')
-        setFromText(`${lat.toFixed(6)},${lng.toFixed(6)}`)
-        localStorage.setItem(LOC_KEY,'1')
-        updateMap(`https://maps.google.com/maps?q=${lat},${lng}&output=embed&z=17&t=k`)
-        resolve({lat,lng})
-      }
-
-      let resolved = false
+      let bestPos: GeolocationPosition | null = null
       let watchId: number | null = null
+      let timeoutId: ReturnType<typeof setTimeout>
 
-      const finish = (pos: GeolocationPosition) => {
-        if (resolved) return
-        resolved = true
-        if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null }
-        onSuccess(pos)
+      const cleanup = () => {
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId)
+        clearTimeout(timeoutId)
       }
 
-      // Primary: high-accuracy GPS
-      navigator.geolocation.getCurrentPosition(
-        finish,
-        err => {
-          if (resolved) return
-          if (err.code === 1) {
-            if (!silent) setLocState('denied')
-            return resolve(null)
+      const finalize = (pos: GeolocationPosition | null) => {
+        cleanup()
+        if (!pos) {
+          if (!silent) setLocState('denied')
+          return resolve(null)
+        }
+        const { latitude: lat, longitude: lng } = pos.coords
+        setUserLat(lat)
+        setUserLng(lng)
+        setLocState('granted')
+        const coordsStr = `${lat.toFixed(6)},${lng.toFixed(6)}`
+        setFromText(coordsStr)
+        localStorage.setItem(LOC_KEY, '1')
+        updateMap(`https://maps.google.com/maps?q=${lat},${lng}&output=embed&z=17&t=k`)
+        resolve({ lat, lng })
+      }
+
+      // Watch position allows the GPS to warm up and improve accuracy over a few seconds
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          // Keep track of the most accurate position received
+          if (!bestPos || pos.coords.accuracy < bestPos.coords.accuracy) {
+            bestPos = pos
           }
-          // Timeout/unavailable — fall back to cell/WiFi location
-          navigator.geolocation.getCurrentPosition(
-            finish,
-            () => { if (!silent) setLocState('denied'); resolve(null) },
-            { enableHighAccuracy: false, timeout: 12000, maximumAge: 30000 }
-          )
+          // If we hit a highly accurate lock (e.g., under 25 meters), finalize immediately
+          if (pos.coords.accuracy <= 25) {
+            finalize(pos)
+          }
         },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        (err) => {
+          // If permission is explicitly denied, abort immediately
+          if (err.code === 1) {
+            finalize(null)
+          }
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       )
 
-      // Also watch briefly: grab a better fix if accuracy improves within 5s
-      try {
-        watchId = navigator.geolocation.watchPosition(
-          pos => {
-            if (resolved) return
-            if (pos.coords.accuracy < 50) finish(pos) // <50m accuracy = good fix
-          },
-          () => {},
-          { enableHighAccuracy: true, maximumAge: 0 }
-        )
-        setTimeout(() => {
-          if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null }
-        }, 5000)
-      } catch { /* watchPosition not supported */ }
+      // Give the GPS 6 seconds to lock on.
+      // If it hasn't hit the <25m threshold by then, use the best reading we got.
+      timeoutId = setTimeout(() => {
+        if (bestPos) {
+          finalize(bestPos)
+        } else {
+          // Absolute fallback if watchPosition yielded nothing at all
+          navigator.geolocation.getCurrentPosition(
+            (pos) => finalize(pos),
+            () => finalize(null),
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+          )
+        }
+      }, 6000)
     })
-  ,[])
+  , [])
 
-  // Keep refs in sync so searchDirections always sees fresh values even in stale closures
+  // Keep refs in sync — declared before auto-search effect so they run first
   useEffect(() => { fromTextRef.current = fromText }, [fromText])
   useEffect(() => { toCoordsRef.current = toCoords }, [toCoords])
 
@@ -147,35 +156,51 @@ function NavigateContent() {
   useEffect(() => {
     getCampusLocations().then(({data})=>{ if(data) setLocations(data as Loc[]) })
     if (paramTo) {
-      // Pre-fill destination: coords go into toText/toCoords, display name shown separately
       setToText(paramTo)
       setToCoords(paramTo)
       setToDisplayText(paramName || paramTo)
     }
   },[paramTo, paramName])
 
-  useEffect(()=>{
-    const cached = localStorage.getItem(LOC_KEY) === '1'
-    if(cached){
-      setLocState('granted')
-      doGetPos(true) 
-    } else {
-      setLocState('requesting')
-      doGetPos(false) 
+  useEffect(() => {
+    const init = async () => {
+      // Check actual browser permission state first — skip overlay if already granted
+      if (navigator.permissions) {
+        try {
+          const geo = await navigator.permissions.query({ name: 'geolocation' as PermissionName })
+          if (geo.state === 'granted') {
+            localStorage.setItem(LOC_KEY, '1')
+            setLocState('granted')
+            doGetPos(true)
+            return
+          }
+          if (geo.state === 'denied') {
+            setLocState('denied')
+            return
+          }
+          // 'prompt' → fall through to localStorage check
+        } catch { /* browser doesn't support permissions API, fall through */ }
+      }
+      // Fallback: use cached key from previous session
+      const cached = localStorage.getItem(LOC_KEY) === '1'
+      if (cached) {
+        setLocState('granted')
+        doGetPos(true)
+      } else {
+        setLocState('requesting')
+        doGetPos(false)
+      }
     }
-  },[doGetPos])
+    init()
+  }, [doGetPos])
 
-  // Auto-fire directions once destination is set AND GPS has actually resolved
-  // Watch userLat so we don't fire before doGetPos() completes (race condition)
+  // Auto-fire directions — only after GPS actually resolves (userLat set)
   useEffect(() => {
     if (!paramAuto || !paramTo || autoSearchFired.current) return
-
-    const gpsReady    = locState === 'granted' && userLat !== null
+    const gpsReady       = locState === 'granted' && userLat !== null
     const locationFailed = locState === 'denied' || locState === 'skipped'
-
     if (gpsReady || locationFailed) {
       autoSearchFired.current = true
-      // fromTextRef is updated by its own effect which runs before this one (declared first)
       setTimeout(() => searchDirections(), 150)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -206,7 +231,6 @@ function NavigateContent() {
     if(!toText.trim()){ setDirError('Enter a destination.'); return }
     setDirError(''); setLoadingDir(true); setDirResult(null)
 
-    // Read from ref so we always get the freshest GPS value even if called from a stale closure
     let origin = fromTextRef.current.trim()
 
     if(!origin){
@@ -216,7 +240,6 @@ function NavigateContent() {
       origin = pos ? `${pos.lat},${pos.lng}` : 'Michael Okpara University of Agriculture Main Gate, Umudike'
     }
 
-    // Prefer GPS coordinates (read from ref) over text name
     const dest = (toCoordsRef.current.trim()) ? toCoordsRef.current.trim() : toText.trim()
 
     updateMap(`https://maps.google.com/maps?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(dest)}&output=embed&dirflg=d&t=k`)
@@ -254,10 +277,10 @@ function NavigateContent() {
     <AppShell>
       <TopBar title="Campus Navigation" subtitle="Find your way around MOUAU"/>
 
-      {/* Changed to dvh to fix address bar jumping, and adjusted height calculation */}
       <div className={`relative flex flex-col h-[calc(100dvh-104px)] lg:h-[calc(100dvh-60px)] transition-all duration-300 ${blur ? 'blur-md pointer-events-none select-none brightness-95' : ''}`}>
 
         <div className="bg-white border-b border-[#e8e8e8] px-3 py-3 space-y-2 z-20 relative shadow-sm">
+          {/* FROM field */}
           <div className="relative">
             <div className={`flex items-center border rounded-xl bg-white shadow-sm transition-colors ${fromFocus ? 'border-[#1a6b3a]' : 'border-[#e8e8e8]'}`}>
               <div className="px-3 flex-shrink-0"><div className="w-2.5 h-2.5 rounded-full bg-[#1a6b3a]"/></div>
@@ -284,10 +307,7 @@ function NavigateContent() {
                       setFromText(coords)
                       fromTextRef.current = coords
                       setFromSugg([])
-                      // Re-run directions if we already have a destination
-                      if (toText.trim()) {
-                        setTimeout(() => searchDirections(), 100)
-                      }
+                      if (toText.trim()) setTimeout(() => searchDirections(), 100)
                     }
                   }}
                   className="px-2 text-[#1a6b3a] flex-shrink-0">
@@ -316,6 +336,7 @@ function NavigateContent() {
             )}
           </div>
 
+          {/* TO field */}
           <div className="relative">
             <div className={`flex items-center border rounded-xl bg-white shadow-sm transition-colors ${toFocus ? 'border-[#dc2626]' : 'border-[#e8e8e8]'}`}>
               <div className="px-3 flex-shrink-0"><div className="w-2.5 h-2.5 rounded-full bg-[#dc2626]"/></div>
@@ -399,12 +420,9 @@ function NavigateContent() {
             <ExternalLink className="w-3 h-3 text-[#1a6b3a]"/> Open in Maps
           </button>
 
-
-
           {dirResult && !dirResult._noSteps && leg && (
-                        <div className="absolute bottom-[72px] lg:bottom-0 left-0 right-0 z-10">
+            <div className="absolute bottom-[72px] lg:bottom-0 left-0 right-0 z-10">
               <div className="bg-white rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)] border-t border-[#e8e8e8] flex flex-col max-h-[52vh]">
-
                 <button onClick={() => setShowSteps(!showSteps)}
                   className="flex items-center gap-3 px-4 py-3 border-b border-[#f0f0f0] flex-shrink-0 w-full text-left bg-white rounded-t-2xl">
                   <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0">
@@ -476,7 +494,7 @@ function NavigateContent() {
           )}
 
           {dirResult?._noSteps && (
-                        <div className="absolute bottom-[80px] lg:bottom-4 left-3 right-3 z-10">
+            <div className="absolute bottom-[80px] lg:bottom-4 left-3 right-3 z-10">
               <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#e8e8e8] p-4 flex items-center gap-3">
                 <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0">
                   <Navigation2 className="w-4 h-4 text-white"/>
@@ -505,7 +523,7 @@ function NavigateContent() {
                 </div>
                 <h2 className="font-black text-[#0a0a0a] text-lg mb-2">Allow Location Access</h2>
                 <p className="text-[#6b6b6b] text-sm leading-relaxed mb-4">
-                  FreshStart needs your location to show your position on campus and give precise directions.
+                  PDM MOUAU needs your location to show your position on campus and give precise directions.
                 </p>
                 <div className="flex items-center justify-center gap-2 mb-4">
                   <div className="w-4 h-4 border-2 border-[#1a6b3a] border-t-transparent rounded-full animate-spin"/>
