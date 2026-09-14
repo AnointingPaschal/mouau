@@ -4,24 +4,30 @@ import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
-import { ChevronDown, ChevronRight, CheckCircle2, Circle, Info } from 'lucide-react'
+import { ChevronDown, ChevronRight, CheckCircle2, Circle, Info, GraduationCap, UserCheck } from 'lucide-react'
 
 type Step = {
   id: string; step_number: number; title: string; description: string
-  substeps: string[]; sort_order: number; active: boolean
+  substeps: string[]; sort_order: number; active: boolean; student_type: string
 }
 
 export default function RegisterPage() {
   const { student } = useAuth()
-  const [steps, setSteps] = useState<Step[]>([])
-  const [loading, setLoading] = useState(true)
+  const isFresher = !student?.level || student.level === '100'
+  const studentType = isFresher ? 'new' : 'returning'
+
+  const [steps,    setSteps]    = useState<Step[]>([])
+  const [loading,  setLoading]  = useState(true)
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['']))
-  const [checked, setChecked] = useState<Record<string, boolean>>({})
-  const [saving, setSaving] = useState<string | null>(null)
+  const [checked,  setChecked]  = useState<Record<string, boolean>>({})
+  const [saving,   setSaving]   = useState<string | null>(null)
 
   useEffect(() => {
-    // Load steps from DB
-    supabase.from('registration_steps').select('*').eq('active', true).order('sort_order')
+    supabase.from('registration_steps')
+      .select('*')
+      .eq('active', true)
+      .eq('student_type', studentType)
+      .order('sort_order')
       .then(({ data }) => {
         const parsed = (data || []).map((s: any) => ({
           ...s,
@@ -29,154 +35,168 @@ export default function RegisterPage() {
         }))
         setSteps(parsed as Step[])
         setLoading(false)
-        // Auto-expand first incomplete step
         if (parsed.length > 0) setExpanded(new Set([parsed[0].id]))
       })
 
-    // Load progress from localStorage (fast) and then sync from DB
+    // Load progress
+    const progressKey = `reg_progress_${student?.idNumber}_${studentType}`
     try {
-      const local = localStorage.getItem(`reg_progress_${student?.idNumber}`)
+      const local = localStorage.getItem(progressKey)
       if (local) setChecked(JSON.parse(local))
     } catch {}
 
     if (student?.idNumber) {
-      supabase.from('student_progress').select('step_key, done').eq('student_id', student.idNumber)
+      supabase.from('student_progress')
+        .select('step_key, done')
+        .eq('student_id', student.idNumber)
         .then(({ data }) => {
           if (data && data.length > 0) {
             const map: Record<string, boolean> = {}
-            data.forEach((d: any) => { map[d.step_key] = d.done })
+            data.forEach((d: any) => { if (d.step_key.startsWith(studentType + '_') || !d.step_key.startsWith('returning_')) map[d.step_key] = d.done })
             setChecked(map)
-            localStorage.setItem(`reg_progress_${student.idNumber}`, JSON.stringify(map))
+            localStorage.setItem(progressKey, JSON.stringify(map))
           }
         })
     }
-  }, [student?.idNumber])
+  }, [student?.idNumber, studentType])
 
-  const toggleExpand = (id: string) => {
-    const next = new Set(expanded)
-    next.has(id) ? next.delete(id) : next.add(id)
-    setExpanded(next)
+  const toggle = (key: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
-  const toggleCheck = async (stepId: string, substepIdx: number) => {
-    const key = `${stepId}-${substepIdx}`
-    const newVal = !checked[key]
-    const newChecked = { ...checked, [key]: newVal }
-    setChecked(newChecked)
-    localStorage.setItem(`reg_progress_${student?.idNumber}`, JSON.stringify(newChecked))
-
-    if (!student?.idNumber) return
+  const check = async (key: string, val: boolean) => {
     setSaving(key)
-    await supabase.from('student_progress').upsert(
-      { student_id: student.idNumber, step_key: key, done: newVal },
-      { onConflict: 'student_id,step_key' }
-    )
+    const updated = { ...checked, [key]: val }
+    setChecked(updated)
+    const progressKey = `reg_progress_${student?.idNumber}_${studentType}`
+    localStorage.setItem(progressKey, JSON.stringify(updated))
+    if (student?.idNumber) {
+      await supabase.from('student_progress').upsert(
+        { student_id: student.idNumber, step_key: key, done: val },
+        { onConflict: 'student_id,step_key' }
+      )
+    }
     setSaving(null)
   }
 
-  const isStepDone = (step: Step) => step.substeps.every((_, i) => checked[`${step.id}-${i}`])
-  const isStepStarted = (step: Step) => step.substeps.some((_, i) => checked[`${step.id}-${i}`])
-  const totalSubsteps = steps.reduce((acc, s) => acc + s.substeps.length, 0)
-  const doneSubsteps = Object.values(checked).filter(Boolean).length
-  const pct = totalSubsteps > 0 ? Math.round((doneSubsteps / totalSubsteps) * 100) : 0
+  // Stats
+  const allSubsteps = steps.flatMap(s => s.substeps.map((_, i) => `${s.id}_${i}`))
+  const doneCount   = allSubsteps.filter(k => checked[k]).length
+  const totalCount  = allSubsteps.length
+  const pct         = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
   return (
     <AppShell>
       <TopBar title="Registration Guide" subtitle="Step-by-step admission checklist"/>
-      <div className="p-4 lg:p-6 w-full space-y-4 pb-24 lg:pb-6 animate-fade-in">
 
-        {/* Progress card */}
-        <div className="bg-[#1a6b3a] rounded-xl p-4 text-white">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="font-black text-lg">Registration Progress</p>
-              <p className="text-white/60 text-xs mt-0.5">2024/2025 Academic Session</p>
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-black">{pct}%</div>
-              <div className="text-white/50 text-[10px] uppercase tracking-wide">{doneSubsteps}/{totalSubsteps} steps</div>
-            </div>
+      <div className="px-4 py-4 pb-28 space-y-4">
+
+        {/* Student type badge */}
+        <div className={`flex items-center gap-2.5 p-3 rounded-2xl border
+          ${isFresher ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
+          {isFresher
+            ? <UserCheck className="w-4 h-4 text-amber-600 flex-shrink-0"/>
+            : <GraduationCap className="w-4 h-4 text-[#1e3a8a] flex-shrink-0"/>}
+          <div>
+            <p className={`text-xs font-bold ${isFresher ? 'text-amber-800' : 'text-[#1e3a8a]'}`}>
+              {isFresher ? 'New Student Guide (100 Level)' : `Returning Student Guide (${student?.level || '200'} Level)`}
+            </p>
+            <p className={`text-[10px] ${isFresher ? 'text-amber-600' : 'text-blue-600'}`}>
+              {isFresher ? 'Admission, JAMB & first-time registration steps' : 'Course registration, fees & semester clearance'}
+            </p>
           </div>
-          <div className="mt-3">
-            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${pct}%` }}/>
-            </div>
-          </div>
-          {pct === 100 && (
-            <div className="mt-3 bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-white"/>
-              <p className="text-white text-xs font-semibold">Registration complete! Congratulations.</p>
-            </div>
-          )}
         </div>
 
+        {/* Progress bar */}
+        {totalCount > 0 && (
+          <div className="card p-3.5">
+            <div className="flex justify-between text-[10px] text-[#aaa] mb-1.5">
+              <span>Progress</span>
+              <span className="font-bold text-[#0a0a0a]">{doneCount}/{totalCount} steps · {pct}%</span>
+            </div>
+            <div className="h-2 bg-[#f0f0f0] rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width:`${pct}%`, background: isFresher ? 'linear-gradient(90deg,#d97706,#f59e0b)' : 'linear-gradient(90deg,#1e3a8a,#3b82f6)' }}/>
+            </div>
+          </div>
+        )}
+
         {/* Info banner */}
-        <div className="border-l-4 border-[#1a6b3a] bg-[#1a6b3a]/5 rounded-r-xl p-3.5 flex items-start gap-2.5">
+        <div className="flex items-start gap-2.5 bg-[#f0f9f4] border border-[#1a6b3a]/20 rounded-2xl p-3">
           <Info className="w-4 h-4 text-[#1a6b3a] flex-shrink-0 mt-0.5"/>
-          <p className="text-[#0a0a0a] text-xs leading-relaxed font-medium">
-            Complete all steps in order. Bring original documents + photocopies. Contact ICT Centre for portal issues.
+          <p className="text-[11px] text-[#1a6b3a] leading-relaxed">
+            {isFresher
+              ? 'Complete all steps in order. Bring original documents + photocopies. Contact ICT Centre for portal issues.'
+              : 'Complete course registration each semester. Pay fees early to avoid portal lockout. Keep your matric number handy.'}
           </p>
         </div>
 
         {/* Steps */}
         {loading ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="card p-4 animate-pulse">
-                <div className="h-4 bg-[#f0f0f0] rounded w-1/2 mb-2"/>
-                <div className="h-3 bg-[#f0f0f0] rounded w-3/4"/>
-              </div>
-            ))}
+          <div className="flex justify-center py-10">
+            <div className="w-5 h-5 border-2 border-[#1a6b3a] border-t-transparent rounded-full animate-spin"/>
+          </div>
+        ) : steps.length === 0 ? (
+          <div className="card p-10 text-center">
+            <GraduationCap className="w-10 h-10 text-[#ddd] mx-auto mb-2"/>
+            <p className="text-sm text-[#aaa]">No guide available yet</p>
+            <p className="text-[11px] text-[#ccc] mt-1">Admin will add steps soon</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {steps.map((step, idx) => {
-              const done = isStepDone(step)
-              const started = isStepStarted(step)
-              const open = expanded.has(step.id)
+              const isOpen   = expanded.has(step.id)
+              const stepDone = step.substeps.every((_, i) => checked[`${step.id}_${i}`])
+              const stepPct  = step.substeps.length > 0
+                ? Math.round((step.substeps.filter((_, i) => checked[`${step.id}_${i}`]).length / step.substeps.length) * 100) : 0
+              const doneInStep = step.substeps.filter((_, i) => checked[`${step.id}_${i}`]).length
 
               return (
-                <div key={step.id} className={`card overflow-hidden transition-all ${done ? 'border-[#1a6b3a]/30' : started ? 'border-[#1a6b3a]/15' : ''}`}>
-                  {/* Step header */}
-                  <button onClick={() => toggleExpand(step.id)} className="w-full flex items-center gap-3 p-4 text-left hover:bg-[#fafafa] transition-colors">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-black text-sm transition-all ${done ? 'bg-[#1a6b3a] text-white' : started ? 'bg-[#1a6b3a]/10 text-[#1a6b3a] border-2 border-[#1a6b3a]/30' : 'bg-[#f9f9f7] text-[#aaa] border-2 border-[#e8e8e8]'}`}>
-                      {done ? <CheckCircle2 className="w-4 h-4"/> : step.step_number}
+                <div key={step.id} className={`card overflow-hidden transition-all ${stepDone ? 'border-[#1a6b3a]/30' : ''}`}>
+                  <button onClick={() => toggle(step.id)}
+                    className="w-full flex items-center gap-3 p-4 text-left">
+                    {/* Step number / done indicator */}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-black text-sm transition-all
+                      ${stepDone ? 'bg-[#1a6b3a] text-white' : 'bg-[#f0f0f0] text-[#6b6b6b]'}`}>
+                      {stepDone ? <CheckCircle2 className="w-5 h-5"/> : idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold text-sm ${done ? 'text-[#1a6b3a]' : 'text-[#0a0a0a]'}`}>{step.title}</p>
-                      <p className="text-[#aaa] text-[11px] mt-0.5 truncate">{step.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {started && !done && (
-                        <span className="text-[9px] font-semibold text-[#1a6b3a] bg-[#1a6b3a]/10 px-2 py-0.5 rounded-full">
-                          {step.substeps.filter((_, i) => checked[`${step.id}-${i}`]).length}/{step.substeps.length}
-                        </span>
+                      <p className={`font-bold text-sm ${stepDone ? 'text-[#1a6b3a]' : 'text-[#0a0a0a]'}`}>{step.title}</p>
+                      <p className="text-[10px] text-[#aaa] mt-0.5 truncate">{step.description}</p>
+                      {step.substeps.length > 0 && !isOpen && (
+                        <p className="text-[10px] text-[#aaa] mt-0.5">{doneInStep}/{step.substeps.length} sub-steps</p>
                       )}
-                      {open ? <ChevronDown className="w-4 h-4 text-[#aaa]"/> : <ChevronRight className="w-4 h-4 text-[#aaa]"/>}
                     </div>
+                    {step.substeps.length > 0 && !isOpen && (
+                      <span className="text-[10px] font-bold text-[#aaa] mr-1">{stepPct}%</span>
+                    )}
+                    {isOpen ? <ChevronDown className="w-4 h-4 text-[#aaa] flex-shrink-0"/> : <ChevronRight className="w-4 h-4 text-[#aaa] flex-shrink-0"/>}
                   </button>
 
-                  {/* Substeps */}
-                  {open && step.substeps.length > 0 && (
-                    <div className="border-t border-[#f0f0f0] divide-y divide-[#f9f9f7] animate-fade-in">
+                  {isOpen && (
+                    <div className="px-4 pb-4 border-t border-[#f5f5f5] pt-3 space-y-2.5">
                       {step.substeps.map((sub, i) => {
-                        const key = `${step.id}-${i}`
-                        const isDone = !!checked[key]
-                        const isSaving = saving === key
-
+                        const key  = `${step.id}_${i}`
+                        const done = !!checked[key]
                         return (
-                          <button key={i} onClick={() => toggleCheck(step.id, i)} disabled={isSaving}
-                            className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-all hover:bg-[#fafafa] active:bg-[#f0f0f0] ${isDone ? 'bg-[#1a6b3a]/3' : ''}`}>
-                            <div className="flex-shrink-0 mt-0.5">
-                              {isSaving ? (
-                                <div className="w-5 h-5 border-2 border-[#1a6b3a]/30 border-t-[#1a6b3a] rounded-full animate-spin"/>
-                              ) : isDone ? (
-                                <CheckCircle2 className="w-5 h-5 text-[#1a6b3a]"/>
+                          <button key={i} onClick={() => check(key, !done)}
+                            className={`w-full flex items-start gap-3 p-2.5 rounded-xl text-left transition-all
+                              ${done ? 'bg-[#f0f9f4] opacity-80' : 'hover:bg-[#f9f9f7]'}`}>
+                            <div className="mt-0.5 flex-shrink-0">
+                              {saving === key ? (
+                                <div className="w-4 h-4 border-2 border-[#1a6b3a] border-t-transparent rounded-full animate-spin"/>
+                              ) : done ? (
+                                <CheckCircle2 className="w-4 h-4 text-[#1a6b3a]"/>
                               ) : (
-                                <Circle className="w-5 h-5 text-[#ddd]"/>
+                                <Circle className="w-4 h-4 text-[#ccc]"/>
                               )}
                             </div>
-                            <p className={`text-sm leading-relaxed transition-all ${isDone ? 'text-[#6b6b6b] line-through' : 'text-[#0a0a0a]'}`}>{sub}</p>
+                            <span className={`text-xs leading-relaxed ${done ? 'line-through text-[#aaa]' : 'text-[#0a0a0a]'}`}>{sub}</span>
                           </button>
                         )
                       })}
