@@ -86,7 +86,7 @@ export default function FundWalletPage() {
             <div className="card p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-[#888] uppercase tracking-wide">Your Dedicated Account</p>
-                <button onClick={fetchWallet} className="p-1.5 rounded-lg hover:bg-[#f5f5f5]">
+                <button onClick={() => student?.idNumber && fetchWallet(student.idNumber)} className="p-1.5 rounded-lg hover:bg-[#f5f5f5]">
                   <RefreshCw className="w-3.5 h-3.5 text-[#aaa]"/>
                 </button>
               </div>
