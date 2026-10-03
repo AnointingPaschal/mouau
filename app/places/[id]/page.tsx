@@ -98,7 +98,7 @@ export default function PlaceViewPage() {
     return place.video_url
   }
 
-  const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${place.lng - 0.002},${place.lat - 0.002},${place.lng + 0.002},${place.lat + 0.002}&layer=mapnik&marker=${place.lat},${place.lng}`
+  const mapSrc = `https://maps.google.com/maps?q=${place.lat},${place.lng}&z=17&output=embed`
 
   return (
     <AppShell>
@@ -246,10 +246,10 @@ export default function PlaceViewPage() {
                   loading="lazy"
                 />
               </div>
-              <a href={`https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lng}#map=17/${place.lat}/${place.lng}`}
+              <a href={`https://www.google.com/maps?q=${place.lat},${place.lng}`}
                 target="_blank" rel="noreferrer"
                 className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-[#aaa] hover:text-[#1e3a8a]">
-                Open in OpenStreetMap <ExternalLink className="w-2.5 h-2.5"/>
+                Open in Google Maps <ExternalLink className="w-2.5 h-2.5"/>
               </a>
             </div>
           )}
@@ -278,7 +278,7 @@ export default function PlaceViewPage() {
           className="w-full max-w-lg mx-auto flex items-center justify-center gap-2.5 py-4 rounded-2xl font-black text-white text-sm shadow-xl"
           style={{background: `linear-gradient(135deg, ${cfg.color}, ${cfg.color}cc)`}}>
           <Navigation2 className="w-5 h-5"/>
-          Get Directions to {place.name}
+          Get Directions
         </button>
       </div>
 
