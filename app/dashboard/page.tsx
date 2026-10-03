@@ -12,31 +12,28 @@ import {
   AlertTriangle, Info, CheckCircle2, Calendar,
   ChevronRight, Navigation2, MapPin, Zap,
   BookOpen, Award, ArrowUpRight, Phone, Wifi,
-  Gamepad2, Plus, Copy, ChevronDown, ChevronUp,
+  Gamepad2, Plus, Copy,
 } from 'lucide-react'
 
 type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; created_at:string }
-type WalletData = { balance:number; account_number:string|null; bank_name:string|null; account_name:string|null }
 
-// Campus quick actions (non-wallet)
 const CAMPUS_ACTIONS_FRESHER = [
-  { href:'/register',   label:'Register',   icon:ClipboardList, color:'#d97706' },
-  { href:'/cutoff',     label:'Cut-Off',    icon:Award,         color:'#1e3a8a' },
-  { href:'/skills',     label:'Skills',     icon:Zap,           color:'#7c3aed' },
-  { href:'/library',    label:'Library',    icon:BookOpen,      color:'#1a6b3a' },
-  { href:'/pdm',        label:'PDM',        icon:Users,         color:'#b91c1c' },
+  { href:'/register',   label:'Register',  icon:ClipboardList, color:'#d97706' },
+  { href:'/cutoff',     label:'Cut-Off',   icon:Award,         color:'#1e3a8a' },
+  { href:'/skills',     label:'Skills',    icon:Zap,           color:'#7c3aed' },
+  { href:'/library',    label:'Library',   icon:BookOpen,      color:'#1a6b3a' },
+  { href:'/pdm',        label:'PDM',       icon:Users,         color:'#b91c1c' },
 ]
 const CAMPUS_ACTIONS_RETURNING = [
-  { href:'/skills',     label:'Skills',     icon:Zap,           color:'#7c3aed' },
-  { href:'/calculator', label:'CGPA',       icon:Calculator,    color:'#0284c7' },
-  { href:'/cutoff',     label:'Cut-Off',    icon:Award,         color:'#1e3a8a' },
-  { href:'/library',    label:'Library',    icon:BookOpen,      color:'#1a6b3a' },
-  { href:'/pdm',        label:'PDM',        icon:Users,         color:'#b91c1c' },
+  { href:'/skills',     label:'Skills',    icon:Zap,           color:'#7c3aed' },
+  { href:'/calculator', label:'CGPA',      icon:Calculator,    color:'#0284c7' },
+  { href:'/cutoff',     label:'Cut-Off',   icon:Award,         color:'#1e3a8a' },
+  { href:'/library',    label:'Library',   icon:BookOpen,      color:'#1a6b3a' },
+  { href:'/pdm',        label:'PDM',       icon:Users,         color:'#b91c1c' },
 ]
 
-// Bill/wallet actions
 const BILL_ACTIONS = [
-  { href:'/wallet/fund',     label:'Fund',     icon:Plus,         color:'#1a6b3a' },
+  { href:'/wallet/fund',     label:'Fund',     icon:Plus,         color:'#059669' },
   { href:'/wallet/transfer', label:'Send',     icon:ArrowUpRight, color:'#1e3a8a' },
   { href:'/wallet/airtime',  label:'Airtime',  icon:Phone,        color:'#c2410c' },
   { href:'/wallet/data',     label:'Data',     icon:Wifi,         color:'#7c3aed' },
@@ -56,21 +53,16 @@ const annIcon = (t:string) => {
   return <Info className="w-3.5 h-3.5 text-[#1e3a8a]"/>
 }
 
-function fmt(n: number) {
-  return `₦${n.toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2})}`
-}
-
 export default function Dashboard() {
   const { student } = useAuth()
   const [anns,       setAnns]      = useState<Ann[]>([])
   const [pct,        setPct]       = useState(0)
   const [doneCount,  setDoneCount] = useState(0)
   const [totalCount, setTotalCount]= useState(0)
-  const [wallet,     setWallet]    = useState<WalletData|null>(null)
+  const [balance,    setBalance]   = useState<number|null>(null)
+  const [acctNo,     setAcctNo]    = useState<string|null>(null)
   const [copied,     setCopied]    = useState(false)
-  const [showAcct,   setShowAcct]  = useState(false)
 
-  // Registration progress
   useEffect(() => {
     getAnnouncements().then(({ data }) => { if(data) setAnns(data as Ann[]) })
     if(!student?.idNumber) return
@@ -92,20 +84,22 @@ export default function Dashboard() {
           setPct(total>0 ? Math.round((done/total)*100) : 0)
         })
     } catch {}
-  }, [student?.idNumber])
 
-  // Wallet — fetch silently, no blocking spinner
-  useEffect(() => {
-    if(!student?.idNumber) return
+    // Wallet — silent, no spinner
     fetch(`/api/wallet?studentId=${student.idNumber}`)
       .then(r => r.json())
-      .then(d => { if(d.wallet) setWallet(d.wallet) })
-      .catch(() => {}) // silent — table may not exist yet
+      .then(d => {
+        if(d.wallet) {
+          setBalance(parseFloat(d.wallet.balance ?? 0))
+          setAcctNo(d.wallet.account_number || null)
+        }
+      })
+      .catch(() => {})
   }, [student?.idNumber])
 
   const copyAcct = () => {
-    if(!wallet?.account_number) return
-    navigator.clipboard.writeText(wallet.account_number)
+    if(!acctNo) return
+    navigator.clipboard.writeText(acctNo)
     setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
@@ -120,7 +114,7 @@ export default function Dashboard() {
       <TopBar/>
       <div className="pb-24 animate-fade-in">
 
-        {/* ── Pneuma Domain Hero ── */}
+        {/* ── Hero ── */}
         <div className="relative overflow-hidden" style={{background:'#0a0a0a'}}>
           <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-20 blur-3xl" style={{background:'#1e3a8a',transform:'translate(30%,-30%)'}}/>
           <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full opacity-15 blur-3xl" style={{background:'#b91c1c',transform:'translate(-30%,30%)'}}/>
@@ -155,9 +149,28 @@ export default function Dashboard() {
                   </span>
                 </div>
               </div>
+              {/* Balance pill in hero */}
               <div className="text-right">
-                <div className="text-3xl font-black text-white">{pct}%</div>
-                <div className="text-white/40 text-[9px] uppercase tracking-wide">Registered</div>
+                {balance !== null ? (
+                  <div>
+                    <p className="text-white font-black text-xl leading-none">
+                      ₦{balance.toLocaleString('en-NG',{minimumFractionDigits:2})}
+                    </p>
+                    <p className="text-white/40 text-[9px] mt-0.5 uppercase tracking-wide">Balance</p>
+                    {acctNo && (
+                      <button onClick={copyAcct}
+                        className="mt-1 flex items-center gap-1 text-white/40 text-[9px] hover:text-white/70 transition-colors ml-auto">
+                        {copied ? <CheckCircle2 className="w-2.5 h-2.5 text-green-400"/> : <Copy className="w-2.5 h-2.5"/>}
+                        {acctNo.slice(-4)}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-3xl font-black text-white">{pct}%</div>
+                    <div className="text-white/40 text-[9px] uppercase tracking-wide">Registered</div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -184,77 +197,25 @@ export default function Dashboard() {
 
         <div className="px-4 pt-4 space-y-4">
 
-          {/* ── Wallet Card ── */}
-          <div className="rounded-2xl overflow-hidden" style={{background:'linear-gradient(135deg,#0f2b6b 0%,#0d4a28 100%)'}}>
-            {/* Balance row */}
-            <div className="px-4 pt-4 pb-3 flex items-center justify-between">
-              <div>
-                <p className="text-white/50 text-[10px] uppercase tracking-widest">Wallet Balance</p>
-                <p className="text-white font-black text-2xl mt-0.5">{fmt(wallet?.balance ?? 0)}</p>
-              </div>
-              {/* Toggle account details */}
-              <button onClick={() => setShowAcct(v => !v)}
-                className="flex items-center gap-1 bg-white/10 rounded-full px-3 py-1.5 text-white/70 text-[10px] font-semibold">
-                Account {showAcct ? <ChevronUp className="w-3 h-3"/> : <ChevronDown className="w-3 h-3"/>}
-              </button>
-            </div>
-
-            {/* Account details (collapsible) */}
-            {showAcct && wallet?.account_number && (
-              <div className="mx-4 mb-3 rounded-xl bg-white/10 p-3 space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-white/50 text-[10px]">Account No.</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-bold text-sm font-mono">{wallet.account_number}</span>
-                    <button onClick={copyAcct} className="p-1 rounded-lg bg-white/20">
-                      {copied
-                        ? <CheckCircle2 className="w-3.5 h-3.5 text-green-300"/>
-                        : <Copy className="w-3.5 h-3.5 text-white/70"/>}
-                    </button>
-                  </div>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/50 text-[10px]">Bank</span>
-                  <span className="text-white/90 text-xs font-semibold">{wallet.bank_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/50 text-[10px]">Name</span>
-                  <span className="text-white/90 text-xs font-semibold">{wallet.account_name}</span>
-                </div>
-              </div>
-            )}
-
-            {showAcct && !wallet?.account_number && (
-              <div className="mx-4 mb-3 rounded-xl bg-white/10 p-3 text-center">
-                <p className="text-white/60 text-xs mb-2">No virtual account yet.</p>
-                <Link href="/wallet/fund"
-                  className="inline-block bg-white text-[#0f2b6b] text-xs font-bold px-4 py-1.5 rounded-full">
-                  Create Account
-                </Link>
-              </div>
-            )}
-
-            {/* Bill actions */}
-            <div className="px-3 pb-4">
-              <div className="grid grid-cols-5 gap-2">
-                {BILL_ACTIONS.map(({ href, label, icon:Icon, color }) => (
-                  <Link key={href} href={href}
-                    className="flex flex-col items-center gap-1.5">
-                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                      <Icon className="w-4.5 h-4.5" style={{color:'white'}}/>
-                    </div>
-                    <span className="text-[9px] font-semibold text-white/70 text-center">{label}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Campus Quick Actions ── */}
+          {/* ── Quick Actions ── */}
           <div>
             <p className="section-label mb-2.5">QUICK ACTIONS</p>
             <div className="grid grid-cols-5 gap-2">
               {campusActions.map(({ href, label, icon:Icon, color }) => (
+                <Link key={href} href={href}
+                  className="card card-hover flex flex-col items-center gap-1.5 py-2.5 px-1 text-center group">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center transition-all group-hover:scale-105"
+                    style={{background:color+'18'}}>
+                    <Icon className="w-4 h-4" style={{color}}/>
+                  </div>
+                  <span className="text-[9px] font-semibold text-[#0a0a0a] leading-tight">{label}</span>
+                </Link>
+              ))}
+            </div>
+
+            {/* Bill actions row */}
+            <div className="grid grid-cols-5 gap-2 mt-2">
+              {BILL_ACTIONS.map(({ href, label, icon:Icon, color }) => (
                 <Link key={href} href={href}
                   className="card card-hover flex flex-col items-center gap-1.5 py-2.5 px-1 text-center group">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center transition-all group-hover:scale-105"
