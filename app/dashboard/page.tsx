@@ -11,7 +11,7 @@ import {
   ClipboardList, Users, Calculator, Clock,
   AlertTriangle, Info, CheckCircle2, Calendar,
   ChevronRight, Navigation2, MapPin, Zap,
-  BookOpen, GraduationCap, TrendingUp, Star
+  BookOpen, GraduationCap, TrendingUp, Star, Award
 } from 'lucide-react'
 
 type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; created_at:string }
@@ -19,6 +19,7 @@ type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; 
 // Level-specific quick actions
 const FRESHER_ACTIONS = [
   { href:'/register',   label:'Register',   icon:ClipboardList, color:'#d97706' },
+  { href:'/cutoff',     label:'Cut-Off',    icon:Award,         color:'#1e3a8a' },
   { href:'/skills',     label:'Skills',     icon:Zap,           color:'#7c3aed' },
   { href:'/library',    label:'Library',    icon:BookOpen,      color:'#1a6b3a' },
   { href:'/pdm',        label:'PDM',        icon:Users,         color:'#b91c1c' },
@@ -28,6 +29,7 @@ const FRESHER_ACTIONS = [
 const RETURNING_ACTIONS = [
   { href:'/skills',     label:'Skills',     icon:Zap,           color:'#7c3aed' },
   { href:'/calculator', label:'CGPA',       icon:Calculator,    color:'#0284c7' },
+  { href:'/cutoff',     label:'Cut-Off',    icon:Award,         color:'#1e3a8a' },
   { href:'/library',    label:'Library',    icon:BookOpen,      color:'#1a6b3a' },
   { href:'/pdm',        label:'PDM',        icon:Users,         color:'#b91c1c' },
   { href:'/timetable',  label:'Timetable',  icon:Clock,         color:'#059669' },
