@@ -50,21 +50,25 @@ export default function WalletPage() {
   const [copied,      setCopied]      = useState(false)
   const [error,       setError]       = useState('')
 
-  const load = async () => {
-    if (!student?.idNumber) return
+  const load = async (sid: string) => {
     setLoading(true)
-    const [wRes, tRes] = await Promise.all([
-      fetch(`/api/wallet?studentId=${student.idNumber}`),
-      fetch(`/api/wallet/transactions?studentId=${student.idNumber}&limit=15`),
-    ])
-    const wData = await wRes.json()
-    const tData = await tRes.json()
-    setWallet(wData.wallet)
-    setTxns(tData.transactions || [])
+    try {
+      const [wRes, tRes] = await Promise.all([
+        fetch(`/api/wallet?studentId=${sid}`),
+        fetch(`/api/wallet/transactions?studentId=${sid}&limit=15`),
+      ])
+      const wData = await wRes.json()
+      const tData = await tRes.json()
+      setWallet(wData.wallet)
+      setTxns(tData.transactions || [])
+    } catch {}
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [student?.idNumber])
+  useEffect(() => {
+    if (student?.idNumber) load(student.idNumber)
+    else setLoading(false)
+  }, [student?.idNumber])
 
   const createVirtualAccount = async () => {
     if (!student) return
@@ -73,15 +77,15 @@ export default function WalletPage() {
       method: 'POST',
       headers: { 'Content-Type':'application/json' },
       body: JSON.stringify({
-        studentId: student.idNumber,
-        email:     student.email,
-        name:      student.name,
+        studentId:   student.idNumber,
+        email:       student.email || `${student.idNumber}@mouau.edu.ng`,
+        studentName: student.name,
       }),
     })
     const d = await r.json()
     setCreating(false)
     if (d.error) setError(d.error)
-    else { setWallet(d.wallet); load() }
+    else if (student?.idNumber) { setWallet(d.wallet); load(student.idNumber) }
   }
 
   const copyAcct = () => {
@@ -112,7 +116,7 @@ export default function WalletPage() {
               <p className="text-white/70 text-xs uppercase tracking-wide">Available Balance</p>
               <p className="text-3xl font-bold mt-1">{fmt(balance)}</p>
               <p className="text-white/60 text-xs mt-0.5">{student?.name}</p>
-              <button onClick={load} className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20">
+              <button onClick={() => student?.idNumber && load(student.idNumber)} className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20">
                 <RefreshCw className="w-3.5 h-3.5 text-white"/>
               </button>
             </div>
