@@ -1,4 +1,5 @@
 'use client'
+import WalletGuard from '@/components/WalletGuard'
 import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
@@ -54,7 +55,7 @@ export default function FundWalletPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  return (
+  return (<WalletGuard>
     <AppShell>
       <TopBar title="Fund Wallet" />
       <main className="pb-28 pt-4 px-4 max-w-lg mx-auto space-y-4">
@@ -149,5 +150,6 @@ export default function FundWalletPage() {
         )}
       </main>
     </AppShell>
+  </WalletGuard>
   )
 }

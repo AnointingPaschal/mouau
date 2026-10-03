@@ -60,7 +60,7 @@ export default function PlacesPage() {
     const dest = loc.lat&&loc.lng ? `${loc.lat},${loc.lng}` : encodeURIComponent(loc.name+', MOUAU Umudike')
     router.push(`/navigate?to=${dest}&directions=1`)
   }
-  const viewMap = (loc:Loc) => router.push(`/navigate?to=${encodeURIComponent(loc.name+', MOUAU Umudike')}`)
+  const viewMap = (loc:Loc) => router.push(`/places/${loc.id}`)
 
   const activeCfg = activeCat !== 'all' ? CAT_CONFIG[activeCat] : null
 

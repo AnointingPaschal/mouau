@@ -59,9 +59,10 @@ export default function Dashboard() {
   const [pct,        setPct]       = useState(0)
   const [doneCount,  setDoneCount] = useState(0)
   const [totalCount, setTotalCount]= useState(0)
-  const [balance,    setBalance]   = useState<number|null>(null)
-  const [acctNo,     setAcctNo]    = useState<string|null>(null)
-  const [copied,     setCopied]    = useState(false)
+  const [balance,      setBalance]    = useState<number|null>(null)
+  const [acctNo,       setAcctNo]     = useState<string|null>(null)
+  const [copied,       setCopied]     = useState(false)
+  const [walletEnabled,setWalletEnabled] = useState(false)
 
   useEffect(() => {
     getAnnouncements().then(({ data }) => { if(data) setAnns(data as Ann[]) })
@@ -85,14 +86,20 @@ export default function Dashboard() {
         })
     } catch {}
 
-    // Wallet — silent, no spinner
-    fetch(`/api/wallet?studentId=${student.idNumber}`)
+    // Wallet toggle + balance — both silent
+    fetch('/api/admin/wallet-toggle')
       .then(r => r.json())
       .then(d => {
-        if(d.wallet) {
-          setBalance(parseFloat(d.wallet.balance ?? 0))
-          setAcctNo(d.wallet.account_number || null)
-        }
+        setWalletEnabled(!!d.enabled)
+        if (!d.enabled) return
+        return fetch(`/api/wallet?studentId=${student.idNumber}`)
+          .then(r => r.json())
+          .then(d => {
+            if(d.wallet) {
+              setBalance(parseFloat(d.wallet.balance ?? 0))
+              setAcctNo(d.wallet.account_number || null)
+            }
+          })
       })
       .catch(() => {})
   }, [student?.idNumber])
@@ -149,9 +156,9 @@ export default function Dashboard() {
                   </span>
                 </div>
               </div>
-              {/* Balance pill in hero */}
+              {/* Balance pill in hero — only when wallet enabled */}
               <div className="text-right">
-                {balance !== null ? (
+                {walletEnabled && balance !== null ? (
                   <div>
                     <p className="text-white font-black text-xl leading-none">
                       ₦{balance.toLocaleString('en-NG',{minimumFractionDigits:2})}
@@ -213,8 +220,8 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Bill actions row */}
-            <div className="grid grid-cols-5 gap-2 mt-2">
+            {/* Bill actions row — only when wallet is enabled */}
+            {walletEnabled && <div className="grid grid-cols-5 gap-2 mt-2">
               {BILL_ACTIONS.map(({ href, label, icon:Icon, color }) => (
                 <Link key={href} href={href}
                   className="card card-hover flex flex-col items-center gap-1.5 py-2.5 px-1 text-center group">
@@ -225,7 +232,7 @@ export default function Dashboard() {
                   <span className="text-[9px] font-semibold text-[#0a0a0a] leading-tight">{label}</span>
                 </Link>
               ))}
-            </div>
+            </div>}
           </div>
 
           {/* Navigate */}

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import AdminShell from '@/components/AdminShell'
-import { Save, Loader2, CheckCircle2, Eye, EyeOff, RefreshCw, Zap, AlertCircle, ExternalLink } from 'lucide-react'
+import { Save, Loader2, CheckCircle2, Eye, EyeOff, RefreshCw, Zap, AlertCircle, ExternalLink, Wallet, ToggleLeft, ToggleRight } from 'lucide-react'
 
 type Setting = { key:string; value:string; label:string; is_secret:boolean; has_value:boolean }
 
@@ -22,7 +22,9 @@ export default function FlutterwaveSettingsPage() {
   const [toast,     setToast]     = useState('')
   const [toastType, setToastType] = useState<'ok'|'err'>('ok')
   const [revealing, setRevealing] = useState<string|null>(null)
-  const [showKeys,  setShowKeys]  = useState<Record<string,boolean>>({})
+  const [showKeys,   setShowKeys]   = useState<Record<string,boolean>>({})
+  const [walletOn,   setWalletOn]   = useState(false)
+  const [togglingW,  setTogglingW]  = useState(false)
 
   const showToast = (m:string, type:'ok'|'err'='ok') => {
     setToast(m); setToastType(type); setTimeout(()=>setToast(''), 4000)
@@ -30,14 +32,33 @@ export default function FlutterwaveSettingsPage() {
 
   const load = async () => {
     setLoading(true)
-    const r = await fetch('/api/admin/settings')
-    const d = await r.json()
+    const [r, wr] = await Promise.all([
+      fetch('/api/admin/settings'),
+      fetch('/api/admin/wallet-toggle'),
+    ])
+    const d  = await r.json()
+    const wd = await wr.json()
     const map: Record<string,Setting> = {}
     for (const s of (d.data||[]).filter((s:any) => s.category === 'flutterwave')) map[s.key] = s
     setSettings(map)
+    setWalletOn(!!wd.enabled)
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  const toggleWallet = async () => {
+    setTogglingW(true)
+    const next = !walletOn
+    const r = await fetch('/api/admin/wallet-toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: next }),
+    })
+    const d = await r.json()
+    setWalletOn(d.enabled)
+    setTogglingW(false)
+    showToast(d.enabled ? '✅ Wallet features enabled' : '⛔ Wallet features disabled')
+  }
 
   const reveal = async (key: string) => {
     if (revealed[key]) { setRevealed(p => { const n={...p}; delete n[key]; return n }); return }
@@ -114,6 +135,28 @@ export default function FlutterwaveSettingsPage() {
             </span>
           </div>
         )}
+
+        {/* Wallet Enable Toggle */}
+        <div className={`card p-4 flex items-center justify-between border-2 transition-all ${walletOn ? 'border-[#1a6b3a]/30 bg-[#f0fdf4]' : 'border-[#f0f0f0]'}`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${walletOn ? 'bg-[#1a6b3a]/15' : 'bg-[#f5f5f5]'}`}>
+              <Wallet className={`w-4 h-4 ${walletOn ? 'text-[#1a6b3a]' : 'text-[#aaa]'}`}/>
+            </div>
+            <div>
+              <p className="font-bold text-[#0a0a0a] text-sm">Wallet Features</p>
+              <p className="text-[10px] text-[#888]">Balance, bill buttons, fund/send/airtime/data pages</p>
+            </div>
+          </div>
+          <button onClick={toggleWallet} disabled={togglingW}
+            className="flex-shrink-0 ml-4 disabled:opacity-50 transition-all">
+            {togglingW
+              ? <Loader2 className="w-8 h-8 animate-spin text-[#aaa]"/>
+              : walletOn
+                ? <ToggleRight className="w-9 h-9 text-[#1a6b3a]"/>
+                : <ToggleLeft  className="w-9 h-9 text-[#ccc]"/>
+            }
+          </button>
+        </div>
 
         {/* Webhook URL */}
         <div className="card p-4">

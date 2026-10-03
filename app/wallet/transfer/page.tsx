@@ -1,4 +1,5 @@
 'use client'
+import WalletGuard from '@/components/WalletGuard'
 import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
@@ -90,7 +91,7 @@ export default function TransferPage() {
   const fee = 10.75
   const total = parseFloat(amount || '0') + fee
 
-  return (
+  return (<WalletGuard>
     <AppShell>
       <TopBar title="Bank Transfer" />
       <main className="pb-28 pt-4 px-4 max-w-lg mx-auto space-y-4">
@@ -193,5 +194,6 @@ export default function TransferPage() {
         <p className="text-[10px] text-[#aaa] text-center">Transfers are processed immediately. A flat fee of ₦10.75 applies.</p>
       </main>
     </AppShell>
+  </WalletGuard>
   )
 }
