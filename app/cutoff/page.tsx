@@ -4,8 +4,8 @@ import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import { Search, BookOpen, ChevronDown, ChevronUp, Info } from 'lucide-react'
 
-// MOUAU General cut-off mark
-const GENERAL_CUTOFF = 45
+// MOUAU General cut-off mark (JAMB)
+const GENERAL_CUTOFF = 140
 
 type Department = { name: string; cutoff: number }
 type College = { name: string; shortName: string; color: string; departments: Department[] }
@@ -206,11 +206,11 @@ export default function CutoffPage() {
           <p className="text-white/80 text-xs">2024/2025 UTME Cut-Off Marks for all departments</p>
           <div className="mt-3 flex items-center gap-3">
             <div className="bg-white/20 rounded-lg px-3 py-1.5 text-center">
-              <div className="font-bold text-xl">45</div>
-              <div className="text-[10px] text-white/70 uppercase tracking-wide">General</div>
+              <div className="font-bold text-xl">140</div>
+              <div className="text-[10px] text-white/70 uppercase tracking-wide">JAMB</div>
             </div>
             <div className="text-xs text-white/80 flex-1">
-              General cut-off is <strong>45</strong>. Departmental cut-offs are higher — check your department below.
+              General JAMB cut-off is <strong>140</strong>. Departmental POST-UTME cut-offs vary — check your department below.
             </div>
           </div>
         </div>
@@ -306,8 +306,8 @@ export default function CutoffPage() {
         {/* Footer note */}
         <div className="rounded-xl p-4 bg-amber-50 border border-amber-200">
           <p className="text-xs text-amber-800 leading-relaxed">
-            <strong>Note:</strong> Cut-off marks may be updated by the university. Always confirm with the{' '}
-            <strong>MOUAU Admissions Office</strong> or official JAMB portal for the most current figures.
+            <strong>Note:</strong> The general cut-off of <strong>140</strong> is the minimum JAMB score required by MOUAU. Departmental scores shown are POST-UTME cut-offs (out of 100). Both must be met. Cut-off marks may change yearly — always confirm with the{' '}
+            <strong>MOUAU Admissions Office</strong> or official JAMB portal.
           </p>
         </div>
       </main>
