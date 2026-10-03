@@ -98,7 +98,13 @@ export default function PlaceViewPage() {
     return place.video_url
   }
 
-  const mapSrc = `https://maps.google.com/maps?q=${place.lat},${place.lng}&z=17&output=embed`
+  const mapQuery = place.plus_code
+    ? encodeURIComponent(place.plus_code)
+    : `${place.lat},${place.lng}`
+  const mapSrc = `https://maps.google.com/maps?q=${mapQuery}&z=17&output=embed`
+  const mapsLink = place.plus_code
+    ? `https://www.google.com/maps?q=${encodeURIComponent(place.plus_code)}`
+    : `https://www.google.com/maps?q=${place.lat},${place.lng}`
 
   return (
     <AppShell>
@@ -246,7 +252,7 @@ export default function PlaceViewPage() {
                   loading="lazy"
                 />
               </div>
-              <a href={`https://www.google.com/maps?q=${place.lat},${place.lng}`}
+              <a href={mapsLink}
                 target="_blank" rel="noreferrer"
                 className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-[#aaa] hover:text-[#1e3a8a]">
                 Open in Google Maps <ExternalLink className="w-2.5 h-2.5"/>

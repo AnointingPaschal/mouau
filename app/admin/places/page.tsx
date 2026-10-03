@@ -80,8 +80,10 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
       })
 
       const map = L.map(containerRef.current!, { zoomControl: true }).setView([lat, lng], 17)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors', maxZoom: 19,
+      L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        subdomains: ['0','1','2','3'],
+        attribution: '© Google Maps',
+        maxZoom: 21,
       }).addTo(map)
 
       const marker = L.marker([lat, lng], { draggable: true }).addTo(map)
@@ -117,7 +119,7 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
         Map Picker — click map or drag pin to set location
       </p>
       <div ref={containerRef} style={{ height: 260, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e8e8' }}/>
-      <p className="text-[9px] text-[#bbb] text-center">© OpenStreetMap contributors</p>
+      <p className="text-[9px] text-[#bbb] text-center">© Google Maps</p>
     </div>
   )
 }
