@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images, Cross, SendHorizontal, Zap } from 'lucide-react'
+import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images, Cross, SendHorizontal, Zap, Wallet, CreditCard } from 'lucide-react'
 
 const nav = [
   { href:'/admin/dashboard',        label:'Dashboard',            icon:LayoutDashboard },
@@ -23,9 +23,11 @@ const nav = [
   { href:'/admin/settings',         label:'Notification Settings',icon:BellRing        },
   { href:'/admin/notifications',    label:'Notification Rules',   icon:Bell            },
   { href:'/admin/ai-training',      label:'AI Training',          icon:Brain           },
-  { href:'/admin/registration',     label:'Registration Guide',   icon:ClipboardList   },
-  { href:'/admin/students',         label:'Students',             icon:User            },
-  { href:'/admin/admins',           label:'Admin Accounts',       icon:Users           },
+  { href:'/admin/registration',          label:'Registration Guide',   icon:ClipboardList   },
+  { href:'/admin/students',              label:'Students',             icon:User            },
+  { href:'/admin/admins',               label:'Admin Accounts',        icon:Users           },
+  { href:'/admin/settings/flutterwave', label:'Flutterwave Settings',  icon:CreditCard      },
+  { href:'/admin/flutterwave',          label:'Plans & Pricing',       icon:Wallet          },
 ]
 
 function AdminLogo({ url, name }: { url: string | null; name: string }) {

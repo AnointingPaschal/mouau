@@ -3,18 +3,19 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from './AuthProvider'
 import { useAppConfig } from '@/lib/useAppConfig'
-import { LayoutDashboard, MapPin, ClipboardList, BookOpen, MessageCircle, Users, User, LogOut, LayoutGrid, Award } from 'lucide-react'
+import { LayoutDashboard, MapPin, ClipboardList, BookOpen, MessageCircle, Users, User, LogOut, LayoutGrid, Award, Wallet } from 'lucide-react'
 
 const nav = [
-  { href:'/dashboard', label:'Dashboard',   icon:LayoutDashboard },
-  { href:'/navigate',  label:'Campus Map',  icon:MapPin          },
-  { href:'/places',    label:'All Places',  icon:LayoutGrid      },
-  { href:'/register',  label:'Registration',icon:ClipboardList   },
-  { href:'/cutoff',    label:'Cut-Off Marks',icon:Award          },
-  { href:'/library',   label:'Library',     icon:BookOpen        },
-  { href:'/chat',      label:'AI Assistant',icon:MessageCircle   },
-  { href:'/forum',     label:'Community',   icon:Users           },
-  { href:'/profile',   label:'My Profile',  icon:User            },
+  { href:'/dashboard', label:'Dashboard',    icon:LayoutDashboard },
+  { href:'/wallet',    label:'My Wallet',    icon:Wallet          },
+  { href:'/navigate',  label:'Campus Map',   icon:MapPin          },
+  { href:'/places',    label:'All Places',   icon:LayoutGrid      },
+  { href:'/register',  label:'Registration', icon:ClipboardList   },
+  { href:'/cutoff',    label:'Cut-Off Marks',icon:Award           },
+  { href:'/library',   label:'Library',      icon:BookOpen        },
+  { href:'/chat',      label:'AI Assistant', icon:MessageCircle   },
+  { href:'/forum',     label:'Community',    icon:Users           },
+  { href:'/profile',   label:'My Profile',   icon:User            },
 ]
 
 function AppLogo({ url, name }: { url: string | null; name: string }) {
