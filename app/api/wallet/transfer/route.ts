@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
 import { flw, flwRef } from '@/lib/flutterwave'
+import { logApiError } from '@/lib/logError'
 
 const TRANSFER_FEE = 10.75 // NGN flat fee per transfer
 
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: result.message || 'Transfer failed' }, { status: 400 })
     }
   } catch (e: any) {
+    await logApiError({ route: '/api/wallet/transfer', error: e })
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

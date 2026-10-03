@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
 import { flw, flwRef } from '@/lib/flutterwave'
+import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, message: `${planName || network + ' data'} sent to ${phone}` })
   } catch (e: any) {
+    await logApiError({ route: '/api/wallet/data', error: e })
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
 import { flw, flwRef } from '@/lib/flutterwave'
+import { logApiError } from '@/lib/logError'
 
 // category → FLW bill type mapping
 const BILL_TYPES: Record<string, string> = {
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, message: `${category} payment successful` })
   } catch (e: any) {
+    await logApiError({ route: '/api/wallet/bills', error: e })
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

@@ -13,20 +13,25 @@ export default function FundWalletPage() {
   const [copied,    setCopied]    = useState(false)
   const [error,     setError]     = useState('')
 
-  const fetchWallet = async () => {
-    if (!student?.idNumber) return
+  const fetchWallet = async (sid: string) => {
     setLoading(true)
-    const r = await fetch(`/api/wallet?studentId=${student.idNumber}`)
-    const d = await r.json()
-    setWallet(d.wallet || null)
+    try {
+      const r = await fetch(`/api/wallet?studentId=${sid}`)
+      const d = await r.json()
+      setWallet(d.wallet || null)
+    } catch {}
     setLoading(false)
   }
 
-  useEffect(() => { fetchWallet() }, [student?.idNumber])
+  useEffect(() => {
+    if (student?.idNumber) fetchWallet(student.idNumber)
+    else setLoading(false)
+  }, [student?.idNumber])
 
   const createAccount = async () => {
     if (!student) return
     setCreating(true); setError('')
+    if (!student?.idNumber) return
     const r = await fetch('/api/wallet/create-virtual-account', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -40,7 +45,7 @@ export default function FundWalletPage() {
     const d = await r.json()
     setCreating(false)
     if (d.error) setError(d.error)
-    else fetchWallet()
+    else fetchWallet(student.idNumber)
   }
 
   const copyText = (text: string) => {

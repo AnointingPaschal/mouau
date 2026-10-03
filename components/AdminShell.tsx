@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images, Cross, SendHorizontal, Zap, Wallet, CreditCard } from 'lucide-react'
+import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images, Cross, SendHorizontal, Zap, Wallet, CreditCard, AlertTriangle } from 'lucide-react'
 
 const nav = [
   { href:'/admin/dashboard',        label:'Dashboard',            icon:LayoutDashboard },
@@ -28,6 +28,7 @@ const nav = [
   { href:'/admin/admins',               label:'Admin Accounts',        icon:Users           },
   { href:'/admin/settings/flutterwave', label:'Flutterwave Settings',  icon:CreditCard      },
   { href:'/admin/flutterwave',          label:'Plans & Pricing',       icon:Wallet          },
+  { href:'/admin/errors',              label:'API Error Log',          icon:AlertTriangle   },
 ]
 
 function AdminLogo({ url, name }: { url: string | null; name: string }) {

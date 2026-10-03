@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
 import { getSettings } from '@/lib/settings'
+import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (e: any) {
-    console.error('FLW webhook error:', e)
+    await logApiError({ route: '/api/webhook/flutterwave', error: e })
     return NextResponse.json({ ok: true }) // Always return 200 to FLW
   }
 }

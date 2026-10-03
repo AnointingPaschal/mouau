@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
 import { flw, flwRef } from '@/lib/flutterwave'
+import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,9 +60,14 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      await logApiError({ route: '/api/wallet/create-virtual-account', error, studentId })
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
     return NextResponse.json({ wallet })
   } catch (e: any) {
+    const body = await req.text().catch(() => '')
+    await logApiError({ route: '/api/wallet/create-virtual-account', error: e, payload: { body } })
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

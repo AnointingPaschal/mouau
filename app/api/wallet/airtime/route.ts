@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
 import { flw, flwRef } from '@/lib/flutterwave'
+import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
   try {
@@ -65,6 +66,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, message: `₦${amt} ${network} airtime sent to ${phone}` })
   } catch (e: any) {
+    const body = await req.text().catch(() => '')
+    await logApiError({ route: '/api/wallet/airtime', error: e, payload: { body } })
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
