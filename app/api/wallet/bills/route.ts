@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getAdminDb } from '@/lib/adminDb'
 import { flw, flwRef } from '@/lib/flutterwave'
-
-const adminDb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 // category → FLW bill type mapping
 const BILL_TYPES: Record<string, string> = {
@@ -21,6 +16,7 @@ export async function POST(req: NextRequest) {
     if (!studentId || !category || !customer || !amount)
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
+    const adminDb = getAdminDb()
     const sid = studentId.toLowerCase().trim()
     const amt = parseFloat(amount)
     const billType = BILL_TYPES[category] || category.toUpperCase()
@@ -39,11 +35,11 @@ export async function POST(req: NextRequest) {
     }).eq('student_id', sid)
 
     const result = await flw.post('/bills', {
-      type:        billType,
-      country:     'NG',
+      type:       billType,
+      country:    'NG',
       customer,
-      amount:      amt,
-      recurrence:  'ONCE',
+      amount:     amt,
+      recurrence: 'ONCE',
       reference,
       ...(billerName ? { biller_name: billerName } : {}),
     })
@@ -58,17 +54,17 @@ export async function POST(req: NextRequest) {
     }
 
     await adminDb.from('wallet_transactions').insert({
-      student_id:   sid,
-      type:         'debit',
+      student_id:        sid,
+      type:              'debit',
       category,
-      amount:       amt,
-      fee:          0,
+      amount:            amt,
+      fee:               0,
       reference,
-      flw_ref:      result.data?.reference || null,
+      flw_ref:           result.data?.reference || null,
       status,
-      narration:    narration || `${category} – ${customer}`,
+      narration:         narration || `${category} – ${customer}`,
       recipient_account: customer,
-      metadata:     { billerName },
+      metadata:          { billerName },
     })
 
     if (status === 'failed')

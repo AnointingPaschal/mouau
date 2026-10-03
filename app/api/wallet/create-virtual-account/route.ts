@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getAdminDb } from '@/lib/adminDb'
 import { flw, flwRef } from '@/lib/flutterwave'
-
-const adminDb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(req: NextRequest) {
   try {
-    const { studentId, email, name } = await req.json()
-    if (!studentId || !email || !name)
-      return NextResponse.json({ error: 'Missing studentId, email or name' }, { status: 400 })
+    const { studentId, email, studentName } = await req.json()
+    if (!studentId || !email || !studentName)
+      return NextResponse.json({ error: 'Missing studentId, email or studentName' }, { status: 400 })
 
+    const adminDb = getAdminDb()
     const sid = studentId.toLowerCase().trim()
 
     // Check if already exists
@@ -27,17 +23,18 @@ export async function POST(req: NextRequest) {
 
     // Create virtual account via Flutterwave
     const orderRef = flwRef('MOUAU')
+    const nameParts = studentName.trim().split(' ')
     const payload = {
       email,
-      is_permanent: true,
-      bvn: '22222222222', // test BVN — real users need actual BVN in production
-      tx_ref: orderRef,
-      amount: 100,
-      currency: 'NGN',
-      narration: `MOUAU PDM – ${name}`,
-      firstname: name.split(' ')[0] || name,
-      lastname:  name.split(' ').slice(1).join(' ') || 'Student',
-      phonenumber: '08000000000',
+      is_permanent:  true,
+      bvn:           '22222222222', // test BVN — production needs real BVN
+      tx_ref:        orderRef,
+      amount:        100,
+      currency:      'NGN',
+      narration:     `MOUAU PDM – ${studentName}`,
+      firstname:     nameParts[0] || studentName,
+      lastname:      nameParts.slice(1).join(' ') || 'Student',
+      phonenumber:   '08000000000',
     }
 
     const result = await flw.post('/virtual-account-numbers', payload)
@@ -48,7 +45,6 @@ export async function POST(req: NextRequest) {
 
     const acct = result.data
 
-    // Upsert wallet
     const { data: wallet, error } = await adminDb
       .from('wallets')
       .upsert({

@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getAdminDb } from '@/lib/adminDb'
 import { flw, flwRef } from '@/lib/flutterwave'
-
-const adminDb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +8,7 @@ export async function POST(req: NextRequest) {
     if (!studentId || !phone || !amount || !network)
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
+    const adminDb = getAdminDb()
     const sid = studentId.toLowerCase().trim()
     const amt = parseFloat(amount)
 
@@ -29,7 +25,6 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     }).eq('student_id', sid)
 
-    // FLW data bundle purchase
     const result = await flw.post('/bills', {
       type:       'DATABUNDLE',
       country:    'NG',

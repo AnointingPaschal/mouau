@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getAdminDb } from '@/lib/adminDb'
 import { getSettings } from '@/lib/settings'
-
-const adminDb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,6 +23,8 @@ export async function POST(req: NextRequest) {
       const flwRef        = data?.flw_ref || data?.id?.toString()
 
       if (!accountNumber || !amount) return NextResponse.json({ ok: true })
+
+      const adminDb = getAdminDb()
 
       // Find wallet by account number
       const { data: wallet } = await adminDb
