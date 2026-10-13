@@ -30,14 +30,15 @@ export async function POST(req: NextRequest) {
     }).eq('student_id', sid)
 
     // POST /api/v2/vtu/airtime/purchase/
-    // v2 fields: network (string), phone (string), amount (number)
+    // network: numeric ID (1=MTN,2=GLO,3=AIRTEL,4=9MOBILE), phone_number, amount as string, airtime_type
     let result: any
     let status: 'success' | 'failed' = 'failed'
     try {
       result = await bigi.post(BIGI_ENDPOINTS.airtime, {
-        network: networkName,
-        phone,
-        amount:  amt,
+        network:      networkId,
+        phone_number: phone,
+        amount:       String(amt),
+        airtime_type: 'vtu',
       })
       status = bigiSuccess(result) ? 'success' : 'failed'
     } catch (err: any) {
