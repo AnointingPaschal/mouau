@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
-import { EDUCATION_EXAMS } from '@/lib/bigisub'
+import { bigi, BIGI_ENDPOINTS } from '@/lib/bigisub'
 
-// No v2 list endpoint exists for education exams — return static list
+// GET /api/v2/bills/result-checker/prices/
 export async function GET() {
-  return NextResponse.json({ billers: EDUCATION_EXAMS })
+  try {
+    const data = await bigi.get(BIGI_ENDPOINTS.educationPrices)
+    const billers = data?.data ?? (Array.isArray(data) ? data : [])
+    return NextResponse.json({ billers })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 }

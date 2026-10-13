@@ -1,80 +1,63 @@
 import { getAdminDb } from './adminDb'
 
-// ── Bigisub API v2 ───────────────────────────────────────────
+// ── Bigisub API v2.0.0 ───────────────────────────────────────
 // Base URL : https://api.bigisub.ng
 // Auth     : Authorization: Token <your_token>
-//
-// CONFIRMED WORKING ENDPOINTS (probed live):
-//   GET  /api/v2/financial/wallet/balance/         → balance
-//   GET  /api/v2/vtu/data/plans/?network=<1-4>     → data plans (numeric network ID)
-//   GET  /api/v2/vtu/cable/plans/                  → all 93 cable plans (filter client-side)
-//   POST /api/v2/vtu/airtime/purchase/             → airtime
-//   POST /api/v2/vtu/data/purchase/               → data
-//
-// NO v2 list endpoints exist for: electricity discos, betting, education, ISP
-// Those are hardcoded below as static constants.
+// All paths confirmed from official API documentation.
 
 export const BIGISUB_BASE = 'https://api.bigisub.ng'
 
 export const BIGI_ENDPOINTS = {
-  wallet:        '/api/v2/financial/wallet/balance/',  // GET
-  dataPlans:     '/api/v2/vtu/data/plans/',            // GET ?network=1|2|3|4
-  cablePlans:    '/api/v2/vtu/cable/plans/',           // GET (all, filter client-side)
-  airtime:       '/api/v2/vtu/airtime/purchase/',      // POST
-  dataPurchase:  '/api/v2/vtu/data/purchase/',         // POST
-  // Purchase endpoints (exact paths to be verified; use legacy-compatible fields)
-  cablePurchase:    '/api/v2/vtu/cabletv/subscribe/',
-  electricityBuy:   '/api/v2/vtu/electricity/purchase/',
-  educationBuy:     '/api/v2/vtu/education/purchase/',
-  bettingFund:      '/api/v2/vtu/betting/fund/',
-  ispBuy:           '/api/v2/vtu/isp/purchase/',
+  // ── Wallet ────────────────────────────────────────────────
+  wallet:               '/api/v2/financial/wallet/balance/',       // GET (confirmed working)
+
+  // ── Airtime ───────────────────────────────────────────────
+  airtime:              '/api/v2/vtu/airtime/purchase/',            // POST
+
+  // ── Data ──────────────────────────────────────────────────
+  dataPlans:            '/api/v2/vtu/data/plans/',                  // GET ?network=<1-4>
+  dataPurchase:         '/api/v2/vtu/data/purchase/',               // POST
+
+  // ── Cable TV ──────────────────────────────────────────────
+  cablePlans:           '/api/v2/vtu/cable/plans/',                 // GET ?cable_name=dstv
+  cableVerify:          '/api/v2/vtu/cable/verify/',                // POST
+  cablePurchase:        '/api/v2/vtu/cable/purchase/',              // POST
+
+  // ── Recharge Pin ──────────────────────────────────────────
+  rechargePinPlans:     '/api/v2/vtu/recharge-pin/plans/',          // GET
+  rechargePinBuy:       '/api/v2/vtu/recharge-pin/purchase/',       // POST
+
+  // ── Electricity ───────────────────────────────────────────
+  electricityProviders: '/api/v2/bills/electricity/providers/',     // GET
+  electricityVerify:    '/api/v2/bills/electricity/verify/',        // POST
+  electricityBuy:       '/api/v2/bills/electricity/pay/',           // POST
+
+  // ── Education / Result Checker ────────────────────────────
+  educationPrices:      '/api/v2/bills/result-checker/prices/',     // GET
+  educationBuy:         '/api/v2/bills/result-checker/purchase/',   // POST
+
+  // ── ISP ───────────────────────────────────────────────────
+  smilePlans:           '/api/v2/isp/smile/plans/',                 // GET
+  smileVerify:          '/api/v2/isp/smile/verify/',                // POST
+  smileTopup:           '/api/v2/isp/smile/topup/',                 // POST
+  spectranetPlans:      '/api/v2/isp/spectranet/plans/',            // GET
+  spectranetTopup:      '/api/v2/isp/spectranet/topup/',            // POST
+
+  // ── Betting ───────────────────────────────────────────────
+  bettingBillers:       '/api/v2/betting/billers/',                 // GET
+  bettingProducts:      '/api/v2/betting/products/',                // GET ?biller_code=BET9JA
+  bettingValidate:      '/api/v2/betting/validate/',                // POST
+  bettingFund:          '/api/v2/betting/fund/',                    // POST
+
+  // ── SMS ───────────────────────────────────────────────────
+  smsPricing:           '/api/v2/communications/sms/pricing/',      // GET
+  smsSend:              '/api/v2/communications/sms/send/',         // POST
 }
 
-// ── Network IDs (numeric, as required by v2 API) ─────────────
+// ── Network IDs (numeric, as required by v2 data/airtime endpoints) ──
 export const NETWORK_IDS: Record<string, number> = {
   MTN: 1, GLO: 2, AIRTEL: 3, '9MOBILE': 4,
 }
-
-// ── Static provider lists (no v2 list endpoints available) ───
-export const ELECTRICITY_DISCOS = [
-  { id: 'ikeja-electric',    name: 'Ikeja Electric (IKEDC)',       state: 'Lagos' },
-  { id: 'eko-electric',      name: 'Eko Electric (EKEDC)',         state: 'Lagos' },
-  { id: 'abuja-electric',    name: 'Abuja Electric (AEDC)',        state: 'Abuja/North' },
-  { id: 'kano-electric',     name: 'Kano Electric (KEDCO)',        state: 'Kano' },
-  { id: 'ibadan-electric',   name: 'Ibadan Electric (IBEDC)',      state: 'Ibadan' },
-  { id: 'enugu-electric',    name: 'Enugu Electric (EEDC)',        state: 'Enugu/Southeast' },
-  { id: 'ph-electric',       name: 'Port Harcourt Electric (PHED)', state: 'Rivers' },
-  { id: 'jos-electric',      name: 'Jos Electric (JED)',           state: 'Plateau/North' },
-  { id: 'kaduna-electric',   name: 'Kaduna Electric (KAEDCO)',     state: 'Kaduna' },
-  { id: 'benin-electric',    name: 'Benin Electric (BEDC)',        state: 'Edo/Delta' },
-  { id: 'yola-electric',     name: 'Yola Electric (YEDC)',         state: 'Adamawa' },
-]
-
-export const BETTING_PLATFORMS = [
-  { id: 'bet9ja',     name: 'Bet9ja' },
-  { id: 'sportybet',  name: 'SportyBet' },
-  { id: 'betway',     name: 'Betway' },
-  { id: 'bangbet',    name: 'BangBet' },
-  { id: '1xbet',      name: '1xBet' },
-  { id: 'nairabet',   name: 'NairaBet' },
-  { id: 'betking',    name: 'BetKing' },
-  { id: 'msport',     name: 'MSport' },
-  { id: 'paripesa',   name: 'PariPesa' },
-  { id: 'cloudbet',   name: 'CloudBet' },
-]
-
-export const EDUCATION_EXAMS = [
-  { id: 'WAEC',    name: 'WAEC Result Checker',      price: 1000 },
-  { id: 'NECO',    name: 'NECO Result Checker',      price: 1000 },
-  { id: 'NABTEB',  name: 'NABTEB Result Checker',    price: 1000 },
-  { id: 'NBAIS',   name: 'NBAIS Result Checker',     price: 1000 },
-]
-
-export const ISP_PROVIDERS = [
-  { id: 'smile',      name: 'Smile',       plans: ['1GB-30days', '2GB-30days', '5GB-30days'] },
-  { id: 'spectranet', name: 'Spectranet',  plans: ['5GB-30days', '10GB-30days'] },
-  { id: 'swift',      name: 'Swift',       plans: ['5GB-30days', '10GB-30days'] },
-]
 
 export async function getBigiToken(): Promise<string> {
   const adminDb = getAdminDb()

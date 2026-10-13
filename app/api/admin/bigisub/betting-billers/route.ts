@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
-import { BETTING_PLATFORMS } from '@/lib/bigisub'
+import { bigi, BIGI_ENDPOINTS } from '@/lib/bigisub'
 
-// No v2 list endpoint exists for betting platforms — return static list
+// GET /api/v2/betting/billers/
 export async function GET() {
-  return NextResponse.json({ billers: BETTING_PLATFORMS })
+  try {
+    const data = await bigi.get(BIGI_ENDPOINTS.bettingBillers)
+    const billers = data?.data ?? (Array.isArray(data) ? data : [])
+    return NextResponse.json({ billers })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 }

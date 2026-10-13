@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { bigi, BIGI_ENDPOINTS } from '@/lib/bigisub'
 
-// GET /api/admin/bigisub/cable-plans?cablename=dstv
-// v2 returns ALL plans in one call; we filter by cable_name client-side
-// cable_name values in the API: dstv/DSTV, gotv/GOTV, startimes/STARTIMES, showmax/SHOWMAX
+// GET /api/v2/vtu/cable/plans/?cable_name=dstv
 export async function GET(req: NextRequest) {
   try {
     const cablename = (req.nextUrl.searchParams.get('cablename') || 'dstv').toLowerCase()
-    const data = await bigi.get(BIGI_ENDPOINTS.cablePlans)
-    const all: any[] = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
-    // Filter case-insensitively
+    const data = await bigi.get(`${BIGI_ENDPOINTS.cablePlans}?cable_name=${cablename}`)
+    const all: any[] = data?.data ?? (Array.isArray(data) ? data : [])
+    // Also filter client-side in case the API ignores the param (mixed-case cable_name field)
     const plans = all.filter(p => (p.cable_name || '').toLowerCase() === cablename)
-    return NextResponse.json({ plans })
+    return NextResponse.json({ plans: plans.length ? plans : all })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

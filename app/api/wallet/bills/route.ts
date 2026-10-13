@@ -7,8 +7,8 @@ export async function POST(req: NextRequest) {
   try {
     const {
       studentId, category, customer, amount,
-      billerCode, planCode, phone, quantity, meterType, narration,
-      customerName, customerAddress,
+      billerCode, planCode, phone, quantity,
+      meterType, narration, customerName, customerAddress,
     } = await req.json()
 
     if (!studentId || !category || !customer)
@@ -38,46 +38,45 @@ export async function POST(req: NextRequest) {
 
     try {
       if (category === 'cable') {
-        // POST /api/v2/vtu/cabletv/subscribe/
-        // Fields from legacy (verified working): card_no, cable_type (dstv/gotv/startimes), amount, phone_number, Customer
+        // POST /api/v2/vtu/cable/purchase/
         result = await bigi.post(BIGI_ENDPOINTS.cablePurchase, {
-          card_no:       customer,
-          cable_type:    billerCode,   // e.g. "dstv", "gotv", "startimes"
-          amount:        String(amt),
-          phone_number:  phone || customer,
-          Customer:      customerName || 'Customer',
+          smartcard_number: customer,
+          cable_name:       billerCode,    // e.g. "dstv", "gotv", "startimes"
+          variation_code:   planCode,      // variation_code from cable/plans
+          phone_number:     phone || customer,
+          amount:           String(amt),
         })
       } else if (category === 'electricity') {
-        // POST /api/v2/electricity/purchase
-        // Fields: company (disco), meter_no, meter_type, phone_number, amount, Customer_name, Customer_address
+        // POST /api/v2/bills/electricity/pay/
         result = await bigi.post(BIGI_ENDPOINTS.electricityBuy, {
-          company:          billerCode,   // e.g. "ikeja-electric"
-          meter_no:         customer,
+          disco_code:       billerCode,    // e.g. "IKEDC"
+          meter_number:     customer,
           meter_type:       meterType || 'prepaid',
           phone_number:     phone || '',
           amount:           String(amt),
-          Customer_name:    customerName || 'Customer',
-          Customer_address: customerAddress || '',
+          customer_name:    customerName || '',
+          customer_address: customerAddress || '',
         })
       } else if (category === 'betting') {
-        // POST /api/v2/betting/fund
+        // POST /api/v2/betting/fund/
         result = await bigi.post(BIGI_ENDPOINTS.bettingFund, {
-          betting_name: billerCode,
+          biller_code:  billerCode,   // e.g. "BET9JA"
           customer_id:  customer,
           amount:       amt,
         })
       } else if (category === 'education') {
-        // POST /api/v2/education/purchase
+        // POST /api/v2/bills/result-checker/purchase/
         result = await bigi.post(BIGI_ENDPOINTS.educationBuy, {
-          exam:     billerCode,
-          quantity: quantity || 1,
+          exam_type: billerCode,    // e.g. "WAEC", "NECO"
+          quantity:  quantity || 1,
         })
       } else if (category === 'isp') {
-        // POST /api/v2/vtu/isp/purchase/
-        result = await bigi.post(BIGI_ENDPOINTS.ispBuy, {
-          ServiceID: billerCode,
-          plan:      planCode,
-          phone:     customer,
+        // ISP: route to smile or spectranet based on billerCode
+        const endpoint = billerCode === 'smile' ? BIGI_ENDPOINTS.smileTopup : BIGI_ENDPOINTS.spectranetTopup
+        result = await bigi.post(endpoint, {
+          account_id: customer,
+          plan_code:  planCode,
+          phone:      phone || customer,
         })
       } else {
         return NextResponse.json({ error: `Unknown bill category: ${category}` }, { status: 400 })
@@ -117,11 +116,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 400 })
     }
 
-    // Return token/PIN for electricity and education
     const extra: any = {}
     if (category === 'electricity' && result?.data?.token) extra.token = result.data.token
-    if (category === 'education' && result?.data?.pins)    extra.pins  = result.data.pins
-    if (category === 'education' && result?.data?.pin)     extra.pin   = result.data.pin
+    if (category === 'education')  {
+      extra.pins = result?.data?.pins ?? result?.data?.pin ?? result?.pins ?? null
+    }
 
     return NextResponse.json({ ok: true, message: `${category} payment successful`, ...extra })
   } catch (e: any) {
