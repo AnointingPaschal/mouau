@@ -149,107 +149,89 @@ export default function Dashboard() {
       <div className="pb-28 animate-fade-in">
 
         {/* ══ TOP GREETING BAR ══════════════════════════════════════════════ */}
-        <div className="px-4 pt-4 pb-3 flex items-center justify-between">
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-[#aaa]">{greet},</p>
-            <h1 className="font-black text-[#0a0a0a] text-xl leading-tight">{firstName} 👋</h1>
+            <p className="text-[10px] text-[#aaa]">{greet},</p>
+            <h1 className="font-black text-[#0a0a0a] text-base leading-tight">{firstName} 👋</h1>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className={`text-[9px] font-black px-2.5 py-1 rounded-full border
-              ${isFresher ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-[#f0f4ff] text-[#1e3a8a] border-[#1e3a8a]/20'}`}>
-              {student?.level||'100'}L · MOUAU
-            </span>
-          </div>
+          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border
+            ${isFresher ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-[#f0f4ff] text-[#1e3a8a] border-[#1e3a8a]/20'}`}>
+            {student?.level||'100'}L · MOUAU
+          </span>
         </div>
 
-        <div className="px-4 space-y-3.5">
+        <div className="px-4 space-y-2.5">
 
           {/* ══ WALLET CARD ══════════════════════════════════════════════════ */}
           {walletEnabled && (
-            <div className="rounded-2xl overflow-hidden shadow-lg"
+            <div className="rounded-2xl overflow-hidden shadow-md"
               style={{background:'linear-gradient(135deg,#0f2d1a 0%,#1a6b3a 60%,#145530 100%)'}}>
 
-              {/* Card top: balance */}
-              <div className="px-5 pt-5 pb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
-                      <Wallet className="w-3.5 h-3.5 text-white"/>
-                    </div>
-                    <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest">PDM Wallet</span>
+              {/* Balance row */}
+              <div className="px-4 pt-3.5 pb-2.5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Wallet className="w-3 h-3 text-white/50"/>
+                    <span className="text-white/50 text-[9px] font-bold uppercase tracking-widest">PDM Wallet</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button onClick={() => student?.idNumber && fetchWallet(student.idNumber)}
-                      className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
-                      <RefreshCw className="w-3 h-3 text-white/70"/>
+                      className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+                      <RefreshCw className="w-2.5 h-2.5 text-white/60"/>
                     </button>
                     <button onClick={() => setHideBalance(p => !p)}
-                      className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
-                      {hideBalance
-                        ? <EyeOff className="w-3 h-3 text-white/70"/>
-                        : <Eye    className="w-3 h-3 text-white/70"/>}
+                      className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+                      {hideBalance ? <EyeOff className="w-2.5 h-2.5 text-white/60"/> : <Eye className="w-2.5 h-2.5 text-white/60"/>}
                     </button>
                   </div>
                 </div>
 
-                <div className="mb-1">
-                  <p className="text-white/40 text-[9px] uppercase tracking-widest mb-1">Available Balance</p>
-                  {walletLoading ? (
-                    <div className="h-8 w-32 bg-white/10 rounded-lg animate-pulse"/>
-                  ) : (
-                    <p className="text-white font-black text-3xl tracking-tight leading-none">
-                      {hideBalance ? '₦ • • • • •' : `₦${balance.toLocaleString('en-NG',{minimumFractionDigits:2})}`}
-                    </p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-white/40 text-[8px] uppercase tracking-widest mb-0.5">Balance</p>
+                    {walletLoading
+                      ? <div className="h-6 w-24 bg-white/10 rounded animate-pulse"/>
+                      : <p className="text-white font-black text-xl leading-none">
+                          {hideBalance ? '₦ ••••' : `₦${balance.toLocaleString('en-NG',{minimumFractionDigits:2})}`}
+                        </p>}
+                  </div>
+                  {!walletLoading && wallet?.account_number && (
+                    <button onClick={copyAcct}
+                      className="flex items-center gap-1 bg-white/15 hover:bg-white/25 transition-all px-2.5 py-1.5 rounded-lg">
+                      {copied ? <CheckCircle2 className="w-3 h-3 text-green-300"/> : <Copy className="w-3 h-3 text-white/60"/>}
+                      <span className="text-white/60 text-[9px] font-bold">{copied ? 'Copied' : wallet.account_number}</span>
+                    </button>
                   )}
                 </div>
+                {!walletLoading && wallet?.account_number && (
+                  <p className="text-white/30 text-[8px] mt-0.5">{wallet.bank_name || 'Flutterwave MFB'} · {wallet.account_name || student?.name}</p>
+                )}
               </div>
 
-              {/* Divider */}
-              <div className="mx-5 h-px bg-white/10"/>
-
-              {/* Account details */}
-              {!walletLoading && wallet?.account_number ? (
-                <div className="px-5 py-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-white/40 text-[8px] uppercase tracking-widest mb-0.5">Account Number</p>
-                      <p className="text-white font-black text-base tracking-widest font-mono">
-                        {wallet.account_number}
-                      </p>
-                      <p className="text-white/40 text-[9px] mt-0.5">{wallet.bank_name || 'Flutterwave MFB'}</p>
-                    </div>
-                    <button onClick={copyAcct}
-                      className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 transition-all px-3 py-2 rounded-xl">
-                      {copied
-                        ? <CheckCircle2 className="w-3.5 h-3.5 text-green-300"/>
-                        : <Copy         className="w-3.5 h-3.5 text-white/70"/>}
-                      <span className="text-white/70 text-[9px] font-bold">{copied ? 'Copied!' : 'Copy'}</span>
-                    </button>
-                  </div>
-                  <p className="text-white/30 text-[9px] mt-1.5">
-                    {wallet.account_name || student?.name} · Transfer to fund instantly
-                  </p>
-                </div>
-              ) : !walletLoading && (
-                <div className="px-5 py-4">
-                  {createError && <p className="text-red-300 text-[10px] mb-2">{createError}</p>}
+              {/* Create account (no wallet yet) */}
+              {!walletLoading && !wallet?.account_number && (
+                <div className="px-4 pb-3">
+                  {createError && <p className="text-red-300 text-[9px] mb-1.5">{createError}</p>}
                   <button onClick={createAccount} disabled={creating}
-                    className="w-full py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-60">
+                    className="w-full py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-60">
                     {creating
-                      ? <><div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"/> Creating…</>
-                      : <><Building2 className="w-3.5 h-3.5"/> Create Virtual Account</>}
+                      ? <><div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin"/> Creating…</>
+                      : <><Building2 className="w-3 h-3"/> Create Virtual Account</>}
                   </button>
                 </div>
               )}
 
+              {/* Divider */}
+              <div className="mx-4 h-px bg-white/10"/>
+
               {/* Quick wallet actions */}
-              <div className="px-5 pb-5">
-                <div className="grid grid-cols-5 gap-2 mt-1">
+              <div className="px-4 py-2.5">
+                <div className="grid grid-cols-5 gap-1.5">
                   {BILL_ACTIONS.map(({ href, label, icon:Icon }) => (
                     <Link key={href} href={href}
-                      className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-95">
-                      <Icon className="w-4 h-4 text-white"/>
-                      <span className="text-[8px] font-bold text-white/70">{label}</span>
+                      className="flex flex-col items-center gap-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-95">
+                      <Icon className="w-3.5 h-3.5 text-white"/>
+                      <span className="text-[8px] font-bold text-white/60">{label}</span>
                     </Link>
                   ))}
                 </div>
@@ -259,31 +241,28 @@ export default function Dashboard() {
 
           {/* ══ REGISTRATION PROGRESS ════════════════════════════════════════ */}
           {isFresher && totalCount > 0 && (
-            <div className="card overflow-hidden">
-              <div className="p-3.5">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <p className="text-[10px] font-black text-[#aaa] uppercase tracking-widest">Registration Progress</p>
-                    <p className="text-[#0a0a0a] font-bold text-sm mt-0.5">MOUAU 2024/2025</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-black text-[#1a6b3a]">{pct}%</p>
-                    <p className="text-[9px] text-[#aaa]">{doneCount}/{totalCount} steps</p>
-                  </div>
+            <div className="card px-3.5 py-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <div>
+                  <p className="text-[9px] font-black text-[#aaa] uppercase tracking-widest">Registration · MOUAU 2024/2025</p>
                 </div>
-                <div className="h-1.5 bg-[#f0f0f0] rounded-full overflow-hidden mb-2.5">
-                  <div className="h-full rounded-full transition-all duration-700"
-                    style={{width:`${pct}%`,background:'linear-gradient(90deg,#1a6b3a,#4ade80)'}}/>
+                <div className="flex items-center gap-2">
+                  <p className="text-base font-black text-[#1a6b3a]">{pct}%</p>
+                  <p className="text-[9px] text-[#aaa]">{doneCount}/{totalCount}</p>
                 </div>
-                {pct < 100 && (
-                  <Link href="/register"
-                    className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-xl text-white text-xs font-bold"
-                    style={{background:'linear-gradient(135deg,#1a6b3a,#145530)'}}>
-                    <span>Continue Registration</span>
-                    <ChevronRight className="w-3.5 h-3.5"/>
-                  </Link>
-                )}
               </div>
+              <div className="h-1 bg-[#f0f0f0] rounded-full overflow-hidden mb-2">
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{width:`${pct}%`,background:'linear-gradient(90deg,#1a6b3a,#4ade80)'}}/>
+              </div>
+              {pct < 100 && (
+                <Link href="/register"
+                  className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-white text-[10px] font-bold"
+                  style={{background:'linear-gradient(135deg,#1a6b3a,#145530)'}}>
+                  <span>Continue Registration</span>
+                  <ChevronRight className="w-3 h-3"/>
+                </Link>
+              )}
             </div>
           )}
 
