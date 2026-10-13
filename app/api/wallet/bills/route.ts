@@ -39,30 +39,32 @@ export async function POST(req: NextRequest) {
     try {
       if (category === 'cable') {
         // POST /api/v2/vtu/cable/purchase/
+        // Confirmed field names: card_no, cable_name, variation_code, phone_number, amount
         result = await bigi.post(BIGI_ENDPOINTS.cablePurchase, {
-          smartcard_number: customer,
-          cable_name:       billerCode,    // e.g. "dstv", "gotv", "startimes"
-          variation_code:   planCode,      // variation_code from cable/plans
-          phone_number:     phone || customer,
-          amount:           String(amt),
+          card_no:        customer,
+          cable_name:     billerCode,    // lowercase: "dstv", "gotv", "startimes"
+          variation_code: planCode,      // variation_code from cable/plans
+          phone_number:   phone || customer,
+          amount:         String(amt),
         })
       } else if (category === 'electricity') {
         // POST /api/v2/bills/electricity/pay/
+        // Confirmed field names: company, meter_no, meter_type, phone_number, amount, Customer_name, Customer_address
         result = await bigi.post(BIGI_ENDPOINTS.electricityBuy, {
-          disco_code:       billerCode,    // e.g. "IKEDC"
-          meter_number:     customer,
+          company:          billerCode,    // e.g. "eko-electric"
+          meter_no:         customer,
           meter_type:       meterType || 'prepaid',
           phone_number:     phone || '',
           amount:           String(amt),
-          customer_name:    customerName || '',
-          customer_address: customerAddress || '',
+          Customer_name:    customerName || '',
+          Customer_address: customerAddress || '',
         })
       } else if (category === 'betting') {
         // POST /api/v2/betting/fund/
         result = await bigi.post(BIGI_ENDPOINTS.bettingFund, {
-          biller_code:  billerCode,   // e.g. "BET9JA"
-          customer_id:  customer,
-          amount:       amt,
+          biller_code: billerCode,   // e.g. "biller-bet9ja"
+          customer_id: customer,
+          amount:      amt,
         })
       } else if (category === 'education') {
         // POST /api/v2/bills/result-checker/purchase/

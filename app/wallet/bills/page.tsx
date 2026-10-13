@@ -6,29 +6,29 @@ import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
 import {
   Zap, Tv, Gamepad2, GraduationCap, Wifi as WifiIcon,
-  Loader2, CheckCircle2, AlertCircle, ChevronRight
+  Loader2, CheckCircle2, AlertCircle, ChevronRight, ShieldCheck
 } from 'lucide-react'
 
-// ── Category definitions ──────────────────────────────────────
 const BILL_CATS = [
-  { id: 'electricity', label: 'Electricity',  icon: Zap,          color: '#d97706', desc: 'Prepaid & postpaid meters'  },
-  { id: 'cable',       label: 'Cable TV',     icon: Tv,           color: '#7c3aed', desc: 'DSTV, GOtv, Startimes'      },
-  { id: 'betting',     label: 'Betting',      icon: Gamepad2,     color: '#059669', desc: 'Fund your betting wallet'    },
-  { id: 'education',   label: 'Education',    icon: GraduationCap,color: '#1e3a8a', desc: 'WAEC, NECO result checkers'  },
-  { id: 'isp',         label: 'Internet',     icon: WifiIcon,     color: '#0891b2', desc: 'Spectranet, Smile, etc.'    },
+  { id: 'electricity', label: 'Electricity',  icon: Zap,           color: '#d97706', desc: 'Prepaid & postpaid meters'  },
+  { id: 'cable',       label: 'Cable TV',     icon: Tv,            color: '#7c3aed', desc: 'DSTV, GOtv, Startimes'      },
+  { id: 'betting',     label: 'Betting',      icon: Gamepad2,      color: '#059669', desc: 'Fund your betting wallet'    },
+  { id: 'education',   label: 'Education',    icon: GraduationCap, color: '#1e3a8a', desc: 'WAEC, NECO result checkers'  },
+  { id: 'isp',         label: 'Internet',     icon: WifiIcon,      color: '#0891b2', desc: 'Spectranet, Smile, etc.'     },
 ]
 
-type Biller   = { id: number; name: string; image?: string }
-type CablePlan= { id: number; name: string; price?: number; amount?: number; description?: string }
-
-// Hardcoded cable providers since their IDs are known
-const CABLE_PROVIDERS: Biller[] = [
-  { id: 1, name: 'DSTV'      },
-  { id: 2, name: 'GOTV'      },
-  { id: 3, name: 'STARTIMES' },
+// Cable providers with their API cable_name values (lowercase, as Bigisub expects)
+const CABLE_PROVIDERS = [
+  { id: 'dstv',       name: 'DSTV'      },
+  { id: 'gotv',       name: 'GOtv'      },
+  { id: 'startimes',  name: 'Startimes' },
 ]
 
 const METER_TYPES = ['prepaid', 'postpaid']
+
+type Biller = { id: string; name: string; code?: string; min_amount?: number; max_amount?: number }
+type CablePlan = { id: number; cable_name: string; product_name: string; variation_code: string; amount: number }
+type EduPlan   = { exam_type: string; name: string; amount: number; validity: string; description: string; code: string }
 
 export default function BillsPage() {
   const { student } = useAuth()
@@ -38,16 +38,23 @@ export default function BillsPage() {
   const [error,        setError]        = useState('')
   const [success,      setSuccess]      = useState('')
   const [pins,         setPins]         = useState<string[]>([])
+  const [elecToken,    setElecToken]    = useState('')
 
-  // Dynamic biller state
-  const [billers,      setBillers]      = useState<Biller[]>([])
-  const [billerLoading,setBillerLoading]= useState(false)
+  const [billers,       setBillers]       = useState<Biller[]>([])
+  const [billerLoading, setBillerLoading] = useState(false)
   const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null)
 
-  // Cable plan state
-  const [cablePlans,   setCablePlans]   = useState<CablePlan[]>([])
+  const [cablePlans,       setCablePlans]       = useState<CablePlan[]>([])
   const [cablePlanLoading, setCablePlanLoading] = useState(false)
   const [selectedCablePlan, setSelectedCablePlan] = useState<CablePlan | null>(null)
+
+  const [eduPlans,       setEduPlans]       = useState<EduPlan[]>([])
+  const [selectedEduPlan, setSelectedEduPlan] = useState<EduPlan | null>(null)
+
+  // Verify step
+  const [verifying,     setVerifying]     = useState(false)
+  const [verified,      setVerified]      = useState(false)
+  const [customerName,  setCustomerName]  = useState('')
 
   // Form fields
   const [customer,  setCustomer]  = useState('')
@@ -59,89 +66,123 @@ export default function BillsPage() {
   useEffect(() => {
     if (!student?.idNumber) return
     fetch(`/api/wallet?studentId=${student.idNumber}`)
-      .then(r=>r.json()).then(d=>setBalance(parseFloat(d.wallet?.balance||0)))
+      .then(r => r.json()).then(d => setBalance(parseFloat(d.wallet?.balance || 0)))
   }, [student?.idNumber])
 
   // Load billers when category changes
   useEffect(() => {
     if (!selectedCat) return
     resetForm()
-    if (selectedCat.id === 'cable') {
-      setBillers(CABLE_PROVIDERS)
-      return
-    }
-    const endpoints: Record<string, string> = {
+    if (selectedCat.id === 'cable') { setBillers(CABLE_PROVIDERS); return }
+    const ep: Record<string, string> = {
       electricity: '/api/admin/bigisub/electricity-billers',
       betting:     '/api/admin/bigisub/betting-billers',
       education:   '/api/admin/bigisub/education-billers',
       isp:         '/api/admin/bigisub/isp-billers',
     }
-    const ep = endpoints[selectedCat.id]
-    if (!ep) return
+    const url = ep[selectedCat.id]
+    if (!url) return
     setBillerLoading(true)
-    fetch(ep).then(r=>r.json()).then(d=>{
-      setBillers(Array.isArray(d.billers) ? d.billers : [])
+    fetch(url).then(r => r.json()).then(d => {
+      // electricity: { code, name, ... }, betting: { code, name, ... }, education: { code/exam_type, name, amount, ... }
+      const raw = Array.isArray(d.billers) ? d.billers : []
+      if (selectedCat.id === 'education') {
+        setEduPlans(raw as EduPlan[])
+        setBillers(raw.map((e: EduPlan) => ({ id: e.code, name: e.name })))
+      } else {
+        setBillers(raw.map((b: any) => ({ id: b.code ?? b.id, name: b.name, min_amount: b.min_amount, max_amount: b.max_amount })))
+      }
       setBillerLoading(false)
-    }).catch(()=>setBillerLoading(false))
+    }).catch(() => setBillerLoading(false))
   }, [selectedCat])
 
-  // Load cable TV plans when biller selected
+  // Load cable plans when provider selected
   useEffect(() => {
     if (selectedCat?.id !== 'cable' || !selectedBiller) return
     setCablePlanLoading(true); setCablePlans([]); setSelectedCablePlan(null)
     fetch(`/api/admin/bigisub/cable-plans?cablename=${selectedBiller.id}`)
-      .then(r=>r.json())
-      .then(d=>{ setCablePlans(Array.isArray(d.plans) ? d.plans : []); setCablePlanLoading(false) })
-      .catch(()=>setCablePlanLoading(false))
+      .then(r => r.json())
+      .then(d => { setCablePlans(Array.isArray(d.plans) ? d.plans : []); setCablePlanLoading(false) })
+      .catch(() => setCablePlanLoading(false))
   }, [selectedCat, selectedBiller])
+
+  // Reset verify when customer ID changes
+  useEffect(() => { setVerified(false); setCustomerName('') }, [customer, selectedBiller, meterType])
 
   const resetForm = () => {
     setSelectedBiller(null); setCustomer(''); setAmount(''); setPhone('')
     setMeterType('prepaid'); setQuantity(1); setSelectedCablePlan(null)
-    setCablePlans([]); setBillers([])
+    setCablePlans([]); setBillers([]); setEduPlans([])
+    setVerified(false); setCustomerName(''); setSelectedEduPlan(null)
   }
 
   const selectCat = (cat: typeof BILL_CATS[0]) => {
-    setError(''); setSuccess(''); setPins([])
+    setError(''); setSuccess(''); setPins([]); setElecToken('')
     if (selectedCat?.id === cat.id) { setSelectedCat(null); resetForm(); return }
     setSelectedCat(cat)
   }
 
-  const getCablePlanPrice = (p: CablePlan) => p.price ?? p.amount ?? 0
+  const needsVerify = (cat: string) => ['cable', 'electricity', 'betting'].includes(cat)
+
+  const verify = async () => {
+    if (!selectedCat || !selectedBiller || !customer) return
+    setVerifying(true); setError('')
+    try {
+      const r = await fetch('/api/wallet/verify-biller', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category:   selectedCat.id,
+          billerCode: selectedBiller.id,
+          customer,
+          meterType,
+        }),
+      })
+      const d = await r.json()
+      if (d.error) { setError(d.error); setVerified(false) }
+      else { setCustomerName(d.customerName || 'Verified'); setVerified(true) }
+    } catch { setError('Verification failed. Please try again.') }
+    setVerifying(false)
+  }
 
   const getPayAmount = () => {
-    if (selectedCat?.id === 'cable' && selectedCablePlan) return getCablePlanPrice(selectedCablePlan)
+    if (selectedCat?.id === 'cable' && selectedCablePlan) return selectedCablePlan.amount
+    if (selectedCat?.id === 'education' && selectedEduPlan) return selectedEduPlan.amount * quantity
     return parseFloat(amount || '0')
   }
 
   const submit = async () => {
     if (!student || !selectedCat || !selectedBiller) return
-    if (!customer) { setError('Enter the customer/account ID'); return }
+    if (selectedCat.id === 'cable' && !selectedCablePlan) { setError('Select a bouquet'); return }
+    if (selectedCat.id === 'education' && !selectedEduPlan) { setError('Select an exam'); return }
+    if (!customer) { setError('Enter the account/meter number'); return }
     const payAmt = getPayAmount()
-    if (selectedCat.id !== 'education' && (!payAmt || payAmt < 1)) {
-      setError('Enter an amount'); return
-    }
+    if (selectedCat.id !== 'education' && (!payAmt || payAmt < 1)) { setError('Enter an amount'); return }
+    if (needsVerify(selectedCat.id) && !verified) { setError('Please verify the account first'); return }
 
-    setLoading(true); setError(''); setSuccess(''); setPins([])
+    setLoading(true); setError(''); setSuccess(''); setPins([]); setElecToken('')
 
     const payload: any = {
       studentId:  student.idNumber,
       category:   selectedCat.id,
       customer,
-      billerCode: selectedBiller.id,
+      billerCode: selectedBiller.id,   // cable: "dstv" | elec: "eko-electric" | betting: "biller-bet9ja"
       narration:  `${selectedBiller.name} – ${customer}`,
+      phone,
     }
 
     if (selectedCat.id === 'cable') {
-      payload.planCode = selectedCablePlan?.id
-      payload.amount   = payAmt
+      payload.planCode = selectedCablePlan?.variation_code
+      payload.amount   = selectedCablePlan?.amount
     } else if (selectedCat.id === 'electricity') {
       payload.amount    = payAmt
-      payload.phone     = phone
       payload.meterType = meterType
     } else if (selectedCat.id === 'education') {
-      payload.quantity = quantity
-      payload.amount   = payAmt
+      payload.quantity  = quantity
+      payload.amount    = selectedEduPlan!.amount * quantity
+      payload.billerCode = selectedEduPlan!.code    // e.g. "waec"
+    } else if (selectedCat.id === 'betting') {
+      payload.amount = payAmt
     } else {
       payload.amount = payAmt
     }
@@ -156,12 +197,21 @@ export default function BillsPage() {
       if (d.error) setError(d.error)
       else {
         setSuccess(d.message || `${selectedCat.label} payment successful!`)
-        if (d.pins?.length) setPins(d.pins)
+        if (d.pins)  setPins(Array.isArray(d.pins) ? d.pins : [d.pins])
+        if (d.token) setElecToken(d.token)
         resetForm(); setSelectedCat(null)
         fetch(`/api/wallet?studentId=${student.idNumber}`).then(r=>r.json()).then(d=>setBalance(parseFloat(d.wallet?.balance||0)))
       }
     } catch { setError('Network error. Please try again.') }
     setLoading(false)
+  }
+
+  const canSubmit = () => {
+    if (!selectedCat || !selectedBiller || !customer) return false
+    if (needsVerify(selectedCat.id) && !verified) return false
+    if (selectedCat.id === 'cable') return !!selectedCablePlan
+    if (selectedCat.id === 'education') return !!selectedEduPlan
+    return parseFloat(amount || '0') >= 1
   }
 
   return (
@@ -183,11 +233,17 @@ export default function BillsPage() {
                 <CheckCircle2 className="w-5 h-5 text-[#1a6b3a] mt-0.5 flex-shrink-0"/>
                 <p className="text-sm text-[#1a6b3a] font-semibold">{success}</p>
               </div>
+              {elecToken && (
+                <div className="pl-8">
+                  <p className="text-[10px] text-[#555] font-bold mb-1 uppercase tracking-wide">Meter Token</p>
+                  <p className="font-mono text-base font-black text-[#1a6b3a] bg-green-100 rounded-lg px-3 py-2 tracking-widest">{elecToken}</p>
+                </div>
+              )}
               {pins.length > 0 && (
                 <div className="pl-8">
-                  <p className="text-xs font-bold text-[#555] mb-1">Your PIN(s):</p>
+                  <p className="text-[10px] text-[#555] font-bold mb-1 uppercase tracking-wide">Your PIN{pins.length>1?'s':''}</p>
                   {pins.map((pin, i) => (
-                    <div key={i} className="font-mono text-sm font-black text-[#1a6b3a] bg-green-100 rounded-lg px-3 py-1.5 inline-block mr-2 mb-1">{pin}</div>
+                    <p key={i} className="font-mono text-sm font-black text-[#1a6b3a] bg-green-100 rounded-lg px-3 py-1.5 inline-block mr-2 mb-1">{pin}</p>
                   ))}
                 </div>
               )}
@@ -236,13 +292,13 @@ export default function BillsPage() {
                 {selectedCat.label} Details
               </p>
 
-              {/* Biller picker */}
+              {/* Biller / Provider picker */}
               <div>
                 <label className="text-xs font-bold text-[#555] uppercase tracking-wide mb-2 block">
-                  {selectedCat.id === 'cable' ? 'Cable Provider' :
-                   selectedCat.id === 'electricity' ? 'DISCO / Provider' :
-                   selectedCat.id === 'betting' ? 'Betting Platform' :
-                   selectedCat.id === 'education' ? 'Exam Body' : 'ISP Provider'}
+                  {selectedCat.id === 'cable'       ? 'Cable Provider' :
+                   selectedCat.id === 'electricity' ? 'DisCo / Provider' :
+                   selectedCat.id === 'betting'     ? 'Betting Platform' :
+                   selectedCat.id === 'education'   ? 'Exam Type' : 'ISP Provider'}
                 </label>
                 {billerLoading ? (
                   <div className="flex items-center gap-2 py-2">
@@ -252,7 +308,7 @@ export default function BillsPage() {
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {billers.map(b => (
-                      <button key={b.id} onClick={() => setSelectedBiller(b)}
+                      <button key={b.id} onClick={() => { setSelectedBiller(b); setSelectedEduPlan(eduPlans.find(e=>e.code===b.id)||null) }}
                         className="px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all active:scale-95"
                         style={{
                           borderColor:     selectedBiller?.id === b.id ? selectedCat.color : '#e0e0e0',
@@ -260,16 +316,21 @@ export default function BillsPage() {
                           color:           selectedBiller?.id === b.id ? '#fff' : '#333',
                         }}>
                         {b.name}
+                        {selectedCat.id === 'education' && (
+                          <span className="block text-[8px] font-normal opacity-80">
+                            ₦{eduPlans.find(e=>e.code===b.id)?.amount.toLocaleString()}
+                          </span>
+                        )}
                       </button>
                     ))}
                     {billers.length === 0 && !billerLoading && (
-                      <p className="text-xs text-[#aaa]">No providers found — check your Bigisub API key</p>
+                      <p className="text-xs text-[#aaa]">No providers found</p>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Cable TV: plan picker */}
+              {/* Cable TV: bouquet picker */}
               {selectedCat.id === 'cable' && selectedBiller && (
                 <div>
                   <label className="text-xs font-bold text-[#555] uppercase tracking-wide mb-2 block">Select Bouquet</label>
@@ -279,23 +340,19 @@ export default function BillsPage() {
                       <span className="text-xs text-[#aaa]">Loading plans...</span>
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-0.5">
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
                       {cablePlans.map(p => {
-                        const price   = getCablePlanPrice(p)
-                        const selected= selectedCablePlan?.id === p.id
+                        const sel = selectedCablePlan?.id === p.id
                         return (
                           <button key={p.id} onClick={() => setSelectedCablePlan(p)}
                             className="w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left"
                             style={{
-                              borderColor:     selected ? selectedCat.color : '#f0f0f0',
-                              backgroundColor: selected ? selectedCat.color + '10' : '#fafafa',
+                              borderColor:     sel ? selectedCat.color : '#f0f0f0',
+                              backgroundColor: sel ? selectedCat.color + '10' : '#fafafa',
                             }}>
-                            <div>
-                              <p className="text-xs font-bold text-[#0a0a0a]">{p.name}</p>
-                              {p.description && <p className="text-[9px] text-[#aaa]">{p.description}</p>}
-                            </div>
-                            <p className="text-sm font-black ml-3" style={{color: selected ? selectedCat.color : '#1e3a8a'}}>
-                              {price ? `₦${price.toLocaleString()}` : '—'}
+                            <p className="text-xs font-bold text-[#0a0a0a] flex-1 pr-2 leading-tight">{p.product_name}</p>
+                            <p className="text-sm font-black flex-shrink-0" style={{color: sel ? selectedCat.color : '#1e3a8a'}}>
+                              ₦{p.amount.toLocaleString()}
                             </p>
                           </button>
                         )
@@ -306,29 +363,46 @@ export default function BillsPage() {
                 </div>
               )}
 
-              {/* Customer ID / Meter / Card / Account */}
-              {(selectedBiller || selectedCat.id === 'cable') && (
+              {/* Customer / Meter / Card / Account input */}
+              {selectedBiller && (
                 <div>
                   <label className="text-xs font-bold text-[#555] uppercase tracking-wide mb-1.5 block">
                     {selectedCat.id === 'electricity' ? 'Meter Number' :
                      selectedCat.id === 'cable'       ? 'Smart Card / IUC Number' :
                      selectedCat.id === 'betting'     ? 'User ID / Account' :
-                     selectedCat.id === 'education'   ? 'Phone Number for Delivery' :
-                     'Account Number / Phone'}
+                     selectedCat.id === 'education'   ? 'Phone Number (for delivery)' : 'Account Number / Phone'}
                   </label>
-                  <input
-                    value={customer}
-                    onChange={e => setCustomer(e.target.value)}
-                    placeholder={
-                      selectedCat.id === 'electricity' ? 'Enter meter number' :
-                      selectedCat.id === 'cable'       ? 'Enter smart card number' :
-                      selectedCat.id === 'betting'     ? 'Enter account/user ID' :
-                      selectedCat.id === 'education'   ? 'Enter phone number' :
-                      'Enter account number'
-                    }
-                    className="input w-full text-sm font-mono"
-                    inputMode={selectedCat.id === 'electricity' || selectedCat.id === 'cable' ? 'numeric' : 'text'}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      value={customer}
+                      onChange={e => setCustomer(e.target.value)}
+                      placeholder={
+                        selectedCat.id === 'electricity' ? 'Enter meter number' :
+                        selectedCat.id === 'cable'       ? 'Enter smart card number' :
+                        selectedCat.id === 'betting'     ? 'Enter account/user ID' :
+                        selectedCat.id === 'education'   ? 'Enter phone number' : 'Enter account number'
+                      }
+                      className="input flex-1 text-sm font-mono"
+                      inputMode={selectedCat.id === 'electricity' || selectedCat.id === 'cable' ? 'numeric' : 'text'}
+                    />
+                    {/* Verify button for cable / electricity / betting */}
+                    {needsVerify(selectedCat.id) && customer.length >= 4 && !verified && (
+                      <button onClick={verify} disabled={verifying}
+                        className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 flex-shrink-0 transition-all"
+                        style={{ backgroundColor: selectedCat.color + '15', color: selectedCat.color }}>
+                        {verifying ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <ShieldCheck className="w-3.5 h-3.5"/>}
+                        {verifying ? 'Verifying' : 'Verify'}
+                      </button>
+                    )}
+                  </div>
+                  {/* Verified customer name banner */}
+                  {verified && customerName && (
+                    <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl"
+                      style={{ backgroundColor: selectedCat.color + '12' }}>
+                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{color: selectedCat.color}}/>
+                      <p className="text-xs font-bold" style={{color: selectedCat.color}}>{customerName}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -359,10 +433,12 @@ export default function BillsPage() {
                 </>
               )}
 
-              {/* Education: quantity */}
+              {/* Education: quantity picker */}
               {selectedCat.id === 'education' && selectedBiller && (
                 <div>
-                  <label className="text-xs font-bold text-[#555] uppercase tracking-wide mb-2 block">Number of Pins</label>
+                  <label className="text-xs font-bold text-[#555] uppercase tracking-wide mb-2 block">
+                    Number of Pins {selectedEduPlan ? `— ₦${(selectedEduPlan.amount * quantity).toLocaleString()} total` : ''}
+                  </label>
                   <div className="flex gap-2">
                     {[1,2,3,5].map(q => (
                       <button key={q} onClick={() => setQuantity(q)}
@@ -379,17 +455,19 @@ export default function BillsPage() {
                 </div>
               )}
 
-              {/* Amount field (for electricity, betting, ISP) */}
+              {/* Amount field */}
               {(selectedCat.id === 'electricity' || selectedCat.id === 'betting' || selectedCat.id === 'isp') && selectedBiller && (
                 <div>
-                  <label className="text-xs font-bold text-[#555] uppercase tracking-wide mb-1.5 block">Amount (₦)</label>
+                  <label className="text-xs font-bold text-[#555] uppercase tracking-wide mb-1.5 block">
+                    Amount (₦){selectedBiller.min_amount ? ` · Min ₦${selectedBiller.min_amount.toLocaleString()}` : ''}
+                  </label>
                   <input
                     value={amount}
-                    onChange={e => setAmount(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter amount"
+                    onChange={e => setAmount(e.target.value.replace(/\D/g,''))}
+                    placeholder={`Min ₦${selectedBiller.min_amount || 500}`}
                     className="input w-full text-sm"
                     type="number"
-                    min="100"
+                    min={selectedBiller.min_amount || 100}
                   />
                 </div>
               )}
@@ -400,19 +478,15 @@ export default function BillsPage() {
           {selectedCat && selectedBiller && (
             <button
               onClick={submit}
-              disabled={loading || !customer || (
-                selectedCat.id === 'cable' ? !selectedCablePlan :
-                selectedCat.id === 'education' ? false :
-                !amount || parseFloat(amount) < 1
-              )}
+              disabled={loading || !canSubmit()}
               className="w-full py-4 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:opacity-40 transition-all active:scale-[0.98]"
               style={{ backgroundColor: selectedCat.color }}>
               {loading ? <Loader2 className="w-5 h-5 animate-spin"/> : <selectedCat.icon className="w-5 h-5"/>}
               {loading ? 'Processing...' :
                 selectedCat.id === 'cable' && selectedCablePlan
-                  ? `Pay ₦${getCablePlanPrice(selectedCablePlan).toLocaleString()} — ${selectedCablePlan.name}`
-                  : selectedCat.id === 'education'
-                  ? `Buy ${quantity} ${selectedBiller.name} Pin${quantity > 1 ? 's' : ''}`
+                  ? `Pay ₦${selectedCablePlan.amount.toLocaleString()} — ${selectedCablePlan.product_name.slice(0,30)}`
+                  : selectedCat.id === 'education' && selectedEduPlan
+                  ? `Buy ${quantity} ${selectedEduPlan.name.replace('Result Checker','')} Pin${quantity>1?'s':''} — ₦${(selectedEduPlan.amount*quantity).toLocaleString()}`
                   : `Pay ₦${parseFloat(amount||'0').toLocaleString()} — ${selectedBiller.name}`
               }
             </button>
