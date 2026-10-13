@@ -167,7 +167,7 @@ export default function WalletPage() {
             {/* Quick actions */}
             <div className="card p-4">
               <p className="text-xs font-bold text-[#888] uppercase tracking-wide mb-3">Quick Actions</p>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {QUICK_ACTIONS.map(({ href, label, icon:Icon, color }) => (
                   <Link key={href} href={href}
                     className="flex flex-col items-center gap-1.5">

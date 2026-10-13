@@ -13,7 +13,7 @@ import {
   ChevronRight, Navigation2, MapPin, Zap,
   BookOpen, Award, ArrowUpRight, Phone, Wifi,
   Gamepad2, Plus, Copy, Building2, RefreshCw,
-  Wallet, Send, Eye, EyeOff,
+  Wallet, Send, Eye, EyeOff, Hash, MessageSquare,
 } from 'lucide-react'
 
 type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; created_at:string }
@@ -226,7 +226,7 @@ export default function Dashboard() {
 
               {/* Quick wallet actions */}
               <div className="px-4 py-2.5">
-                <div className="grid grid-cols-5 gap-1.5">
+                <div className="grid grid-cols-4 gap-1.5">
                   {BILL_ACTIONS.map(({ href, label, icon:Icon }) => (
                     <Link key={href} href={href}
                       className="flex flex-col items-center gap-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-95">
@@ -345,6 +345,19 @@ export default function Dashboard() {
                         </div>
                         {ann.body && <p className="text-[#6b6b6b] text-[11px] mt-1 leading-relaxed line-clamp-2">{ann.body}</p>}
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </AppShell>
+  )
+}
+      </div>
                     </div>
                   </div>
                 ))}
