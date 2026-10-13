@@ -4,7 +4,7 @@ import AdminShell from '@/components/AdminShell'
 import { useAdmin } from '@/components/AdminProvider'
 import {
   Send, Loader2, CheckCircle2, AlertCircle,
-  Smartphone, Mail, Monitor, Users, ChevronDown, ChevronUp, Info
+  Smartphone, Mail, Monitor, Users, ChevronDown, ChevronUp, Info, Zap
 } from 'lucide-react'
 
 /* ─── Audience definitions ──────────────────────────────────────────────── */
@@ -12,21 +12,61 @@ const AUDIENCES = [
   {
     group: '👥 All Students',
     items: [
-      { value: 'all',           label: 'All Students',        icon: '👥', desc: 'Every registered student' },
-      { value: 'pwa_installed', label: 'PWA Installed Only',  icon: '📲', desc: 'Students with the app installed & notifications on' },
+      { value: 'all',           label: 'All Students',       icon: '👥', desc: 'Every registered student' },
+      { value: 'pwa_installed', label: 'PWA Installed Only', icon: '📲', desc: 'Students with the app installed & notifications on' },
     ],
   },
   {
     group: '📚 Library — By Request Status',
     items: [
-      { value: 'material_pending',   label: 'Pending Requests',   icon: '⏳', desc: 'Applied but not yet approved' },
-      { value: 'material_approved',  label: 'Approved Requests',  icon: '✅', desc: 'Approved — awaiting Sunday pickup' },
+      { value: 'material_pending',   label: 'Pending Requests',    icon: '⏳', desc: 'Applied but not yet approved' },
+      { value: 'material_approved',  label: 'Approved Requests',   icon: '✅', desc: 'Approved — awaiting Sunday pickup' },
       { value: 'material_collected', label: 'Collected Materials', icon: '📦', desc: 'Already collected their materials' },
-      { value: 'material_cancelled', label: 'Cancelled Requests', icon: '❌', desc: 'Request was cancelled' },
+      { value: 'material_cancelled', label: 'Cancelled Requests',  icon: '❌', desc: 'Request was cancelled' },
     ],
   },
   {
-    group: '🎓 By Level',
+    group: '⚡ Skills — All Applicants',
+    items: [
+      { value: 'skill_all', label: 'All Skill Applicants', icon: '⚡', desc: 'Everyone who applied for any skill' },
+    ],
+  },
+  {
+    group: '⚡ Skills — By Application Status',
+    items: [
+      { value: 'skill_status_pending',  label: 'Pending Applications',  icon: '⏳', desc: 'Applied but awaiting approval' },
+      { value: 'skill_status_approved', label: 'Approved Applicants',   icon: '✅', desc: 'Application approved by admin' },
+      { value: 'skill_status_rejected', label: 'Rejected Applications', icon: '❌', desc: 'Application was rejected' },
+    ],
+  },
+  {
+    group: '⚡ Skills — By Pricing',
+    items: [
+      { value: 'skill_free', label: 'Free Skill Applicants', icon: '🆓', desc: 'Applied for any free skill' },
+      { value: 'skill_paid', label: 'Paid Skill Applicants', icon: '💳', desc: 'Applied for any paid skill' },
+    ],
+  },
+  {
+    group: '⚡ Skills — By Delivery Mode',
+    items: [
+      { value: 'skill_mode_virtual',  label: 'Virtual Skills',  icon: '💻', desc: 'Applied for online/virtual skills' },
+      { value: 'skill_mode_physical', label: 'Physical Skills', icon: '📍', desc: 'Applied for in-person skills' },
+      { value: 'skill_mode_hybrid',   label: 'Hybrid Skills',   icon: '🔀', desc: 'Applied for hybrid skills' },
+    ],
+  },
+  {
+    group: '⚡ Skills — By Category',
+    items: [
+      { value: 'skill_cat_Tech',       label: 'Tech Skills',       icon: '💻', desc: 'Applied for tech/coding skills' },
+      { value: 'skill_cat_Business',   label: 'Business Skills',   icon: '💼', desc: 'Applied for business skills' },
+      { value: 'skill_cat_Creative',   label: 'Creative Skills',   icon: '🎨', desc: 'Applied for creative/design skills' },
+      { value: 'skill_cat_Vocational', label: 'Vocational Skills', icon: '🔧', desc: 'Applied for vocational skills' },
+      { value: 'skill_cat_Ministry',   label: 'Ministry Skills',   icon: '✝️', desc: 'Applied for ministry skills' },
+      { value: 'skill_cat_Academic',   label: 'Academic Skills',   icon: '📖', desc: 'Applied for academic skills' },
+    ],
+  },
+  {
+    group: '🎓 By Academic Level',
     items: [
       { value: 'level_100', label: '100 Level', icon: '1️⃣', desc: 'First year students' },
       { value: 'level_200', label: '200 Level', icon: '2️⃣', desc: 'Second year students' },
@@ -39,6 +79,14 @@ const AUDIENCES = [
 
 const ALL_ITEMS = AUDIENCES.flatMap(g => g.items)
 
+/* ─── Email template options ────────────────────────────────────────────── */
+const TEMPLATE_TYPES = [
+  { value: 'announcement', label: 'Announcement', color: '#1a6b3a' },
+  { value: 'info',         label: 'Info',         color: '#1e3a8a' },
+  { value: 'success',      label: 'Success',      color: '#16a34a' },
+  { value: 'warning',      label: 'Warning',      color: '#d97706' },
+]
+
 /* ─── Channel config ────────────────────────────────────────────────────── */
 const CHANNELS = [
   { key: 'push',  label: 'Push',   icon: Smartphone, color: '#1a6b3a', desc: 'FCM — PWA / Android' },
@@ -48,40 +96,40 @@ const CHANNELS = [
 
 /* ─── URL shortcuts ─────────────────────────────────────────────────────── */
 const URL_OPTIONS = [
-  { label: 'Dashboard',   value: '/dashboard' },
-  { label: 'Library',     value: '/library'   },
-  { label: 'PDM Page',    value: '/pdm'       },
-  { label: 'Campus Map',  value: '/navigate'  },
-  { label: 'Events',      value: '/events'    },
-  { label: 'Profile',     value: '/profile'   },
+  { label: 'Dashboard',  value: '/dashboard' },
+  { label: 'Library',    value: '/library'   },
+  { label: 'PDM Page',   value: '/pdm'       },
+  { label: 'Campus Map', value: '/navigate'  },
+  { label: 'Events',     value: '/events'    },
+  { label: 'Skills',     value: '/skills'    },
+  { label: 'Profile',    value: '/profile'   },
 ]
 
-type Channels = { push: boolean; inapp: boolean; email: boolean }
+type Channels    = { push: boolean; inapp: boolean; email: boolean }
 type AudienceInfo = { total: number; pushEnabled: number } | null
 
 export default function SendNotificationPage() {
   const { token } = useAdmin()
   const authHeader = { Authorization: `Bearer ${token}` }
 
-  const [audience,   setAudience]   = useState('all')
-  const [title,      setTitle]      = useState('')
-  const [body,       setBody]       = useState('')
-  const [url,        setUrl]        = useState('/dashboard')
-  const [channels,   setChannels]   = useState<Channels>({ push: true, inapp: true, email: false })
-  const [loading,    setLoading]    = useState(false)
-  const [preview,    setPreview]    = useState<AudienceInfo>(null)
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [result,     setResult]     = useState<any>(null)
-  const [error,      setError]      = useState('')
-  const [showGroups, setShowGroups] = useState(false)
+  const [audience,      setAudience]      = useState('all')
+  const [title,         setTitle]         = useState('')
+  const [body,          setBody]          = useState('')
+  const [url,           setUrl]           = useState('/dashboard')
+  const [templateType,  setTemplateType]  = useState('announcement')
+  const [channels,      setChannels]      = useState<Channels>({ push: true, inapp: true, email: false })
+  const [loading,       setLoading]       = useState(false)
+  const [preview,       setPreview]       = useState<AudienceInfo>(null)
+  const [previewLoading,setPreviewLoading]= useState(false)
+  const [result,        setResult]        = useState<any>(null)
+  const [error,         setError]         = useState('')
+  const [showGroups,    setShowGroups]    = useState(false)
 
   const selected = ALL_ITEMS.find(i => i.value === audience)
 
-  /* Load audience count whenever audience changes */
   const loadPreview = useCallback(async (aud: string) => {
     if (!token) return
-    setPreviewLoading(true)
-    setPreview(null)
+    setPreviewLoading(true); setPreview(null)
     try {
       const r = await fetch(`/api/admin/send-notification?audience=${aud}`, { headers: authHeader })
       const d = await r.json()
@@ -93,27 +141,26 @@ export default function SendNotificationPage() {
 
   useEffect(() => { loadPreview(audience) }, [audience, loadPreview])
 
-  const toggleChannel = (key: keyof Channels) =>
-    setChannels(prev => ({ ...prev, [key]: !prev[key] }))
+  const toggleChannel = (key: keyof Channels) => setChannels(prev => ({ ...prev, [key]: !prev[key] }))
 
   const send = async () => {
-    if (!title.trim()) { setError('Title is required'); return }
-    if (!Object.values(channels).some(Boolean)) { setError('Select at least one channel'); return }
+    if (!title.trim())                              { setError('Title is required'); return }
+    if (!Object.values(channels).some(Boolean))    { setError('Select at least one channel'); return }
     setError(''); setLoading(true); setResult(null)
     try {
       const r = await fetch('/api/admin/send-notification', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
-        body: JSON.stringify({ audience, title, body, url, channels }),
+        body:    JSON.stringify({ audience, title, body, url, channels, templateType }),
       })
       const d = await r.json()
       if (!d.ok) { setError(d.error || 'Send failed') }
-      else { setResult(d.results); setTitle(''); setBody('') }
-    } catch (e: any) {
-      setError(e.message || 'Network error')
-    }
+      else       { setResult(d.results); setTitle(''); setBody('') }
+    } catch (e: any) { setError(e.message || 'Network error') }
     setLoading(false)
   }
+
+  const isSkillAudience = audience.startsWith('skill_')
 
   return (
     <AdminShell>
@@ -164,13 +211,16 @@ export default function SendNotificationPage() {
 
         {/* ── 1. Audience ── */}
         <div className="card overflow-hidden">
-          <div className="px-4 py-3 bg-[#f9f9f7] border-b border-[#e8e8e8]">
+          <div className="px-4 py-3 bg-[#f9f9f7] border-b border-[#e8e8e8] flex items-center gap-2">
             <h2 className="font-black text-[#0a0a0a] text-sm">1. Select Audience</h2>
+            {isSkillAudience && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#1a6b3a]/10 text-[#1a6b3a] border border-[#1a6b3a]/20">
+                <Zap className="w-2.5 h-2.5"/>Skills
+              </span>
+            )}
           </div>
 
-          {/* Selected display */}
-          <button
-            onClick={() => setShowGroups(p => !p)}
+          <button onClick={() => setShowGroups(p => !p)}
             className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#f9f9f7] transition-colors">
             <span className="text-xl flex-shrink-0">{selected?.icon}</span>
             <div className="flex-1 text-left min-w-0">
@@ -191,10 +241,10 @@ export default function SendNotificationPage() {
           </button>
 
           {showGroups && (
-            <div className="border-t border-[#e8e8e8]">
+            <div className="border-t border-[#e8e8e8] max-h-80 overflow-y-auto">
               {AUDIENCES.map(group => (
                 <div key={group.group}>
-                  <p className="px-4 pt-3 pb-1 text-[9px] font-black text-[#aaa] uppercase tracking-widest">
+                  <p className="px-4 pt-3 pb-1 text-[9px] font-black text-[#aaa] uppercase tracking-widest sticky top-0 bg-white">
                     {group.group}
                   </p>
                   {group.items.map(item => (
@@ -209,9 +259,7 @@ export default function SendNotificationPage() {
                         </p>
                         <p className="text-[10px] text-[#aaa]">{item.desc}</p>
                       </div>
-                      {audience === item.value && (
-                        <CheckCircle2 className="w-4 h-4 text-[#1a6b3a] flex-shrink-0"/>
-                      )}
+                      {audience === item.value && <CheckCircle2 className="w-4 h-4 text-[#1a6b3a] flex-shrink-0"/>}
                     </button>
                   ))}
                 </div>
@@ -219,7 +267,6 @@ export default function SendNotificationPage() {
             </div>
           )}
 
-          {/* Audience stats bar */}
           {preview && !showGroups && (
             <div className="px-4 pb-3 pt-1 flex items-center gap-3 text-[10px] text-[#6b6b6b]">
               <div className="flex items-center gap-1">
@@ -246,10 +293,8 @@ export default function SendNotificationPage() {
               return (
                 <button key={ch.key}
                   onClick={() => toggleChannel(ch.key as keyof Channels)}
-                  className={`flex flex-col items-center gap-1.5 py-4 px-2 transition-colors
-                    ${on ? 'bg-white' : 'bg-[#fafafa]'}`}>
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all
-                    ${on ? 'shadow-md' : 'bg-[#f0f0f0]'}`}
+                  className={`flex flex-col items-center gap-1.5 py-4 px-2 transition-colors ${on ? 'bg-white' : 'bg-[#fafafa]'}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${on ? 'shadow-md' : 'bg-[#f0f0f0]'}`}
                     style={on ? { background: ch.color } : {}}>
                     <ch.icon className="w-4 h-4" style={{ color: on ? 'white' : '#aaa' }}/>
                   </div>
@@ -263,6 +308,23 @@ export default function SendNotificationPage() {
               )
             })}
           </div>
+
+          {/* Email template type — only shows when email is on */}
+          {channels.email && (
+            <div className="px-4 pb-4 pt-2 border-t border-[#f0f0f0]">
+              <p className="text-[9px] font-black text-[#aaa] uppercase tracking-widest mb-2">Email Template Style</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {TEMPLATE_TYPES.map(t => (
+                  <button key={t.value} onClick={() => setTemplateType(t.value)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all
+                      ${templateType === t.value ? 'text-white border-transparent' : 'bg-white text-[#6b6b6b] border-[#e8e8e8]'}`}
+                    style={templateType === t.value ? { background: t.color, borderColor: t.color } : {}}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── 3. Message ── */}
@@ -275,13 +337,9 @@ export default function SendNotificationPage() {
               <label className="text-[10px] font-bold text-[#6b6b6b] uppercase tracking-wide block mb-1.5">
                 Title <span className="text-red-400">*</span>
               </label>
-              <input
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. Library materials ready for pickup!"
-                maxLength={100}
-                className="input w-full text-sm"
-              />
+              <input value={title} onChange={e => setTitle(e.target.value)}
+                placeholder="e.g. Your skill application has been approved!"
+                maxLength={100} className="input w-full text-sm"/>
               <p className="text-[9px] text-[#aaa] mt-1 text-right">{title.length}/100</p>
             </div>
 
@@ -289,14 +347,9 @@ export default function SendNotificationPage() {
               <label className="text-[10px] font-bold text-[#6b6b6b] uppercase tracking-wide block mb-1.5">
                 Message Body
               </label>
-              <textarea
-                value={body}
-                onChange={e => setBody(e.target.value)}
-                placeholder="Optional details..."
-                rows={3}
-                maxLength={500}
-                className="input w-full text-sm resize-none"
-              />
+              <textarea value={body} onChange={e => setBody(e.target.value)}
+                placeholder="Optional details — visible in email and in-app notifications..."
+                rows={4} maxLength={500} className="input w-full text-sm resize-none"/>
               <p className="text-[9px] text-[#aaa] mt-1 text-right">{body.length}/500</p>
             </div>
 
@@ -306,8 +359,7 @@ export default function SendNotificationPage() {
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {URL_OPTIONS.map(opt => (
-                  <button key={opt.value}
-                    onClick={() => setUrl(opt.value)}
+                  <button key={opt.value} onClick={() => setUrl(opt.value)}
                     className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all border
                       ${url === opt.value
                         ? 'bg-[#1a6b3a] text-white border-[#1a6b3a]'
@@ -323,7 +375,7 @@ export default function SendNotificationPage() {
         {/* ── Preview card ── */}
         {title && (
           <div className="card p-4 border border-dashed border-[#e8e8e8]">
-            <p className="text-[9px] font-bold text-[#aaa] uppercase tracking-widest mb-2">Preview</p>
+            <p className="text-[9px] font-bold text-[#aaa] uppercase tracking-widest mb-2">Push Preview</p>
             <div className="bg-[#0a0a0a] rounded-xl p-3 flex items-start gap-2.5">
               <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-white">
                 <img src="/icon-192.png" alt="" className="w-full h-full object-contain"/>
@@ -345,9 +397,7 @@ export default function SendNotificationPage() {
         )}
 
         {/* ── Send button ── */}
-        <button
-          onClick={send}
-          disabled={loading || !title.trim()}
+        <button onClick={send} disabled={loading || !title.trim()}
           className={`w-full py-4 rounded-2xl text-sm font-black text-white flex items-center justify-center gap-2 transition-all shadow-lg
             ${loading || !title.trim()
               ? 'bg-[#1a6b3a]/40 cursor-not-allowed'
@@ -355,7 +405,7 @@ export default function SendNotificationPage() {
           {loading
             ? <><Loader2 className="w-4 h-4 animate-spin"/> Sending...</>
             : <><Send className="w-4 h-4"/>
-                Send to {previewLoading ? '...' : preview?.total ?? '?'} students
+                Send to {previewLoading ? '...' : preview?.total ?? '?'} recipients
               </>
           }
         </button>
@@ -366,7 +416,8 @@ export default function SendNotificationPage() {
           <div className="text-[10px] text-blue-700 space-y-0.5">
             <p><strong>Push</strong> only reaches students who installed the PWA and allowed notifications.</p>
             <p><strong>In-App</strong> shows in the bell icon for all selected students on next login.</p>
-            <p><strong>Email</strong> requires Gmail configured in Notification Settings.</p>
+            <p><strong>Email</strong> requires Gmail configured in Notification Settings, and students must have an email saved.</p>
+            <p><strong>Skill audiences</strong> target students who applied — not all registered students.</p>
           </div>
         </div>
       </div>

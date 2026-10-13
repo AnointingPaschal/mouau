@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminFromRequest } from '@/lib/admin'
+import { getAdminFromRequest, adminDb } from '@/lib/admin'
 import { supabase } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
 import { emailTemplate } from '@/lib/emailTemplate'
@@ -9,6 +9,7 @@ const APP_URL = 'https://mouau-rose.vercel.app'
 
 /* ─── Audience resolver ──────────────────────────────────────────────────── */
 async function resolveRecipients(audience: string): Promise<string[]> {
+  // ── All / PWA ──────────────────────────────────────────────────────────
   if (audience === 'all') {
     const { data } = await supabase.from('students').select('id_number')
     return (data || []).map((s: any) => s.id_number)
@@ -16,22 +17,94 @@ async function resolveRecipients(audience: string): Promise<string[]> {
   if (audience === 'pwa_installed') {
     const { data } = await supabase.from('push_subscriptions').select('student_id')
     const seen = new Set<string>()
-    return (data || []).map((s: any) => s.student_id).filter((id: string) => { if (seen.has(id)) return false; seen.add(id); return true })
+    return (data || []).map((s: any) => s.student_id).filter((id: string) => {
+      if (seen.has(id)) return false; seen.add(id); return true
+    })
   }
+
+  // ── Library material requests ──────────────────────────────────────────
   if (audience.startsWith('material_')) {
     const status = audience.replace('material_', '')
     const { data } = await supabase.from('material_requests').select('student_id').eq('status', status)
     const seen = new Set<string>()
-    return (data || []).map((s: any) => s.student_id).filter((id: string) => { if (seen.has(id)) return false; seen.add(id); return true })
+    return (data || []).map((s: any) => s.student_id).filter((id: string) => {
+      if (seen.has(id)) return false; seen.add(id); return true
+    })
   }
+
+  // ── By academic level ──────────────────────────────────────────────────
   if (audience.startsWith('level_')) {
-    const { data } = await supabase.from('students').select('id_number').eq('level', audience.replace('level_', ''))
+    const { data } = await supabase.from('students').select('id_number')
+      .eq('level', audience.replace('level_', ''))
     return (data || []).map((s: any) => s.id_number)
   }
+
+  // ── By department ──────────────────────────────────────────────────────
   if (audience.startsWith('dept_')) {
-    const { data } = await supabase.from('students').select('id_number').ilike('department', `%${audience.replace('dept_', '')}%`)
+    const { data } = await supabase.from('students').select('id_number')
+      .ilike('department', `%${audience.replace('dept_', '')}%`)
     return (data || []).map((s: any) => s.id_number)
   }
+
+  // ── Skills: all applicants across every skill ──────────────────────────
+  if (audience === 'skill_all') {
+    const { data } = await adminDb.from('skill_applications').select('student_id')
+    const seen = new Set<string>()
+    return (data || []).map((s: any) => s.student_id).filter((id: string) => {
+      if (seen.has(id)) return false; seen.add(id); return true
+    })
+  }
+
+  // ── Skills: by application status ─────────────────────────────────────
+  if (audience.startsWith('skill_status_')) {
+    const status = audience.replace('skill_status_', '')  // pending | approved | rejected
+    const { data } = await adminDb.from('skill_applications').select('student_id').eq('status', status)
+    const seen = new Set<string>()
+    return (data || []).map((s: any) => s.student_id).filter((id: string) => {
+      if (seen.has(id)) return false; seen.add(id); return true
+    })
+  }
+
+  // ── Skills: by pricing tier ────────────────────────────────────────────
+  if (audience === 'skill_free' || audience === 'skill_paid') {
+    const isFree = audience === 'skill_free'
+    // get all skill IDs of this type
+    const { data: skills } = await adminDb.from('skills').select('id').eq('is_free', isFree)
+    const skillIds = (skills || []).map((s: any) => s.id)
+    if (!skillIds.length) return []
+    const { data } = await adminDb.from('skill_applications').select('student_id').in('skill_id', skillIds)
+    const seen = new Set<string>()
+    return (data || []).map((s: any) => s.student_id).filter((id: string) => {
+      if (seen.has(id)) return false; seen.add(id); return true
+    })
+  }
+
+  // ── Skills: by delivery mode ───────────────────────────────────────────
+  if (audience.startsWith('skill_mode_')) {
+    const mode = audience.replace('skill_mode_', '')  // virtual | physical | hybrid
+    const { data: skills } = await adminDb.from('skills').select('id').eq('delivery_mode', mode)
+    const skillIds = (skills || []).map((s: any) => s.id)
+    if (!skillIds.length) return []
+    const { data } = await adminDb.from('skill_applications').select('student_id').in('skill_id', skillIds)
+    const seen = new Set<string>()
+    return (data || []).map((s: any) => s.student_id).filter((id: string) => {
+      if (seen.has(id)) return false; seen.add(id); return true
+    })
+  }
+
+  // ── Skills: by category ────────────────────────────────────────────────
+  if (audience.startsWith('skill_cat_')) {
+    const cat = audience.replace('skill_cat_', '')
+    const { data: skills } = await adminDb.from('skills').select('id').eq('category', cat)
+    const skillIds = (skills || []).map((s: any) => s.id)
+    if (!skillIds.length) return []
+    const { data } = await adminDb.from('skill_applications').select('student_id').in('skill_id', skillIds)
+    const seen = new Set<string>()
+    return (data || []).map((s: any) => s.student_id).filter((id: string) => {
+      if (seen.has(id)) return false; seen.add(id); return true
+    })
+  }
+
   return []
 }
 
@@ -55,7 +128,6 @@ async function sendPush(recipientIds: string[], title: string, body: string, url
   const tokens = subs.map((sub: any) => sub.fcm_token).filter((t: string) => t && !t.startsWith('pwa:'))
   if (!tokens.length) return { sent: 0, failed: 0 }
 
-  // Use admin-uploaded logo; fall back to transparent notification icon
   const logoUrl    = s.logo_url?.startsWith('http') ? s.logo_url : null
   const notifIcon  = logoUrl || `${APP_URL}/notification-icon.png`
   const notifBadge = `${APP_URL}/badge-icon.png`
@@ -96,7 +168,7 @@ async function sendPush(recipientIds: string[], title: string, body: string, url
   return { sent: totalSent, failed: totalFailed }
 }
 
-/* ─── In-app — store url in post_id so TopBar can navigate ─────────────── */
+/* ─── In-app ────────────────────────────────────────────────────────────── */
 async function sendInApp(recipientIds: string[], title: string, body: string, url: string, s: any) {
   const siteName = s.site_name || 'PDM MOUAU'
   const rows = recipientIds.map(id => ({
@@ -104,7 +176,7 @@ async function sendInApp(recipientIds: string[], title: string, body: string, ur
     type:         'announcement',
     title,
     body:         body || '',
-    post_id:      url || '/dashboard',   // reuse post_id as nav URL
+    post_id:      url || '/dashboard',
     actor:        siteName,
     read:         false,
   }))
@@ -115,16 +187,24 @@ async function sendInApp(recipientIds: string[], title: string, body: string, ur
 }
 
 /* ─── Email ─────────────────────────────────────────────────────────────── */
-async function sendEmail(recipientIds: string[], title: string, body: string, url: string, s: any) {
+async function sendEmail(
+  recipientIds: string[],
+  title: string,
+  body: string,
+  url: string,
+  s: any,
+  templateType: 'announcement' | 'info' | 'success' | 'warning' = 'announcement',
+) {
   const gmailUser = (s.gmail_user || s.gmail_email || '').trim()
   const gmailPass = (s.gmail_password || s.gmail_app_password || '').trim()
   if (!gmailUser || !gmailPass) return { sent: 0, error: 'Gmail not configured' }
 
-  const { data: students } = await supabase.from('students').select('id_number, name, email').in('id_number', recipientIds)
+  const { data: students } = await supabase
+    .from('students').select('id_number, name, email').in('id_number', recipientIds)
   if (!students?.length) return { sent: 0 }
 
-  const siteName = s.site_name || 'PDM MOUAU'
-  const logoUrl  = s.logo_url?.startsWith('http') ? s.logo_url : undefined
+  const siteName   = s.site_name || 'PDM MOUAU'
+  const logoUrl    = s.logo_url?.startsWith('http') ? s.logo_url : undefined
   const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } })
 
   let sent = 0
@@ -132,13 +212,13 @@ async function sendEmail(recipientIds: string[], title: string, body: string, ur
     if (!st.email) continue
     try {
       await transporter.sendMail({
-        from: `"${siteName}" <${gmailUser}>`,
-        to:   st.email,
+        from:    `"${siteName}" <${gmailUser}>`,
+        to:      st.email,
         subject: title,
         html: emailTemplate({
           title, body,
           recipientName: st.name,
-          type:          'announcement',
+          type:          templateType,
           siteName,
           logoUrl,
           cta: url ? { text: 'Open App', url: `${APP_URL}${url}` } : undefined,
@@ -150,35 +230,41 @@ async function sendEmail(recipientIds: string[], title: string, body: string, ur
   return { sent }
 }
 
-/* ─── Preview ────────────────────────────────────────────────────────────── */
+/* ─── Preview (GET) ──────────────────────────────────────────────────────── */
 export async function GET(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const audience = req.nextUrl.searchParams.get('audience') || 'all'
   const ids      = await resolveRecipients(audience)
-  const { data: pushSubs } = await supabase.from('push_subscriptions').select('student_id').in('student_id', ids)
+  const { data: pushSubs } = await supabase
+    .from('push_subscriptions').select('student_id').in('student_id', ids)
   const pushCount = new Set((pushSubs || []).map((s: any) => s.student_id)).size
   return NextResponse.json({ total: ids.length, pushEnabled: pushCount })
 }
 
-/* ─── Send ───────────────────────────────────────────────────────────────── */
+/* ─── Send (POST) ────────────────────────────────────────────────────────── */
 export async function POST(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { audience = 'all', title, body, url = '/dashboard', channels = { push: true, inapp: true, email: false } } = await req.json()
+  const {
+    audience = 'all', title, body, url = '/dashboard',
+    channels = { push: true, inapp: true, email: false },
+    templateType = 'announcement',
+  } = await req.json()
+
   if (!title?.trim()) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
   const recipientIds = await resolveRecipients(audience)
-  if (!recipientIds.length) return NextResponse.json({ error: 'No recipients found' }, { status: 400 })
+  if (!recipientIds.length) return NextResponse.json({ error: 'No recipients found for this audience' }, { status: 400 })
 
   const s = await getSettings()
   const results: Record<string, any> = { recipients: recipientIds.length }
   const tasks: Promise<void>[] = []
 
-  if (channels.push)  tasks.push(sendPush(recipientIds, title, body || '', url, s).then(r => { results.push  = r }).catch(e => { results.push  = { error: e.message } }))
-  if (channels.inapp) tasks.push(sendInApp(recipientIds, title, body || '', url, s).then(r => { results.inapp = r }).catch(e => { results.inapp = { error: e.message } }))
-  if (channels.email) tasks.push(sendEmail(recipientIds, title, body || '', url, s).then(r => { results.email = r }).catch(e => { results.email = { error: e.message } }))
+  if (channels.push)  tasks.push(sendPush(recipientIds, title, body || '', url, s).then(r  => { results.push  = r  }).catch(e => { results.push  = { error: e.message } }))
+  if (channels.inapp) tasks.push(sendInApp(recipientIds, title, body || '', url, s).then(r => { results.inapp = r  }).catch(e => { results.inapp = { error: e.message } }))
+  if (channels.email) tasks.push(sendEmail(recipientIds, title, body || '', url, s, templateType).then(r => { results.email = r }).catch(e => { results.email = { error: e.message } }))
 
   await Promise.all(tasks)
   return NextResponse.json({ ok: true, results })
