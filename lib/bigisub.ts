@@ -1,14 +1,23 @@
-import { getSettings } from './settings'
+import { getAdminDb } from './adminDb'
 
 // ── Bigisub API helper ────────────────────────────────────────
 // Base: https://api.bigisub.ng
 // Auth: Authorization: Token <your_token>
+//
+// IMPORTANT: token is stored as is_secret=true in app_settings.
+// We must use the service-role client (adminDb) to read the real
+// unmasked value — the anon client only returns '••••••••'.
 
 export const BIGISUB_BASE = 'https://api.bigisub.ng'
 
 export async function getBigiToken(): Promise<string> {
-  const s = await getSettings()
-  const token = (s.bigisub_api_token || '').trim()
+  const adminDb = getAdminDb()
+  const { data } = await adminDb
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'bigisub_api_token')
+    .maybeSingle()
+  const token = (data?.value || '').trim()
   if (!token) throw new Error('Bigisub API token not configured. Go to Admin → Bigisub Settings.')
   return token
 }
