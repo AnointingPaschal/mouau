@@ -357,16 +357,3 @@ export default function Dashboard() {
     </AppShell>
   )
 }
-      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-        </div>
-      </div>
-    </AppShell>
-  )
-}
