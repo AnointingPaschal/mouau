@@ -6,7 +6,7 @@ import { useAdmin } from '@/components/AdminProvider'
 import {
   Save, Loader2, CheckCircle2, Plus, Trash2, Upload, ChevronLeft,
   Lightbulb, Star, AlertTriangle, Quote, Calendar, Users, MapPin,
-  Clock, Pencil, X
+  Clock, Pencil, X, FileText, Video, Link, File, ExternalLink
 } from 'lucide-react'
 
 const CATEGORIES = ['Tech','Business','Creative','Vocational','Ministry','Academic','General']
@@ -28,7 +28,7 @@ export default function AdminSkillDetailPage() {
   const [nuggets,    setNuggets]    = useState<any[]>([])
   const [classes,    setClasses]    = useState<any[]>([])
   const [apps,       setApps]       = useState<any[]>([])
-  const [tab,        setTab]        = useState<'edit'|'nuggets'|'classes'|'applications'>('edit')
+  const [tab,        setTab]        = useState<'edit'|'nuggets'|'classes'|'resources'|'applications'>('edit')
   const [loading,    setLoading]    = useState(true)
   const [saving,     setSaving]     = useState(false)
   const [toast,      setToast]      = useState('')
@@ -40,6 +40,21 @@ export default function AdminSkillDetailPage() {
   const [addingNugget,  setAddingNugget]  = useState(false)
   const [editNuggetId,  setEditNuggetId]  = useState<string|null>(null)
   const [editNugget,    setEditNugget]    = useState({ content:'', type:'tip' })
+
+  // Resources
+  const [resources,       setResources]       = useState<any[]>([])
+  const RESOURCE_TYPES = [
+    { value:'video',  label:'Video',  icon: Video,    color:'#b91c1c' },
+    { value:'text',   label:'Text',   icon: FileText, color:'#1a6b3a' },
+    { value:'file',   label:'File',   icon: File,     color:'#1e3a8a' },
+    { value:'link',   label:'Link',   icon: Link,     color:'#7c3aed' },
+  ]
+  const emptyResource = { title:'', type:'text', content:'', url:'', description:'', thumbnail_url:'' }
+  const [resForm,       setResForm]       = useState(emptyResource)
+  const [addingRes,     setAddingRes]     = useState(false)
+  const [editResId,     setEditResId]     = useState<string|null>(null)
+  const [editRes,       setEditRes]       = useState(emptyResource)
+  const [savingRes,     setSavingRes]     = useState(false)
 
   // Class forms
   const emptyClass = { title:'', description:'', date:'', location:'', duration_hours:'', max_attendees:'', notify_students:true }
@@ -53,9 +68,13 @@ export default function AdminSkillDetailPage() {
 
   const load = async () => {
     if (!token) return
-    const d = await fetch(`/api/admin/skills/${id}`, { headers: authH }).then(r => r.json())
-    setSkill(d.skill || {}); setNuggets(d.nuggets || [])
-    setClasses(d.classes || []); setApps(d.applications || [])
+    const [skillRes, resRes] = await Promise.all([
+      fetch(`/api/admin/skills/${id}`, { headers: authH }).then(r => r.json()),
+      fetch(`/api/admin/skills/resources?skill_id=${id}`, { headers: authH }).then(r => r.json()),
+    ])
+    setSkill(skillRes.skill || {}); setNuggets(skillRes.nuggets || [])
+    setClasses(skillRes.classes || []); setApps(skillRes.applications || [])
+    setResources(resRes.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [id, token])
@@ -107,6 +126,40 @@ export default function AdminSkillDetailPage() {
   const deleteNugget = async (nid: string) => {
     await fetch('/api/admin/skills/nuggets', { method:'DELETE', headers:{'Content-Type':'application/json',...authH}, body: JSON.stringify({ id: nid }) })
     setNuggets(p => p.filter(n => n.id !== nid))
+    showToast('Deleted')
+  }
+
+  /* ── Resources ── */
+  const addResource = async () => {
+    if (!resForm.title.trim()) return
+    setAddingRes(true)
+    const d = await fetch('/api/admin/skills/resources', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...authH },
+      body: JSON.stringify({ ...resForm, skill_id: id, sort_order: resources.length }),
+    }).then(r => r.json())
+    if (d.data) { setResources(p => [...p, d.data]); setResForm(emptyResource) }
+    setAddingRes(false)
+    showToast(d.data ? 'Resource added!' : d.error || 'Failed')
+  }
+
+  const saveResource = async (rid: string) => {
+    setSavingRes(true)
+    const d = await fetch('/api/admin/skills/resources', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', ...authH },
+      body: JSON.stringify({ id: rid, ...editRes }),
+    }).then(r => r.json())
+    if (d.data) { setResources(p => p.map(r => r.id === rid ? d.data : r)); setEditResId(null) }
+    setSavingRes(false)
+    showToast(d.data ? 'Resource updated!' : 'Failed')
+  }
+
+  const deleteResource = async (rid: string) => {
+    if (!confirm('Delete this resource?')) return
+    await fetch('/api/admin/skills/resources', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json', ...authH },
+      body: JSON.stringify({ id: rid }),
+    })
+    setResources(p => p.filter(r => r.id !== rid))
     showToast('Deleted')
   }
 
@@ -206,6 +259,7 @@ export default function AdminSkillDetailPage() {
                 { id:'edit',         label:'Edit' },
                 { id:'nuggets',      label:`Nuggets (${nuggets.length})` },
                 { id:'classes',      label:`Classes (${classes.length})` },
+                { id:'resources',    label:`Resources (${resources.length})` },
                 { id:'applications', label:`Apps (${pendingCount}/${apps.length})` },
               ].map(t => (
                 <button key={t.id} onClick={() => setTab(t.id as any)}
@@ -482,6 +536,149 @@ export default function AdminSkillDetailPage() {
                             {cls.duration_hours && <p className="text-[11px] text-[#0a0a0a] flex items-center gap-1.5"><Clock className="w-3 h-3 text-[#1a6b3a]"/>{cls.duration_hours}h</p>}
                           </div>
                         </>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* ── RESOURCES TAB ── */}
+            {tab === 'resources' && (
+              <div className="space-y-3">
+                {/* Add form */}
+                <div className="card p-4 space-y-3 border-2 border-dashed border-[#e8e8e8]">
+                  <h3 className="font-bold text-sm text-[#0a0a0a]">Add Lesson Resource</h3>
+
+                  {/* Type selector */}
+                  <div className="flex gap-2">
+                    {RESOURCE_TYPES.map(t => (
+                      <button key={t.value} onClick={() => setResForm(p => ({ ...p, type: t.value }))}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1
+                          ${resForm.type === t.value ? 'text-white' : 'bg-white text-[#aaa] border-[#e8e8e8]'}`}
+                        style={resForm.type === t.value ? { background: t.color, borderColor: t.color } : {}}>
+                        <t.icon className="w-3 h-3" /> {t.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <input value={resForm.title} onChange={e => setResForm(p => ({ ...p, title: e.target.value }))}
+                    placeholder="Resource title *" className="input w-full text-sm font-semibold" />
+                  <textarea value={resForm.description} onChange={e => setResForm(p => ({ ...p, description: e.target.value }))}
+                    rows={2} placeholder="Short description (optional)" className="input w-full text-sm resize-none" />
+
+                  {/* URL — for video, file, link */}
+                  {resForm.type !== 'text' && (
+                    <input value={resForm.url} onChange={e => setResForm(p => ({ ...p, url: e.target.value }))}
+                      placeholder={
+                        resForm.type === 'video' ? 'YouTube / video URL (e.g. https://youtu.be/...)' :
+                        resForm.type === 'file'  ? 'File URL (Google Drive, Supabase, etc.)' :
+                        'Link URL (https://...)'
+                      }
+                      className="input w-full text-sm" />
+                  )}
+
+                  {/* Thumbnail URL — for video */}
+                  {resForm.type === 'video' && (
+                    <input value={resForm.thumbnail_url} onChange={e => setResForm(p => ({ ...p, thumbnail_url: e.target.value }))}
+                      placeholder="Thumbnail image URL (optional)" className="input w-full text-sm" />
+                  )}
+
+                  {/* Rich text body — for text type */}
+                  {resForm.type === 'text' && (
+                    <textarea value={resForm.content} onChange={e => setResForm(p => ({ ...p, content: e.target.value }))}
+                      rows={6} placeholder="Write the lesson content here…" className="input w-full text-sm resize-none" />
+                  )}
+
+                  <button onClick={addResource} disabled={addingRes || !resForm.title.trim()}
+                    className="w-full py-2 text-sm font-bold text-white bg-[#1a6b3a] rounded-xl disabled:opacity-50 flex items-center justify-center gap-1.5">
+                    {addingRes ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Add Resource
+                  </button>
+                </div>
+
+                {resources.length === 0 ? (
+                  <div className="text-center py-8 text-[#aaa] text-sm">No resources yet. Add your first one above.</div>
+                ) : resources.map(res => {
+                  const rt   = RESOURCE_TYPES.find(x => x.value === res.type) || RESOURCE_TYPES[1]
+                  const Icon = rt.icon
+                  const isEditing = editResId === res.id
+                  return (
+                    <div key={res.id} className="card p-3.5">
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-xs font-bold text-[#0a0a0a]">Edit Resource</p>
+                            <button onClick={() => setEditResId(null)}><X className="w-4 h-4 text-[#aaa]" /></button>
+                          </div>
+                          {/* Type selector */}
+                          <div className="flex gap-2">
+                            {RESOURCE_TYPES.map(t => (
+                              <button key={t.value} onClick={() => setEditRes(p => ({ ...p, type: t.value }))}
+                                className={`flex-1 py-1 rounded-lg text-[9px] font-bold border transition-all flex items-center justify-center gap-0.5
+                                  ${editRes.type === t.value ? 'text-white' : 'bg-white text-[#aaa] border-[#e8e8e8]'}`}
+                                style={editRes.type === t.value ? { background: t.color, borderColor: t.color } : {}}>
+                                <t.icon className="w-2.5 h-2.5" /> {t.label}
+                              </button>
+                            ))}
+                          </div>
+                          <input value={editRes.title} onChange={e => setEditRes(p => ({ ...p, title: e.target.value }))}
+                            placeholder="Title *" className="input w-full text-sm" />
+                          <textarea value={editRes.description} onChange={e => setEditRes(p => ({ ...p, description: e.target.value }))}
+                            rows={2} placeholder="Description" className="input w-full text-sm resize-none" />
+                          {editRes.type !== 'text' && (
+                            <input value={editRes.url} onChange={e => setEditRes(p => ({ ...p, url: e.target.value }))}
+                              placeholder="URL" className="input w-full text-sm" />
+                          )}
+                          {editRes.type === 'video' && (
+                            <input value={editRes.thumbnail_url} onChange={e => setEditRes(p => ({ ...p, thumbnail_url: e.target.value }))}
+                              placeholder="Thumbnail URL (optional)" className="input w-full text-sm" />
+                          )}
+                          {editRes.type === 'text' && (
+                            <textarea value={editRes.content} onChange={e => setEditRes(p => ({ ...p, content: e.target.value }))}
+                              rows={5} placeholder="Lesson content…" className="input w-full text-sm resize-none" />
+                          )}
+                          <div className="flex gap-2">
+                            <button onClick={() => setEditResId(null)} className="flex-1 py-1.5 text-xs font-semibold text-[#aaa] border border-[#e8e8e8] rounded-xl">Cancel</button>
+                            <button onClick={() => saveResource(res.id)} disabled={savingRes}
+                              className="flex-1 py-1.5 text-xs font-bold text-white bg-[#1a6b3a] rounded-xl disabled:opacity-50 flex items-center justify-center gap-1">
+                              {savingRes ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${rt.color}15` }}>
+                            <Icon className="w-4 h-4" style={{ color: rt.color }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: rt.color }}>{rt.label}</span>
+                            </div>
+                            <p className="text-sm font-semibold text-[#0a0a0a] leading-snug">{res.title}</p>
+                            {res.description && <p className="text-[11px] text-[#6b6b6b] mt-0.5 leading-snug">{res.description}</p>}
+                            {res.url && (
+                              <a href={res.url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] text-[#1e3a8a] underline mt-1">
+                                <ExternalLink className="w-2.5 h-2.5" /> Open {rt.label}
+                              </a>
+                            )}
+                            {res.type === 'text' && res.content && (
+                              <p className="text-[10px] text-[#aaa] mt-1 line-clamp-2">{res.content}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1.5 flex-shrink-0">
+                            <button onClick={() => {
+                              setEditResId(res.id)
+                              setEditRes({ title: res.title || '', type: res.type || 'text', content: res.content || '', url: res.url || '', description: res.description || '', thumbnail_url: res.thumbnail_url || '' })
+                            }} className="w-7 h-7 rounded-lg bg-[#f0f0f0] flex items-center justify-center hover:bg-[#e8e8e8] transition-colors">
+                              <Pencil className="w-3 h-3 text-[#6b6b6b]" />
+                            </button>
+                            <button onClick={() => deleteResource(res.id)}
+                              className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors">
+                              <Trash2 className="w-3 h-3 text-red-400" />
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )

@@ -6,7 +6,8 @@ import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
 import {
   Zap, Clock, User, MapPin, Calendar, CheckCircle2, Loader2,
-  Lightbulb, AlertTriangle, Quote, Star, ChevronLeft, ArrowRight
+  Lightbulb, AlertTriangle, Quote, Star, ChevronLeft, ArrowRight,
+  FileText, Video, File, Link, ExternalLink, BookOpen
 } from 'lucide-react'
 
 type Skill = {
@@ -16,6 +17,7 @@ type Skill = {
 }
 type Nugget  = { id:string; content:string; type:'tip'|'fact'|'warning'|'quote'; sort_order:number }
 type SkillClass = { id:string; title:string; description:string; date:string; location:string; duration_hours:number; max_attendees:number }
+type SkillResource = { id:string; title:string; type:'video'|'text'|'file'|'link'; content:string; url:string; thumbnail_url:string; description:string; sort_order:number }
 
 const NUGGET_STYLE: Record<string,{ icon: any; bg:string; border:string; text:string; label:string }> = {
   tip:     { icon: Lightbulb,     bg:'#f0f9f4', border:'#1a6b3a30', text:'#1a6b3a', label:'Tip'     },
@@ -30,11 +32,12 @@ export default function SkillDetailPage() {
   const router  = useRouter()
   const { student } = useAuth()
 
-  const [skill,    setSkill]    = useState<Skill | null>(null)
-  const [nuggets,  setNuggets]  = useState<Nugget[]>([])
-  const [classes,  setClasses]  = useState<SkillClass[]>([])
-  const [applied,  setApplied]  = useState<string | null>(null) // status
-  const [tab,      setTab]      = useState<'overview'|'nuggets'|'classes'|'apply'>('overview')
+  const [skill,     setSkill]     = useState<Skill | null>(null)
+  const [nuggets,   setNuggets]   = useState<Nugget[]>([])
+  const [classes,   setClasses]   = useState<SkillClass[]>([])
+  const [resources, setResources] = useState<SkillResource[]>([])
+  const [applied,   setApplied]   = useState<string | null>(null) // status
+  const [tab,       setTab]       = useState<'overview'|'nuggets'|'classes'|'resources'|'apply'>('overview')
   const [loading,  setLoading]  = useState(true)
   const [applying, setApplying] = useState(false)
   const [form,     setForm]     = useState({ phone:'', motivation:'' })
@@ -45,6 +48,7 @@ export default function SkillDetailPage() {
   useEffect(() => {
     fetch(`/api/skills/${id}`).then(r => r.json()).then(d => {
       setSkill(d.skill); setNuggets(d.nuggets || []); setClasses(d.classes || [])
+      setResources(d.resources || [])
       setLoading(false)
     })
   }, [id])
@@ -134,10 +138,11 @@ export default function SkillDetailPage() {
       {/* Tabs */}
       <div className="flex border-b border-[#e8e8e8] bg-white overflow-x-auto">
         {([
-          { id:'overview', label:'Overview' },
-          { id:'nuggets',  label:`Nuggets ${nuggets.length ? `(${nuggets.length})` : ''}` },
-          { id:'classes',  label:`Classes ${classes.length ? `(${classes.length})` : ''}` },
-          { id:'apply',    label: applied ? 'Status' : 'Apply' },
+          { id:'overview',   label:'Overview' },
+          { id:'nuggets',    label:`Nuggets ${nuggets.length ? `(${nuggets.length})` : ''}` },
+          { id:'classes',    label:`Classes ${classes.length ? `(${classes.length})` : ''}` },
+          { id:'resources',  label:`Resources ${resources.length ? `(${resources.length})` : ''}` },
+          { id:'apply',      label: applied ? 'Status' : 'Apply' },
         ] as const).map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex-shrink-0 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors
@@ -266,6 +271,81 @@ export default function SkillDetailPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Resources ── */}
+        {tab === 'resources' && (
+          <>
+            <div className="text-center py-3">
+              <p className="text-xs font-bold text-[#0a0a0a] mb-1">Lesson Resources</p>
+              <p className="text-[11px] text-[#aaa]">Videos, notes, files and links for this skill</p>
+            </div>
+            {resources.length === 0 ? (
+              <div className="text-center py-10">
+                <BookOpen className="w-8 h-8 text-[#ddd] mx-auto mb-2"/>
+                <p className="text-[#aaa] text-sm">No resources yet</p>
+                <p className="text-[11px] text-[#ccc] mt-1">Materials will be added as the course progresses</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {resources.map(res => {
+                  const typeMap: Record<string, { icon: any; color: string; label: string }> = {
+                    video: { icon: Video,    color: '#b91c1c', label: 'Video'    },
+                    text:  { icon: FileText, color: '#1a6b3a', label: 'Lesson'   },
+                    file:  { icon: File,     color: '#1e3a8a', label: 'File'     },
+                    link:  { icon: Link,     color: '#7c3aed', label: 'Link'     },
+                  }
+                  const meta = typeMap[res.type] || typeMap.text
+                  const Icon = meta.icon
+                  return (
+                    <div key={res.id} className="card overflow-hidden">
+                      {/* Video thumbnail */}
+                      {res.type === 'video' && res.thumbnail_url && (
+                        <div className="relative h-36 bg-[#0a0a0a] overflow-hidden">
+                          <img src={res.thumbnail_url} alt={res.title} className="w-full h-full object-cover opacity-80"/>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-12 h-12 bg-[#b91c1c]/90 rounded-full flex items-center justify-center shadow-lg">
+                              <Video className="w-5 h-5 text-white ml-0.5"/>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: `${meta.color}15` }}>
+                            <Icon className="w-4 h-4" style={{ color: meta.color }}/>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
+                            </div>
+                            <p className="text-sm font-bold text-[#0a0a0a] leading-snug">{res.title}</p>
+                            {res.description && (
+                              <p className="text-[11px] text-[#6b6b6b] mt-1 leading-relaxed">{res.description}</p>
+                            )}
+                            {/* Text content */}
+                            {res.type === 'text' && res.content && (
+                              <p className="text-xs text-[#444] mt-2 leading-relaxed whitespace-pre-line">{res.content}</p>
+                            )}
+                            {/* URL CTA */}
+                            {res.url && (
+                              <a href={res.url} target="_blank" rel="noopener noreferrer"
+                                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+                                style={{ background: meta.color }}>
+                                <ExternalLink className="w-3 h-3"/>
+                                {res.type === 'video' ? 'Watch Video' : res.type === 'file' ? 'Download File' : 'Open Link'}
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </>
