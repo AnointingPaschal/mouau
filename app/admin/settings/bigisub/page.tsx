@@ -9,6 +9,14 @@ const BIGI_KEYS = [
     label:     'API Token',
     desc:      'Your Bigisub API token. Get it from bigisub.ng → Account → API Settings.',
     is_secret: true,
+    placeholder: 'Enter your Bigisub API token',
+  },
+  {
+    key:       'bigisub_pin',
+    label:     'Transaction PIN',
+    desc:      'Your 4-digit Bigisub transaction PIN. Set in bigisub.ng → Profile → Security.',
+    is_secret: true,
+    placeholder: '4-digit PIN e.g. 1234',
   },
 ]
 
@@ -22,7 +30,7 @@ export default function BigisubSettingsPage() {
   const [toast,     setToast]     = useState('')
   const [toastType, setToastType] = useState<'ok'|'err'>('ok')
   const [revealing, setRevealing] = useState<string|null>(null)
-  const [showKey,   setShowKey]   = useState(false)
+  const [showKeys,  setShowKeys]  = useState<Record<string,boolean>>({})
   const [balance,   setBalance]   = useState<string|null>(null)
 
   const showToast = (m:string, type:'ok'|'err'='ok') => {
@@ -74,11 +82,16 @@ export default function BigisubSettingsPage() {
     try {
       const r = await fetch('/api/admin/bigisub/balance')
       const d = await r.json()
-      if (d.error) showToast(`❌ ${d.error}`, 'err')
-      else {
-        const bal = d.balance?.balance ?? d.balance?.Balance ?? d.balance?.wallet_balance ?? JSON.stringify(d.balance)
-        setBalance(String(bal))
-        showToast(`✅ Connected! Bigisub balance: ₦${bal}`)
+      if (d.error) {
+        showToast(`❌ ${d.error}`, 'err')
+      } else {
+        // Handle various response shapes from Bigisub wallet endpoint
+        const raw = d.balance
+        const bal = typeof raw === 'object'
+          ? (raw?.balance ?? raw?.Balance ?? raw?.wallet_balance ?? raw?.data?.balance ?? JSON.stringify(raw))
+          : String(raw ?? '—')
+        setBalance(bal)
+        showToast(`✅ Connected! Balance: ₦${bal}`)
       }
     } catch (e: any) {
       showToast(`❌ ${e.message}`, 'err')
@@ -87,6 +100,7 @@ export default function BigisubSettingsPage() {
   }
 
   const tokenSet = settings['bigisub_api_token']?.has_value
+  const pinSet   = settings['bigisub_pin']?.has_value
 
   return (
     <AdminShell>
@@ -119,20 +133,29 @@ export default function BigisubSettingsPage() {
 
         {/* Status banner */}
         {!loading && (
-          <div className={`rounded-2xl p-4 flex items-center gap-3 border ${tokenSet ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${tokenSet ? 'bg-green-500' : 'bg-amber-400'}`}/>
-            <div className="flex-1">
-              <p className={`text-xs font-bold ${tokenSet ? 'text-green-800' : 'text-amber-800'}`}>
-                {tokenSet ? 'API Token configured' : 'API Token not set yet'}
-              </p>
-              {balance && <p className="text-xs text-green-700 mt-0.5">Bigisub Balance: <span className="font-black">₦{balance}</span></p>}
+          <div className={`rounded-2xl p-4 border ${tokenSet && pinSet ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${tokenSet && pinSet ? 'bg-green-500 animate-pulse' : 'bg-amber-400'}`}/>
+              <div className="flex-1">
+                <p className={`text-xs font-bold ${tokenSet && pinSet ? 'text-green-800' : 'text-amber-800'}`}>
+                  {tokenSet && pinSet ? 'API Token & PIN configured' : !tokenSet ? 'API Token not set' : 'Transaction PIN not set'}
+                </p>
+              </div>
+              {tokenSet && pinSet && (
+                <button onClick={testConnection} disabled={testing}
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-[#1a6b3a] bg-[#1a6b3a]/10 px-3 py-1.5 rounded-full hover:bg-[#1a6b3a]/20 transition-colors disabled:opacity-50">
+                  <Zap className="w-3 h-3"/>
+                  {testing ? <><Loader2 className="w-3 h-3 animate-spin"/> Testing...</> : 'Test API'}
+                </button>
+              )}
             </div>
-            {tokenSet && (
-              <button onClick={testConnection} disabled={testing}
-                className="flex items-center gap-1.5 text-[11px] font-bold text-[#1a6b3a] bg-[#1a6b3a]/10 px-3 py-1.5 rounded-full hover:bg-[#1a6b3a]/20 transition-colors">
-                <Zap className="w-3 h-3"/>
-                {testing ? 'Testing...' : 'Test API'}
-              </button>
+            {/* Balance display */}
+            {balance && (
+              <div className="mt-3 pt-3 border-t border-green-200">
+                <p className="text-[10px] text-green-700 uppercase tracking-widest font-bold mb-0.5">Bigisub Wallet Balance</p>
+                <p className="text-2xl font-black text-[#1a6b3a]">₦{parseFloat(balance).toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-green-600 mt-0.5">Live from bigisub.ng</p>
+              </div>
             )}
           </div>
         )}
@@ -149,29 +172,29 @@ export default function BigisubSettingsPage() {
 
           {loading ? (
             <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-[#1a6b3a] animate-spin"/></div>
-          ) : BIGI_KEYS.map(({ key, label, desc }) => (
+          ) : BIGI_KEYS.map(({ key, label, desc, placeholder }) => (
             <div key={key}>
               <label className="text-xs font-bold text-[#333] mb-1 block">{label}</label>
               <p className="text-[10px] text-[#aaa] mb-2">{desc}</p>
               <div className="relative">
                 <input
-                  type={showKey ? 'text' : 'password'}
+                  type={showKeys[key] ? 'text' : 'password'}
                   value={getValue(key)}
                   onChange={e => setEdits(p => ({...p,[key]: e.target.value}))}
                   onFocus={() => { if (settings[key]?.has_value && !revealed[key] && !edits[key]) reveal(key) }}
-                  placeholder="Enter your Bigisub API token"
+                  placeholder={placeholder}
                   className="input pr-10 text-sm font-mono w-full"
                 />
                 <button
                   type="button"
                   onClick={() => {
                     if (settings[key]?.has_value && !revealed[key] && !edits[key]) reveal(key)
-                    else setShowKey(p => !p)
+                    else setShowKeys(p => ({...p, [key]: !p[key]}))
                   }}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#aaa] hover:text-[#555]">
                   {revealing === key
                     ? <Loader2 className="w-4 h-4 animate-spin"/>
-                    : showKey ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                    : showKeys[key] ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                 </button>
               </div>
               {edits[key] !== undefined && (

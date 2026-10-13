@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
-import { bigi, bigiRef } from '@/lib/bigisub'
+import { bigi, bigiRef, getBigiPin, BIGI_ENDPOINTS } from '@/lib/bigisub'
 import { logApiError } from '@/lib/logError'
-
-// category → Bigisub endpoint mapping
-// cable: /api/cabletv/   { cablename, smart_card_number, type }
-// electricity: /api/electricity/  { disco_name, meter_number, amount, meter_type, phone }
-// betting: /api/betting/  { betting_name, customer_id, amount }
-// education: /api/education/  { exam_name, quantity }
-// isp: /api/internetservice/  { ServiceID, plan, phone }
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,11 +20,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
 
     const reference = bigiRef('BILL')
+    const pin = await getBigiPin()
 
-    // Only deduct if there's an amount (education uses quantity * unit price, handled server-side by Bigisub)
     if (amt > 0) {
       await adminDb.from('wallets').update({
-        balance:    parseFloat(wallet.balance) - amt,
+        balance: parseFloat(wallet.balance) - amt,
         updated_at: new Date().toISOString(),
       }).eq('student_id', sid)
     }
@@ -42,58 +35,63 @@ export async function POST(req: NextRequest) {
 
     try {
       if (category === 'cable') {
-        // POST /api/cabletv/ { cablename, smart_card_number, type }
-        result = await bigi.post('/api/cabletv/', {
-          cablename:          billerCode,      // e.g. 1=DSTV, 2=GOTV, 3=STARTIMES
-          smart_card_number:  customer,
-          type:               planCode,        // bouquet/plan id
+        // POST /api/v2/vtu/cabletv/purchase/
+        result = await bigi.post(BIGI_ENDPOINTS.cablePurchase, {
+          cablename:         billerCode,   // 1=DSTV, 2=GOTV, 3=STARTIMES
+          smart_card_number: customer,
+          type:              planCode,     // bouquet plan id
+          pin,
         })
       } else if (category === 'electricity') {
-        // POST /api/electricity/ { disco_name, meter_number, amount, meter_type, phone }
-        result = await bigi.post('/api/electricity/', {
-          disco_name:    billerCode,       // e.g. 1=IKEDC, 2=AEDC...
-          meter_number:  customer,
-          amount:        amt,
-          meter_type:    meterType || 'prepaid',
-          phone:         phone || customer,
+        // POST /api/v2/vtu/electricity/purchase/
+        result = await bigi.post(BIGI_ENDPOINTS.electricityBuy, {
+          disco_name:   billerCode,
+          meter_number: customer,
+          amount:       amt,
+          meter_type:   meterType || 'prepaid',
+          phone:        phone || customer,
+          pin,
         })
       } else if (category === 'betting') {
-        // POST /api/betting/ { betting_name, customer_id, amount }
-        result = await bigi.post('/api/betting/', {
-          betting_name: billerCode,       // e.g. 1=Bet9ja
+        // POST /api/v2/vtu/betting/fund/
+        result = await bigi.post(BIGI_ENDPOINTS.bettingFund, {
+          betting_name: billerCode,
           customer_id:  customer,
           amount:       amt,
+          pin,
         })
       } else if (category === 'education') {
-        // POST /api/education/ { exam_name, quantity }
-        // Price is per-pin, deduct based on unit price * quantity
-        result = await bigi.post('/api/education/', {
-          exam_name: billerCode,           // e.g. 1=WAEC, 2=NECO
+        // POST /api/v2/vtu/education/purchase/
+        result = await bigi.post(BIGI_ENDPOINTS.educationBuy, {
+          exam_name: billerCode,
           quantity:  quantity || 1,
+          pin,
         })
-        finalAmt = amt   // passed from frontend after confirming unit price
+        finalAmt = amt
       } else if (category === 'isp') {
-        // POST /api/internetservice/ { ServiceID, plan, phone }
-        result = await bigi.post('/api/internetservice/', {
+        // POST /api/v2/vtu/isp/purchase/
+        result = await bigi.post(BIGI_ENDPOINTS.ispBuy, {
           ServiceID: billerCode,
           plan:      planCode,
           phone:     customer,
+          pin,
         })
       } else {
         return NextResponse.json({ error: `Unknown bill category: ${category}` }, { status: 400 })
       }
 
-      const s = (result?.Status || result?.status || '').toLowerCase()
-      status = s.includes('success') || s.includes('successful') ? 'success' : 'failed'
+      const ok = result?.success === true
+        || (result?.data?.status || '').toLowerCase().includes('success')
+        || (result?.status || '').toLowerCase().includes('success')
+      status = ok ? 'success' : 'failed'
     } catch (err: any) {
       result = { error: err.message }
       status = 'failed'
     }
 
-    // Refund on failure
     if (status === 'failed' && finalAmt > 0) {
       await adminDb.from('wallets').update({
-        balance:    parseFloat(wallet.balance),
+        balance: parseFloat(wallet.balance),
         updated_at: new Date().toISOString(),
       }).eq('student_id', sid)
     }
@@ -105,7 +103,7 @@ export async function POST(req: NextRequest) {
       amount:            finalAmt,
       fee:               0,
       reference,
-      flw_ref:           result?.id?.toString() || result?.transaction_id?.toString() || null,
+      flw_ref:           result?.data?.transaction_id || result?.data?.reference || null,
       status,
       narration:         narration || `${category} – ${customer}`,
       recipient_account: customer,
@@ -113,13 +111,14 @@ export async function POST(req: NextRequest) {
     })
 
     if (status === 'failed') {
-      const msg = result?.error || result?.message || result?.errors || `${category} payment failed. Balance refunded.`
-      return NextResponse.json({ error: typeof msg === 'string' ? msg : JSON.stringify(msg) }, { status: 400 })
+      const msg = result?.error || result?.message
+        || (result?.errors ? JSON.stringify(result.errors) : null)
+        || `${category} payment failed. Balance refunded.`
+      return NextResponse.json({ error: msg }, { status: 400 })
     }
 
-    // For education, return the pins if available
-    if (category === 'education' && result?.pins) {
-      return NextResponse.json({ ok: true, message: `${category} payment successful`, pins: result.pins })
+    if (category === 'education' && result?.data?.pins) {
+      return NextResponse.json({ ok: true, message: 'Education pin purchased successfully', pins: result.data.pins })
     }
 
     return NextResponse.json({ ok: true, message: `${category} payment successful` })

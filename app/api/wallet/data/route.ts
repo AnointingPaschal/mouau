@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
-import { bigi, bigiRef, NETWORK_IDS } from '@/lib/bigisub'
+import { bigi, bigiRef, getBigiPin, NETWORK_IDS, BIGI_ENDPOINTS } from '@/lib/bigisub'
 import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
@@ -12,47 +12,46 @@ export async function POST(req: NextRequest) {
     const adminDb = getAdminDb()
     const sid = studentId.toLowerCase().trim()
     const networkId = NETWORK_IDS[network.toUpperCase()] ?? NETWORK_IDS['MTN']
+    const amt = parseFloat(amount || '0')
 
-    // Fetch plan price from Bigisub (plan has its own price)
     const { data: wallet } = await adminDb
       .from('wallets').select('balance').eq('student_id', sid).maybeSingle()
     if (!wallet) return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
-
-    // amount is passed from frontend (plan.price)
-    const amt = parseFloat(amount)
-    if (parseFloat(wallet.balance) < amt)
+    if (amt > 0 && parseFloat(wallet.balance) < amt)
       return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
 
     const reference = bigiRef('DAT')
+    const pin = await getBigiPin()
 
-    // Deduct balance first
-    await adminDb.from('wallets').update({
-      balance:    parseFloat(wallet.balance) - amt,
-      updated_at: new Date().toISOString(),
-    }).eq('student_id', sid)
+    if (amt > 0) {
+      await adminDb.from('wallets').update({
+        balance: parseFloat(wallet.balance) - amt,
+        updated_at: new Date().toISOString(),
+      }).eq('student_id', sid)
+    }
 
-    // Bigisub data purchase
-    // POST /api/data/ { network, mobile_number, plan, Ported_number }
+    // POST /api/v2/vtu/data/purchase/
     let result: any
     let status: 'success' | 'failed' = 'failed'
     try {
-      result = await bigi.post('/api/data/', {
-        network:       networkId,
-        mobile_number: phone,
-        plan:          planId,          // plan id from /api/databundles/
-        Ported_number: true,
+      result = await bigi.post(BIGI_ENDPOINTS.dataPurchase, {
+        network:      networkId,
+        phone_number: phone,
+        plan:         planId,   // plan id from /api/v2/vtu/data/plans/
+        pin,
       })
-      const s = (result?.Status || result?.status || '').toLowerCase()
-      status = s.includes('success') || s.includes('successful') ? 'success' : 'failed'
+      const ok = result?.success === true
+        || (result?.data?.status || '').toLowerCase().includes('success')
+        || (result?.status || '').toLowerCase().includes('success')
+      status = ok ? 'success' : 'failed'
     } catch (err: any) {
       result = { error: err.message }
       status = 'failed'
     }
 
-    // Refund on failure
-    if (status === 'failed') {
+    if (status === 'failed' && amt > 0) {
       await adminDb.from('wallets').update({
-        balance:    parseFloat(wallet.balance),
+        balance: parseFloat(wallet.balance),
         updated_at: new Date().toISOString(),
       }).eq('student_id', sid)
     }
@@ -64,7 +63,7 @@ export async function POST(req: NextRequest) {
       amount:       amt,
       fee:          0,
       reference,
-      flw_ref:      result?.id?.toString() || result?.transaction_id?.toString() || null,
+      flw_ref:      result?.data?.transaction_id || result?.data?.reference || null,
       status,
       narration:    `${network} Data – ${planName || phone}`,
       phone_number: phone,
@@ -73,8 +72,10 @@ export async function POST(req: NextRequest) {
     })
 
     if (status === 'failed') {
-      const msg = result?.error || result?.message || result?.errors || 'Data purchase failed. Balance refunded.'
-      return NextResponse.json({ error: typeof msg === 'string' ? msg : JSON.stringify(msg) }, { status: 400 })
+      const msg = result?.error || result?.message
+        || (result?.errors ? JSON.stringify(result.errors) : null)
+        || 'Data purchase failed. Balance refunded.'
+      return NextResponse.json({ error: msg }, { status: 400 })
     }
 
     return NextResponse.json({ ok: true, message: `${planName || network + ' data'} sent to ${phone}` })

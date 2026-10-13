@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
-import { bigi, bigiRef, NETWORK_IDS } from '@/lib/bigisub'
+import { bigi, bigiRef, getBigiPin, NETWORK_IDS, BIGI_ENDPOINTS } from '@/lib/bigisub'
 import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
     const amt = parseFloat(amount)
     const networkId = NETWORK_IDS[network.toUpperCase()] ?? NETWORK_IDS['MTN']
 
-    // Check wallet balance
     const { data: wallet } = await adminDb
       .from('wallets').select('balance').eq('student_id', sid).maybeSingle()
     if (!wallet) return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
@@ -22,28 +21,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
 
     const reference = bigiRef('AIR')
+    const pin = await getBigiPin()
 
-    // Deduct balance first
+    // Deduct first
     await adminDb.from('wallets').update({
-      balance:    parseFloat(wallet.balance) - amt,
+      balance: parseFloat(wallet.balance) - amt,
       updated_at: new Date().toISOString(),
     }).eq('student_id', sid)
 
-    // Bigisub airtime purchase
-    // POST /api/airtime/ { network, mobile_number, amount, Ported_number, airtime_type }
+    // POST /api/v2/vtu/airtime/purchase/
     let result: any
     let status: 'success' | 'failed' = 'failed'
     try {
-      result = await bigi.post('/api/airtime/', {
-        network:       networkId,
-        mobile_number: phone,
-        amount:        amt,
-        Ported_number: true,
-        airtime_type:  'VTU',
+      result = await bigi.post(BIGI_ENDPOINTS.airtime, {
+        network:      networkId,
+        phone_number: phone,
+        amount:       String(amt),
+        airtime_type: 'vtu',
+        pin,
       })
-      // Bigisub returns { Status: "successful" } or similar
-      const s = (result?.Status || result?.status || '').toLowerCase()
-      status = s.includes('success') || s.includes('successful') ? 'success' : 'failed'
+      // { success: true, data: { status: "successful", ... }, message: "..." }
+      const ok = result?.success === true
+        || (result?.data?.status || '').toLowerCase().includes('success')
+        || (result?.status || '').toLowerCase().includes('success')
+      status = ok ? 'success' : 'failed'
     } catch (err: any) {
       result = { error: err.message }
       status = 'failed'
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     // Refund on failure
     if (status === 'failed') {
       await adminDb.from('wallets').update({
-        balance:    parseFloat(wallet.balance),
+        balance: parseFloat(wallet.balance),
         updated_at: new Date().toISOString(),
       }).eq('student_id', sid)
     }
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
       amount:       amt,
       fee:          0,
       reference,
-      flw_ref:      result?.id?.toString() || result?.transaction_id?.toString() || null,
+      flw_ref:      result?.data?.transaction_id || result?.data?.reference || null,
       status,
       narration:    `${network} Airtime – ${phone}`,
       phone_number: phone,
@@ -72,8 +73,10 @@ export async function POST(req: NextRequest) {
     })
 
     if (status === 'failed') {
-      const msg = result?.error || result?.message || result?.errors || 'Airtime purchase failed. Balance refunded.'
-      return NextResponse.json({ error: typeof msg === 'string' ? msg : JSON.stringify(msg) }, { status: 400 })
+      const msg = result?.error || result?.message
+        || (result?.errors ? JSON.stringify(result.errors) : null)
+        || 'Airtime purchase failed. Balance refunded.'
+      return NextResponse.json({ error: msg }, { status: 400 })
     }
 
     return NextResponse.json({ ok: true, message: `₦${amt} ${network} airtime sent to ${phone}` })

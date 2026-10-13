@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { bigi } from '@/lib/bigisub'
+import { bigi, BIGI_ENDPOINTS } from '@/lib/bigisub'
 
-// GET /api/admin/bigisub/balance — check Bigisub wallet balance
+// GET /api/admin/bigisub/balance — returns Bigisub wallet balance
 export async function GET() {
   try {
-    const data = await bigi.get('/api/wallet/')
-    return NextResponse.json({ balance: data })
+    // GET /api/v2/user/wallet/
+    const data = await bigi.get(BIGI_ENDPOINTS.wallet)
+    // Response shape: { balance: "20.00", ... } or { data: { balance: "20.00" } }
+    const balance = data?.balance ?? data?.data?.balance ?? data?.wallet_balance ?? data
+    return NextResponse.json({ balance })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
