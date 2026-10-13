@@ -5,18 +5,11 @@ import { Save, Loader2, CheckCircle2, Eye, EyeOff, ExternalLink, Zap, AlertCircl
 
 const BIGI_KEYS = [
   {
-    key:       'bigisub_api_token',
-    label:     'API Token',
-    desc:      'Your Bigisub API token. Get it from bigisub.ng → Account → API Settings.',
-    is_secret: true,
-    placeholder: 'Enter your Bigisub API token',
-  },
-  {
-    key:       'bigisub_pin',
-    label:     'Transaction PIN',
-    desc:      'Your 4-digit Bigisub transaction PIN. Set in bigisub.ng → Profile → Security.',
-    is_secret: true,
-    placeholder: '4-digit PIN e.g. 1234',
+    key:         'bigisub_api_token',
+    label:       'API Token',
+    desc:        'Your permanent Bigisub API token. Get it from bigisub.ng → Account → API Settings (Settings > API Doc in-app).',
+    is_secret:   true,
+    placeholder: 'Paste your Bigisub API token here',
   },
 ]
 
@@ -77,21 +70,24 @@ export default function BigisubSettingsPage() {
     else showToast('Save failed', 'err')
   }
 
+  const [balanceData, setBalanceData] = useState<any>(null)
+
   const testConnection = async () => {
-    setTesting(true); setBalance(null)
+    setTesting(true); setBalance(null); setBalanceData(null)
     try {
       const r = await fetch('/api/admin/bigisub/balance')
       const d = await r.json()
       if (d.error) {
         showToast(`❌ ${d.error}`, 'err')
       } else {
-        // Handle various response shapes from Bigisub wallet endpoint
+        // d.balance is the full data object from Bigisub:
+        // { id, username, email, full_name, balance, pending_amount, referal_balance,
+        //   user_type, reserved_account_number, bank_name, account_name }
         const raw = d.balance
-        const bal = typeof raw === 'object'
-          ? (raw?.balance ?? raw?.Balance ?? raw?.wallet_balance ?? raw?.data?.balance ?? JSON.stringify(raw))
-          : String(raw ?? '—')
-        setBalance(bal)
-        showToast(`✅ Connected! Balance: ₦${bal}`)
+        const bal = raw?.balance ?? raw?.Balance ?? raw?.wallet_balance ?? '—'
+        setBalance(String(bal))
+        setBalanceData(raw)
+        showToast(`✅ Connected! Bigisub balance: ₦${Number(bal).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`)
       }
     } catch (e: any) {
       showToast(`❌ ${e.message}`, 'err')
@@ -100,7 +96,6 @@ export default function BigisubSettingsPage() {
   }
 
   const tokenSet = settings['bigisub_api_token']?.has_value
-  const pinSet   = settings['bigisub_pin']?.has_value
 
   return (
     <AdminShell>
@@ -133,15 +128,18 @@ export default function BigisubSettingsPage() {
 
         {/* Status banner */}
         {!loading && (
-          <div className={`rounded-2xl p-4 border ${tokenSet && pinSet ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+          <div className={`rounded-2xl p-4 border ${tokenSet ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
             <div className="flex items-center gap-3">
-              <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${tokenSet && pinSet ? 'bg-green-500 animate-pulse' : 'bg-amber-400'}`}/>
+              <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${tokenSet ? 'bg-green-500 animate-pulse' : 'bg-amber-400'}`}/>
               <div className="flex-1">
-                <p className={`text-xs font-bold ${tokenSet && pinSet ? 'text-green-800' : 'text-amber-800'}`}>
-                  {tokenSet && pinSet ? 'API Token & PIN configured' : !tokenSet ? 'API Token not set' : 'Transaction PIN not set'}
+                <p className={`text-xs font-bold ${tokenSet ? 'text-green-800' : 'text-amber-800'}`}>
+                  {tokenSet ? 'API Token configured' : 'API Token not set yet'}
                 </p>
+                {balanceData?.username && (
+                  <p className="text-[10px] text-green-700 mt-0.5">Logged in as <span className="font-bold">{balanceData.full_name || balanceData.username}</span> · {balanceData.user_type}</p>
+                )}
               </div>
-              {tokenSet && pinSet && (
+              {tokenSet && (
                 <button onClick={testConnection} disabled={testing}
                   className="flex items-center gap-1.5 text-[11px] font-bold text-[#1a6b3a] bg-[#1a6b3a]/10 px-3 py-1.5 rounded-full hover:bg-[#1a6b3a]/20 transition-colors disabled:opacity-50">
                   <Zap className="w-3 h-3"/>
@@ -149,12 +147,23 @@ export default function BigisubSettingsPage() {
                 </button>
               )}
             </div>
-            {/* Balance display */}
+            {/* Rich balance display */}
             {balance && (
-              <div className="mt-3 pt-3 border-t border-green-200">
-                <p className="text-[10px] text-green-700 uppercase tracking-widest font-bold mb-0.5">Bigisub Wallet Balance</p>
-                <p className="text-2xl font-black text-[#1a6b3a]">₦{parseFloat(balance).toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
-                <p className="text-[10px] text-green-600 mt-0.5">Live from bigisub.ng</p>
+              <div className="mt-3 pt-3 border-t border-green-200 space-y-2">
+                <div>
+                  <p className="text-[10px] text-green-700 uppercase tracking-widest font-bold mb-0.5">Bigisub Wallet Balance</p>
+                  <p className="text-3xl font-black text-[#1a6b3a]">₦{parseFloat(balance).toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
+                  {balanceData?.pending_amount > 0 && (
+                    <p className="text-[10px] text-amber-600 mt-0.5">₦{balanceData.pending_amount} pending</p>
+                  )}
+                </div>
+                {balanceData?.reserved_account_number && (
+                  <div className="bg-white/60 rounded-xl p-3">
+                    <p className="text-[10px] text-[#aaa] mb-1 uppercase tracking-widest font-bold">Reserved Funding Account</p>
+                    <p className="text-sm font-bold text-[#1a1a1a]">{balanceData.reserved_account_number}</p>
+                    <p className="text-xs text-[#666]">{balanceData.bank_name} · {balanceData.account_name}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

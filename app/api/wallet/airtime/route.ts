@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
-import { bigi, bigiRef, getBigiPin, NETWORK_IDS, BIGI_ENDPOINTS } from '@/lib/bigisub'
+import { bigi, bigiRef, bigiSuccess, NETWORK_NAMES, BIGI_ENDPOINTS } from '@/lib/bigisub'
 import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
@@ -12,8 +12,9 @@ export async function POST(req: NextRequest) {
     const adminDb = getAdminDb()
     const sid = studentId.toLowerCase().trim()
     const amt = parseFloat(amount)
-    const networkId = NETWORK_IDS[network.toUpperCase()] ?? NETWORK_IDS['MTN']
+    const networkName = NETWORK_NAMES[network.toUpperCase()] ?? 'MTN'
 
+    // Check wallet balance
     const { data: wallet } = await adminDb
       .from('wallets').select('balance').eq('student_id', sid).maybeSingle()
     if (!wallet) return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
@@ -21,30 +22,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
 
     const reference = bigiRef('AIR')
-    const pin = await getBigiPin()
 
-    // Deduct first
+    // Deduct wallet first
     await adminDb.from('wallets').update({
       balance: parseFloat(wallet.balance) - amt,
       updated_at: new Date().toISOString(),
     }).eq('student_id', sid)
 
     // POST /api/v2/vtu/airtime/purchase/
+    // v2 fields: network (string), phone (string), amount (number)
     let result: any
     let status: 'success' | 'failed' = 'failed'
     try {
       result = await bigi.post(BIGI_ENDPOINTS.airtime, {
-        network:      networkId,
-        phone_number: phone,
-        amount:       String(amt),
-        airtime_type: 'vtu',
-        pin,
+        network: networkName,
+        phone,
+        amount:  amt,
       })
-      // { success: true, data: { status: "successful", ... }, message: "..." }
-      const ok = result?.success === true
-        || (result?.data?.status || '').toLowerCase().includes('success')
-        || (result?.status || '').toLowerCase().includes('success')
-      status = ok ? 'success' : 'failed'
+      status = bigiSuccess(result) ? 'success' : 'failed'
     } catch (err: any) {
       result = { error: err.message }
       status = 'failed'

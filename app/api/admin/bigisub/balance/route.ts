@@ -1,14 +1,28 @@
 import { NextResponse } from 'next/server'
-import { bigi, BIGI_ENDPOINTS } from '@/lib/bigisub'
+import { getBigiToken, BIGISUB_BASE, BIGI_ENDPOINTS } from '@/lib/bigisub'
 
-// GET /api/admin/bigisub/balance — returns Bigisub wallet balance
+// GET /api/admin/bigisub/balance
+// Calls GET /api/v2/financial/wallet/balance/
+// Response: { success, message, data: { id, username, email, full_name, balance, pending_amount,
+//   referal_balance, user_type, reserved_account_number, bank_name, account_name } }
 export async function GET() {
   try {
-    // GET /api/v2/user/wallet/
-    const data = await bigi.get(BIGI_ENDPOINTS.wallet)
-    // Response shape: { balance: "20.00", ... } or { data: { balance: "20.00" } }
-    const balance = data?.balance ?? data?.data?.balance ?? data?.wallet_balance ?? data
-    return NextResponse.json({ balance })
+    const token = await getBigiToken()
+    const res = await fetch(`${BIGISUB_BASE}${BIGI_ENDPOINTS.wallet}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Token ${token}`,
+        'Content-Type':  'application/json',
+      },
+      cache: 'no-store',
+    })
+    const json = await res.json().catch(() => ({ error: res.statusText }))
+    if (!res.ok) {
+      const msg = json?.message || json?.detail || json?.error || `HTTP ${res.status}`
+      return NextResponse.json({ error: `Bigisub API error ${res.status}: ${msg}` }, { status: res.status })
+    }
+    // Pass the full data object so the UI can display username, bank details etc.
+    return NextResponse.json({ balance: json?.data ?? json })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

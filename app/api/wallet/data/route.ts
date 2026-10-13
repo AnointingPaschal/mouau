@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
-import { bigi, bigiRef, getBigiPin, NETWORK_IDS, BIGI_ENDPOINTS } from '@/lib/bigisub'
+import { bigi, bigiRef, bigiSuccess, NETWORK_NAMES, BIGI_ENDPOINTS } from '@/lib/bigisub'
 import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
     const adminDb = getAdminDb()
     const sid = studentId.toLowerCase().trim()
-    const networkId = NETWORK_IDS[network.toUpperCase()] ?? NETWORK_IDS['MTN']
+    const networkName = NETWORK_NAMES[network.toUpperCase()] ?? 'MTN'
     const amt = parseFloat(amount || '0')
 
     const { data: wallet } = await adminDb
@@ -21,7 +21,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
 
     const reference = bigiRef('DAT')
-    const pin = await getBigiPin()
 
     if (amt > 0) {
       await adminDb.from('wallets').update({
@@ -31,19 +30,16 @@ export async function POST(req: NextRequest) {
     }
 
     // POST /api/v2/vtu/data/purchase/
+    // v2 fields: network (string), plan (plan id string), phone (string)
     let result: any
     let status: 'success' | 'failed' = 'failed'
     try {
       result = await bigi.post(BIGI_ENDPOINTS.dataPurchase, {
-        network:      networkId,
-        phone_number: phone,
-        plan:         planId,   // plan id from /api/v2/vtu/data/plans/
-        pin,
+        network: networkName,
+        plan:    planId,
+        phone,
       })
-      const ok = result?.success === true
-        || (result?.data?.status || '').toLowerCase().includes('success')
-        || (result?.status || '').toLowerCase().includes('success')
-      status = ok ? 'success' : 'failed'
+      status = bigiSuccess(result) ? 'success' : 'failed'
     } catch (err: any) {
       result = { error: err.message }
       status = 'failed'
@@ -65,7 +61,7 @@ export async function POST(req: NextRequest) {
       reference,
       flw_ref:      result?.data?.transaction_id || result?.data?.reference || null,
       status,
-      narration:    `${network} Data – ${planName || phone}`,
+      narration:    `${network} Data – ${planName || planId}`,
       phone_number: phone,
       network,
       metadata:     { planId, planName },
