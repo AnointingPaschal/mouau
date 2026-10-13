@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
-import { bigi, bigiRef, bigiSuccess, NETWORK_NAMES, BIGI_ENDPOINTS } from '@/lib/bigisub'
+import { bigi, bigiRef, bigiSuccess, NETWORK_IDS, BIGI_ENDPOINTS } from '@/lib/bigisub'
 import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const adminDb = getAdminDb()
     const sid = studentId.toLowerCase().trim()
     const amt = parseFloat(amount)
-    const networkName = NETWORK_NAMES[network.toUpperCase()] ?? 'MTN'
+    const networkId = NETWORK_IDS[network.toUpperCase()] ?? 1
 
     // Check wallet balance
     const { data: wallet } = await adminDb

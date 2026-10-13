@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server'
-import { bigi, BIGI_ENDPOINTS } from '@/lib/bigisub'
+import { ELECTRICITY_DISCOS } from '@/lib/bigisub'
 
+// No v2 list endpoint exists for electricity discos — return static list
 export async function GET() {
-  try {
-    const data = await bigi.get(BIGI_ENDPOINTS.electricityList)
-    const billers = Array.isArray(data) ? data : (data?.data ?? [])
-    return NextResponse.json({ billers })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
-  }
+  return NextResponse.json({ billers: ELECTRICITY_DISCOS })
 }

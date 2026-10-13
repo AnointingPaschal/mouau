@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
-import { bigi, bigiRef, bigiSuccess, NETWORK_NAMES, BIGI_ENDPOINTS } from '@/lib/bigisub'
+import { bigi, bigiRef, bigiSuccess, NETWORK_IDS, BIGI_ENDPOINTS } from '@/lib/bigisub'
 import { logApiError } from '@/lib/logError'
 
 export async function POST(req: NextRequest) {
@@ -35,9 +35,10 @@ export async function POST(req: NextRequest) {
     let status: 'success' | 'failed' = 'failed'
     try {
       result = await bigi.post(BIGI_ENDPOINTS.dataPurchase, {
-        network: networkName,
-        plan:    planId,
-        phone,
+        network:      networkId,
+        plan:         planId,     // numeric plan ID from data/plans response
+        phone_number: phone,
+        Ported_number: true,
       })
       status = bigiSuccess(result) ? 'success' : 'failed'
     } catch (err: any) {

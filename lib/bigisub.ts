@@ -1,41 +1,80 @@
 import { getAdminDb } from './adminDb'
 
-// ── Bigisub API v2 helper ─────────────────────────────────────
+// ── Bigisub API v2 ───────────────────────────────────────────
 // Base URL : https://api.bigisub.ng
-// Auth     : Authorization: Token <your_token>   (permanent, never expires)
-// No PIN required for v2 endpoints — PIN was legacy v1 only.
+// Auth     : Authorization: Token <your_token>
 //
-// Token is stored as is_secret=true in app_settings.
-// Must use the service-role client (adminDb) to read the unmasked value.
+// CONFIRMED WORKING ENDPOINTS (probed live):
+//   GET  /api/v2/financial/wallet/balance/         → balance
+//   GET  /api/v2/vtu/data/plans/?network=<1-4>     → data plans (numeric network ID)
+//   GET  /api/v2/vtu/cable/plans/                  → all 93 cable plans (filter client-side)
+//   POST /api/v2/vtu/airtime/purchase/             → airtime
+//   POST /api/v2/vtu/data/purchase/               → data
+//
+// NO v2 list endpoints exist for: electricity discos, betting, education, ISP
+// Those are hardcoded below as static constants.
 
 export const BIGISUB_BASE = 'https://api.bigisub.ng'
 
 export const BIGI_ENDPOINTS = {
-  // Wallet
-  wallet:           '/api/v2/financial/wallet/balance/',   // GET
-  // Airtime
-  airtime:          '/api/v2/vtu/airtime/purchase/',        // POST
-  // Data
-  dataBundles:      '/api/v2/vtu/data/plans/',              // GET ?network=MTN
-  dataPurchase:     '/api/v2/vtu/data/purchase/',           // POST
-  // Cable TV
-  cableVerify:      '/api/v2/vtu/cabletv/verify/',          // POST
-  cablePurchase:    '/api/v2/vtu/cabletv/subscribe/',       // POST
-  cablePlans:       '/api/v2/vtu/cabletv/plans/',           // GET ?cablename=DSTV
-  // Electricity
-  electricityList:  '/api/v2/vtu/electricity/',             // GET
-  meterValidate:    '/api/v2/vtu/electricity/validate/',    // POST
-  electricityBuy:   '/api/v2/electricity/purchase',         // POST
-  // Education
-  educationList:    '/api/v2/vtu/education/',               // GET
-  educationBuy:     '/api/v2/education/purchase',           // POST
-  // Betting
-  bettingList:      '/api/v2/vtu/betting/',                 // GET
-  bettingFund:      '/api/v2/betting/fund',                 // POST
-  // ISP
-  ispList:          '/api/v2/vtu/isp/',                     // GET
-  ispBuy:           '/api/v2/vtu/isp/purchase/',            // POST
+  wallet:        '/api/v2/financial/wallet/balance/',  // GET
+  dataPlans:     '/api/v2/vtu/data/plans/',            // GET ?network=1|2|3|4
+  cablePlans:    '/api/v2/vtu/cable/plans/',           // GET (all, filter client-side)
+  airtime:       '/api/v2/vtu/airtime/purchase/',      // POST
+  dataPurchase:  '/api/v2/vtu/data/purchase/',         // POST
+  // Purchase endpoints (exact paths to be verified; use legacy-compatible fields)
+  cablePurchase:    '/api/v2/vtu/cabletv/subscribe/',
+  electricityBuy:   '/api/v2/vtu/electricity/purchase/',
+  educationBuy:     '/api/v2/vtu/education/purchase/',
+  bettingFund:      '/api/v2/vtu/betting/fund/',
+  ispBuy:           '/api/v2/vtu/isp/purchase/',
 }
+
+// ── Network IDs (numeric, as required by v2 API) ─────────────
+export const NETWORK_IDS: Record<string, number> = {
+  MTN: 1, GLO: 2, AIRTEL: 3, '9MOBILE': 4,
+}
+
+// ── Static provider lists (no v2 list endpoints available) ───
+export const ELECTRICITY_DISCOS = [
+  { id: 'ikeja-electric',    name: 'Ikeja Electric (IKEDC)',       state: 'Lagos' },
+  { id: 'eko-electric',      name: 'Eko Electric (EKEDC)',         state: 'Lagos' },
+  { id: 'abuja-electric',    name: 'Abuja Electric (AEDC)',        state: 'Abuja/North' },
+  { id: 'kano-electric',     name: 'Kano Electric (KEDCO)',        state: 'Kano' },
+  { id: 'ibadan-electric',   name: 'Ibadan Electric (IBEDC)',      state: 'Ibadan' },
+  { id: 'enugu-electric',    name: 'Enugu Electric (EEDC)',        state: 'Enugu/Southeast' },
+  { id: 'ph-electric',       name: 'Port Harcourt Electric (PHED)', state: 'Rivers' },
+  { id: 'jos-electric',      name: 'Jos Electric (JED)',           state: 'Plateau/North' },
+  { id: 'kaduna-electric',   name: 'Kaduna Electric (KAEDCO)',     state: 'Kaduna' },
+  { id: 'benin-electric',    name: 'Benin Electric (BEDC)',        state: 'Edo/Delta' },
+  { id: 'yola-electric',     name: 'Yola Electric (YEDC)',         state: 'Adamawa' },
+]
+
+export const BETTING_PLATFORMS = [
+  { id: 'bet9ja',     name: 'Bet9ja' },
+  { id: 'sportybet',  name: 'SportyBet' },
+  { id: 'betway',     name: 'Betway' },
+  { id: 'bangbet',    name: 'BangBet' },
+  { id: '1xbet',      name: '1xBet' },
+  { id: 'nairabet',   name: 'NairaBet' },
+  { id: 'betking',    name: 'BetKing' },
+  { id: 'msport',     name: 'MSport' },
+  { id: 'paripesa',   name: 'PariPesa' },
+  { id: 'cloudbet',   name: 'CloudBet' },
+]
+
+export const EDUCATION_EXAMS = [
+  { id: 'WAEC',    name: 'WAEC Result Checker',      price: 1000 },
+  { id: 'NECO',    name: 'NECO Result Checker',      price: 1000 },
+  { id: 'NABTEB',  name: 'NABTEB Result Checker',    price: 1000 },
+  { id: 'NBAIS',   name: 'NBAIS Result Checker',     price: 1000 },
+]
+
+export const ISP_PROVIDERS = [
+  { id: 'smile',      name: 'Smile',       plans: ['1GB-30days', '2GB-30days', '5GB-30days'] },
+  { id: 'spectranet', name: 'Spectranet',  plans: ['5GB-30days', '10GB-30days'] },
+  { id: 'swift',      name: 'Swift',       plans: ['5GB-30days', '10GB-30days'] },
+]
 
 export async function getBigiToken(): Promise<string> {
   const adminDb = getAdminDb()
@@ -74,17 +113,10 @@ export const bigi = {
   post: (path: string, body: object) => bigiRequest(path, 'POST', body),
 }
 
-// Unique reference generator
 export function bigiRef(prefix = 'PDM') {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`
 }
 
-// Network name mapping — v2 uses string names, not numeric IDs
-export const NETWORK_NAMES: Record<string, string> = {
-  MTN: 'MTN', GLO: 'GLO', AIRTEL: 'Airtel', '9MOBILE': '9mobile',
-}
-
-// Helper: extract success status from various Bigisub response shapes
 export function bigiSuccess(result: any): boolean {
   if (result?.success === true) return true
   const s = (result?.status || result?.data?.status || result?.Status || '').toLowerCase()
