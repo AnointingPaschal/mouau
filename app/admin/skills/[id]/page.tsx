@@ -9,8 +9,9 @@ import {
   Clock, Pencil, X, FileText, Video, Link, File, ExternalLink
 } from 'lucide-react'
 
-const CATEGORIES = ['Tech','Business','Creative','Vocational','Ministry','Academic','General']
-const LEVELS     = ['Beginner','Intermediate','Advanced']
+const CATEGORIES      = ['Tech','Business','Creative','Vocational','Ministry','Academic','General']
+const LEVELS          = ['Beginner','Intermediate','Advanced']
+const DELIVERY_MODES  = ['virtual','physical','hybrid']
 const NUGGET_TYPES = [
   { value:'tip',     label:'Tip',   icon: Lightbulb,     color:'#1a6b3a' },
   { value:'fact',    label:'Fact',  icon: Star,          color:'#1e3a8a' },
@@ -294,11 +295,10 @@ export default function AdminSkillDetailPage() {
                     <h3 className="font-bold text-[#0a0a0a] text-sm">Basic Info</h3>
                   </div>
                   <div className="p-4 space-y-3">
+                    {/* Title + tagline */}
                     {[
-                      { key:'title',      label:'Title *',    ph:'Skill name'            },
-                      { key:'tagline',    label:'Tagline',    ph:'Short catchy description' },
-                      { key:'instructor', label:'Instructor', ph:'Who teaches this?'     },
-                      { key:'duration',   label:'Duration',   ph:'e.g. 8 weeks, 3 months' },
+                      { key:'title',   label:'Title *', ph:'Skill name'               },
+                      { key:'tagline', label:'Tagline',  ph:'Short catchy description' },
                     ].map(({ key, label, ph }) => (
                       <div key={key}>
                         <label className="text-[10px] font-bold text-[#6b6b6b] uppercase tracking-wide block mb-1">{label}</label>
@@ -306,6 +306,8 @@ export default function AdminSkillDetailPage() {
                           placeholder={ph} className="input w-full text-sm"/>
                       </div>
                     ))}
+
+                    {/* Category + Level */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-[10px] font-bold text-[#6b6b6b] uppercase tracking-wide block mb-1">Category</label>
@@ -320,6 +322,44 @@ export default function AdminSkillDetailPage() {
                         </select>
                       </div>
                     </div>
+
+                    {/* Delivery Mode */}
+                    <div>
+                      <label className="text-[10px] font-bold text-[#6b6b6b] uppercase tracking-wide block mb-1.5">Delivery Mode</label>
+                      <div className="flex gap-2">
+                        {DELIVERY_MODES.map(m => (
+                          <button key={m} onClick={() => setSkill((p: any) => ({...p, delivery_mode: m}))}
+                            className={`flex-1 py-2 rounded-xl text-[10px] font-bold border capitalize transition-all
+                              ${(skill.delivery_mode||'').toLowerCase() === m
+                                ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
+                                : 'bg-white text-[#6b6b6b] border-[#e8e8e8] hover:border-[#1e3a8a]/40'}`}>
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Pricing */}
+                    <div>
+                      <label className="text-[10px] font-bold text-[#6b6b6b] uppercase tracking-wide block mb-1.5">Pricing</label>
+                      <div className="flex gap-2 mb-2">
+                        {[{ v: true, l: 'Free' }, { v: false, l: 'Paid' }].map(({ v, l }) => (
+                          <button key={l} onClick={() => setSkill((p: any) => ({...p, is_free: v}))}
+                            className={`flex-1 py-2 rounded-xl text-[10px] font-bold border transition-all
+                              ${skill.is_free === v
+                                ? v ? 'bg-[#1a6b3a] text-white border-[#1a6b3a]' : 'bg-amber-500 text-white border-amber-500'
+                                : 'bg-white text-[#6b6b6b] border-[#e8e8e8]'}`}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                      {!skill.is_free && (
+                        <input value={skill.price_note || ''} onChange={e => setSkill((p: any) => ({...p, price_note: e.target.value}))}
+                          placeholder="e.g. ₦2,000 registration fee" className="input w-full text-sm"/>
+                      )}
+                    </div>
+
+                    {/* Active toggle */}
                     <div className="flex items-center justify-between py-1">
                       <label className="text-sm font-semibold text-[#0a0a0a]">Active (visible to students)</label>
                       <button onClick={() => setSkill((p: any) => ({...p,active:!p.active}))}

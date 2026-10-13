@@ -3,13 +3,22 @@ import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import Link from 'next/link'
-import { Zap, Search, ChevronRight, Clock, User, Briefcase, Globe, Users } from 'lucide-react'
+import { Zap, Search, ChevronRight, Briefcase, Globe, Users, Monitor, MapPin, Layers, Tag } from 'lucide-react'
 import { useAuth } from '@/components/AuthProvider'
 
-type Skill = { id:string; title:string; tagline:string; category:string; level:string; duration:string; instructor:string; image_url:string }
+type Skill = {
+  id: string; title: string; tagline: string; category: string; level: string
+  image_url: string; delivery_mode: string; is_free: boolean
+}
 
 const LEVEL_COLOR: Record<string,string> = { beginner:'#1a6b3a', intermediate:'#d97706', advanced:'#b91c1c' }
 const CATEGORIES = ['All','Tech','Business','Creative','Vocational','Ministry','Academic']
+
+const MODE_META: Record<string,{ icon: any; color: string; label: string }> = {
+  virtual:  { icon: Monitor,  color: '#1e3a8a', label: 'Virtual'  },
+  physical: { icon: MapPin,   color: '#1a6b3a', label: 'Physical' },
+  hybrid:   { icon: Layers,   color: '#7c3aed', label: 'Hybrid'   },
+}
 
 const WHY_SKILLS = [
   { icon: Briefcase, label: 'Career ready',  color: '#1e3a8a' },
@@ -117,6 +126,8 @@ export default function SkillsPage() {
             {filtered.map(skill => {
               const status     = applied[skill.id]
               const levelColor = LEVEL_COLOR[skill.level?.toLowerCase()] || '#1a6b3a'
+              const mode       = MODE_META[skill.delivery_mode?.toLowerCase()] || null
+              const ModeIcon   = mode?.icon
               return (
                 <Link key={skill.id} href={`/skills/${skill.id}`}
                   className="card overflow-hidden flex flex-col group hover:shadow-md transition-all active:scale-[0.99]">
@@ -132,7 +143,7 @@ export default function SkillsPage() {
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"/>
 
-                    {/* Badges */}
+                    {/* Left badges: category + level */}
                     <div className="absolute top-2.5 left-2.5 flex gap-1.5">
                       {skill.category && (
                         <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-white backdrop-blur-sm border border-white/20">
@@ -146,7 +157,7 @@ export default function SkillsPage() {
                       )}
                     </div>
 
-                    {/* Applied badge */}
+                    {/* Right: applied badge */}
                     {status && (
                       <div className={`absolute top-2.5 right-2.5 text-[9px] font-bold px-2 py-0.5 rounded-full
                         ${status==='approved'?'bg-[#1a6b3a] text-white':status==='pending'?'bg-amber-500 text-white':'bg-[#e8e8e8] text-[#6b6b6b]'}`}>
@@ -158,18 +169,24 @@ export default function SkillsPage() {
                   {/* Card body */}
                   <div className="p-3.5 flex-1 flex flex-col">
                     <h3 className="font-black text-[#0a0a0a] text-sm mb-0.5">{skill.title}</h3>
-                    {skill.tagline && <p className="text-[11px] text-[#6b6b6b] mb-2 leading-snug">{skill.tagline}</p>}
-                    <div className="flex items-center gap-3 mt-auto">
-                      {skill.duration && (
-                        <div className="flex items-center gap-1 text-[10px] text-[#aaa]">
-                          <Clock className="w-3 h-3"/>{skill.duration}
-                        </div>
+                    {skill.tagline && <p className="text-[11px] text-[#6b6b6b] mb-2.5 leading-snug">{skill.tagline}</p>}
+
+                    {/* Mode + pricing pills */}
+                    <div className="flex items-center gap-1.5 mt-auto">
+                      {mode && ModeIcon && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border"
+                          style={{ color: mode.color, borderColor: `${mode.color}40`, background: `${mode.color}10` }}>
+                          <ModeIcon className="w-2.5 h-2.5"/>
+                          {mode.label}
+                        </span>
                       )}
-                      {skill.instructor && (
-                        <div className="flex items-center gap-1 text-[10px] text-[#aaa]">
-                          <User className="w-3 h-3"/>{skill.instructor}
-                        </div>
-                      )}
+                      <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border
+                        ${skill.is_free
+                          ? 'text-[#1a6b3a] border-[#1a6b3a]/30 bg-[#1a6b3a]/10'
+                          : 'text-amber-600 border-amber-300 bg-amber-50'}`}>
+                        <Tag className="w-2.5 h-2.5"/>
+                        {skill.is_free ? 'Free' : 'Paid'}
+                      </span>
                       <ChevronRight className="w-4 h-4 text-[#1a6b3a] ml-auto"/>
                     </div>
                   </div>

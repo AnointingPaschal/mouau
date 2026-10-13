@@ -5,15 +5,23 @@ import AppShell from '@/components/AppShell'
 import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
 import {
-  Zap, Clock, User, MapPin, Calendar, CheckCircle2, Loader2,
+  Zap, MapPin, Calendar, CheckCircle2, Loader2,
   Lightbulb, AlertTriangle, Quote, Star, ChevronLeft, ArrowRight,
-  FileText, Video, File, Link, ExternalLink, BookOpen
+  FileText, Video, File, Link, ExternalLink, BookOpen,
+  Monitor, Layers, Tag, Clock
 } from 'lucide-react'
 
 type Skill = {
   id:string; title:string; tagline:string; description:string
-  category:string; level:string; duration:string; instructor:string
-  image_url:string; what_you_learn:string; requirements:string
+  category:string; level:string; image_url:string
+  what_you_learn:string; requirements:string
+  delivery_mode:string; is_free:boolean; price_note:string
+}
+
+const MODE_META: Record<string,{ icon: any; color: string; label: string }> = {
+  virtual:  { icon: Monitor, color: '#1e3a8a', label: 'Virtual'  },
+  physical: { icon: MapPin,  color: '#1a6b3a', label: 'Physical' },
+  hybrid:   { icon: Layers,  color: '#7c3aed', label: 'Hybrid'   },
 }
 type Nugget  = { id:string; content:string; type:'tip'|'fact'|'warning'|'quote'; sort_order:number }
 type SkillClass = { id:string; title:string; description:string; date:string; location:string; duration_hours:number; max_attendees:number }
@@ -123,10 +131,31 @@ export default function SkillDetailPage() {
       </div>
 
       {/* Meta row */}
-      <div className="flex items-center gap-4 px-4 py-3 border-b border-[#e8e8e8] bg-white overflow-x-auto">
-        {skill.duration   && <div className="flex items-center gap-1 text-[10px] text-[#6b6b6b] flex-shrink-0"><Clock className="w-3 h-3"/>{skill.duration}</div>}
-        {skill.instructor && <div className="flex items-center gap-1 text-[10px] text-[#6b6b6b] flex-shrink-0"><User className="w-3 h-3"/>{skill.instructor}</div>}
-        {classes.length > 0 && <div className="flex items-center gap-1 text-[10px] text-[#1a6b3a] font-semibold flex-shrink-0"><Calendar className="w-3 h-3"/>{classes.length} class{classes.length>1?'es':''}</div>}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#e8e8e8] bg-white overflow-x-auto flex-wrap">
+        {/* Delivery mode pill */}
+        {skill.delivery_mode && MODE_META[skill.delivery_mode.toLowerCase()] && (() => {
+          const m = MODE_META[skill.delivery_mode.toLowerCase()]
+          const Icon = m.icon
+          return (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full border flex-shrink-0"
+              style={{ color: m.color, borderColor: `${m.color}40`, background: `${m.color}10` }}>
+              <Icon className="w-3 h-3"/>{m.label}
+            </span>
+          )
+        })()}
+        {/* Pricing pill */}
+        <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full border flex-shrink-0
+          ${skill.is_free ? 'text-[#1a6b3a] border-[#1a6b3a]/30 bg-[#1a6b3a]/10' : 'text-amber-600 border-amber-300 bg-amber-50'}`}>
+          <Tag className="w-3 h-3"/>
+          {skill.is_free ? 'Free' : skill.price_note ? skill.price_note : 'Paid'}
+        </span>
+        {/* Classes count */}
+        {classes.length > 0 && (
+          <div className="flex items-center gap-1 text-[10px] text-[#1a6b3a] font-semibold flex-shrink-0">
+            <Calendar className="w-3 h-3"/>{classes.length} class{classes.length>1?'es':''}
+          </div>
+        )}
+        {/* Application status */}
         {applied && (
           <div className={`ml-auto flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full
             ${applied==='approved'?'bg-[#1a6b3a] text-white':applied==='pending'?'bg-amber-100 text-amber-700':'bg-[#f0f0f0] text-[#6b6b6b]'}`}>
