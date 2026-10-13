@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     // POST /api/v2/vtu/data/purchase/
-    // v2 fields: network (string), plan (plan id string), phone (string)
+    // network: numeric ID, plan: numeric plan ID, phone_number, Ported_number
     let result: any
     let status: 'success' | 'failed' = 'failed'
     try {
