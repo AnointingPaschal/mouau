@@ -7,7 +7,8 @@ import { useAuth } from '@/components/AuthProvider'
 import Link from 'next/link'
 import {
   Wallet, ArrowUpRight, ArrowDownLeft, Phone, Wifi,
-  Gamepad2, Plus, RefreshCw, Loader2, ChevronRight, Copy, CheckCircle2
+  Gamepad2, Plus, RefreshCw, Loader2, ChevronRight, Copy, CheckCircle2,
+  MessageSquare, Hash
 } from 'lucide-react'
 
 type Wallet = { balance: number; account_number: string | null; bank_name: string | null; account_name: string | null }
@@ -33,7 +34,7 @@ const QUICK_ACTIONS = [
   { href:'/wallet/airtime',      label:'Airtime',     icon:Phone,          color:'#c2410c' },
   { href:'/wallet/data',         label:'Data',        icon:Wifi,           color:'#7c3aed' },
   { href:'/wallet/bills',        label:'Bills',       icon:Gamepad2,       color:'#d97706' },
-  { href:'/wallet/recharge-pin', label:'Recharge',    icon:CreditCard,     color:'#0891b2' },
+  { href:'/wallet/recharge-pin', label:'Recharge',    icon:Hash,           color:'#0891b2' },
   { href:'/wallet/sms',          label:'Bulk SMS',    icon:MessageSquare,  color:'#6d28d9' },
 ]
 
