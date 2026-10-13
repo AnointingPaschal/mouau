@@ -28,11 +28,13 @@ const CATEGORY_ICONS: Record<string,any> = {
 }
 
 const QUICK_ACTIONS = [
-  { href:'/wallet/fund',     label:'Fund',     icon:Plus,        color:'#1a6b3a' },
-  { href:'/wallet/transfer', label:'Transfer', icon:ArrowUpRight, color:'#1e3a8a' },
-  { href:'/wallet/airtime',  label:'Airtime',  icon:Phone,       color:'#c2410c' },
-  { href:'/wallet/data',     label:'Data',     icon:Wifi,        color:'#7c3aed' },
-  { href:'/wallet/bills',    label:'Bills',    icon:Gamepad2,    color:'#d97706' },
+  { href:'/wallet/fund',         label:'Fund',        icon:Plus,           color:'#1a6b3a' },
+  { href:'/wallet/transfer',     label:'Transfer',    icon:ArrowUpRight,   color:'#1e3a8a' },
+  { href:'/wallet/airtime',      label:'Airtime',     icon:Phone,          color:'#c2410c' },
+  { href:'/wallet/data',         label:'Data',        icon:Wifi,           color:'#7c3aed' },
+  { href:'/wallet/bills',        label:'Bills',       icon:Gamepad2,       color:'#d97706' },
+  { href:'/wallet/recharge-pin', label:'Recharge',    icon:CreditCard,     color:'#0891b2' },
+  { href:'/wallet/sms',          label:'Bulk SMS',    icon:MessageSquare,  color:'#6d28d9' },
 ]
 
 function fmt(n: number) { return `₦${n.toLocaleString('en-NG', { minimumFractionDigits:2, maximumFractionDigits:2 })}` }

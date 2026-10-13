@@ -20,6 +20,7 @@ export const BIGI_ENDPOINTS = {
 
   // ── Cable TV ──────────────────────────────────────────────
   cablePlans:           '/api/v2/vtu/cable/plans/',                 // GET ?cable_name=dstv
+  cablePricing:         '/api/v2/vtu/cable/pricing/',               // GET → all providers grouped
   cableVerify:          '/api/v2/vtu/cable/verify/',                // POST
   cablePurchase:        '/api/v2/vtu/cable/purchase/',              // POST
 
