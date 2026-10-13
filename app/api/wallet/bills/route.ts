@@ -1,53 +1,97 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
-import { flw, flwRef } from '@/lib/flutterwave'
+import { bigi, bigiRef } from '@/lib/bigisub'
 import { logApiError } from '@/lib/logError'
 
-// category → FLW bill type mapping
-const BILL_TYPES: Record<string, string> = {
-  betting:     'BETTING',
-  electricity: 'POWER',
-  cable:       'DSTV',
-  water:       'WATERBOARD',
-}
+// category → Bigisub endpoint mapping
+// cable: /api/cabletv/   { cablename, smart_card_number, type }
+// electricity: /api/electricity/  { disco_name, meter_number, amount, meter_type, phone }
+// betting: /api/betting/  { betting_name, customer_id, amount }
+// education: /api/education/  { exam_name, quantity }
+// isp: /api/internetservice/  { ServiceID, plan, phone }
 
 export async function POST(req: NextRequest) {
   try {
-    const { studentId, category, customer, amount, billerName, narration } = await req.json()
-    if (!studentId || !category || !customer || !amount)
+    const { studentId, category, customer, amount, billerCode, planCode, phone, quantity, meterType, narration } = await req.json()
+    if (!studentId || !category || !customer)
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
     const adminDb = getAdminDb()
     const sid = studentId.toLowerCase().trim()
-    const amt = parseFloat(amount)
-    const billType = BILL_TYPES[category] || category.toUpperCase()
+    const amt = amount ? parseFloat(amount) : 0
 
     const { data: wallet } = await adminDb
       .from('wallets').select('balance').eq('student_id', sid).maybeSingle()
     if (!wallet) return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
-    if (parseFloat(wallet.balance) < amt)
+    if (amt > 0 && parseFloat(wallet.balance) < amt)
       return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
 
-    const reference = flwRef('BILL')
+    const reference = bigiRef('BILL')
 
-    await adminDb.from('wallets').update({
-      balance:    parseFloat(wallet.balance) - amt,
-      updated_at: new Date().toISOString(),
-    }).eq('student_id', sid)
+    // Only deduct if there's an amount (education uses quantity * unit price, handled server-side by Bigisub)
+    if (amt > 0) {
+      await adminDb.from('wallets').update({
+        balance:    parseFloat(wallet.balance) - amt,
+        updated_at: new Date().toISOString(),
+      }).eq('student_id', sid)
+    }
 
-    const result = await flw.post('/bills', {
-      type:       billType,
-      country:    'NG',
-      customer,
-      amount:     amt,
-      recurrence: 'ONCE',
-      reference,
-      ...(billerName ? { biller_name: billerName } : {}),
-    })
+    let result: any
+    let status: 'success' | 'failed' = 'failed'
+    let finalAmt = amt
 
-    const status = result.status === 'success' ? 'success' : 'failed'
+    try {
+      if (category === 'cable') {
+        // POST /api/cabletv/ { cablename, smart_card_number, type }
+        result = await bigi.post('/api/cabletv/', {
+          cablename:          billerCode,      // e.g. 1=DSTV, 2=GOTV, 3=STARTIMES
+          smart_card_number:  customer,
+          type:               planCode,        // bouquet/plan id
+        })
+      } else if (category === 'electricity') {
+        // POST /api/electricity/ { disco_name, meter_number, amount, meter_type, phone }
+        result = await bigi.post('/api/electricity/', {
+          disco_name:    billerCode,       // e.g. 1=IKEDC, 2=AEDC...
+          meter_number:  customer,
+          amount:        amt,
+          meter_type:    meterType || 'prepaid',
+          phone:         phone || customer,
+        })
+      } else if (category === 'betting') {
+        // POST /api/betting/ { betting_name, customer_id, amount }
+        result = await bigi.post('/api/betting/', {
+          betting_name: billerCode,       // e.g. 1=Bet9ja
+          customer_id:  customer,
+          amount:       amt,
+        })
+      } else if (category === 'education') {
+        // POST /api/education/ { exam_name, quantity }
+        // Price is per-pin, deduct based on unit price * quantity
+        result = await bigi.post('/api/education/', {
+          exam_name: billerCode,           // e.g. 1=WAEC, 2=NECO
+          quantity:  quantity || 1,
+        })
+        finalAmt = amt   // passed from frontend after confirming unit price
+      } else if (category === 'isp') {
+        // POST /api/internetservice/ { ServiceID, plan, phone }
+        result = await bigi.post('/api/internetservice/', {
+          ServiceID: billerCode,
+          plan:      planCode,
+          phone:     customer,
+        })
+      } else {
+        return NextResponse.json({ error: `Unknown bill category: ${category}` }, { status: 400 })
+      }
 
-    if (status === 'failed') {
+      const s = (result?.Status || result?.status || '').toLowerCase()
+      status = s.includes('success') || s.includes('successful') ? 'success' : 'failed'
+    } catch (err: any) {
+      result = { error: err.message }
+      status = 'failed'
+    }
+
+    // Refund on failure
+    if (status === 'failed' && finalAmt > 0) {
       await adminDb.from('wallets').update({
         balance:    parseFloat(wallet.balance),
         updated_at: new Date().toISOString(),
@@ -58,18 +102,25 @@ export async function POST(req: NextRequest) {
       student_id:        sid,
       type:              'debit',
       category,
-      amount:            amt,
+      amount:            finalAmt,
       fee:               0,
       reference,
-      flw_ref:           result.data?.reference || null,
+      flw_ref:           result?.id?.toString() || result?.transaction_id?.toString() || null,
       status,
       narration:         narration || `${category} – ${customer}`,
       recipient_account: customer,
-      metadata:          { billerName },
+      metadata:          { billerCode, planCode },
     })
 
-    if (status === 'failed')
-      return NextResponse.json({ error: result.message || 'Bill payment failed. Balance refunded.' }, { status: 400 })
+    if (status === 'failed') {
+      const msg = result?.error || result?.message || result?.errors || `${category} payment failed. Balance refunded.`
+      return NextResponse.json({ error: typeof msg === 'string' ? msg : JSON.stringify(msg) }, { status: 400 })
+    }
+
+    // For education, return the pins if available
+    if (category === 'education' && result?.pins) {
+      return NextResponse.json({ ok: true, message: `${category} payment successful`, pins: result.pins })
+    }
 
     return NextResponse.json({ ok: true, message: `${category} payment successful` })
   } catch (e: any) {
