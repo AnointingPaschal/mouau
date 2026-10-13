@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
     const adminDb = getAdminDb()
     const sid = studentId.toLowerCase().trim()
-    const networkName = NETWORK_NAMES[network.toUpperCase()] ?? 'MTN'
+    const networkId = NETWORK_IDS[network.toUpperCase()] ?? 1
     const amt = parseFloat(amount || '0')
 
     const { data: wallet } = await adminDb
@@ -30,14 +30,15 @@ export async function POST(req: NextRequest) {
     }
 
     // POST /api/v2/vtu/data/purchase/
-    // network: numeric ID, plan: numeric plan ID, phone_number, Ported_number
+    // network: numeric ID (1=MTN,2=GLO,3=AIRTEL,4=9MOBILE)
+    // plan: numeric plan ID from /api/v2/vtu/data/plans/
     let result: any
     let status: 'success' | 'failed' = 'failed'
     try {
       result = await bigi.post(BIGI_ENDPOINTS.dataPurchase, {
-        network:      networkId,
-        plan:         planId,     // numeric plan ID from data/plans response
-        phone_number: phone,
+        network:       networkId,
+        plan:          planId,
+        phone_number:  phone,
         Ported_number: true,
       })
       status = bigiSuccess(result) ? 'success' : 'failed'
