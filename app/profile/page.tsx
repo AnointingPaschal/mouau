@@ -135,17 +135,23 @@ export default function ProfilePage() {
   const [downloads, setDownloads] = useState(0)
   useEffect(()=>{ setDownloads(parseInt(localStorage.getItem(`downloads_${student?.idNumber}`) || '0')) },[student?.idNumber])
 
-  // Check if this student is also an admin
+  // Check if this student is also an admin — fires as soon as student loads
   const [isAdminUser, setIsAdminUser] = useState(false)
   const [isSuper, setIsSuper] = useState(false)
   useEffect(() => {
-    const email = dbStudent?.email || student?.email || ''
-    if (!email) return
-    fetch(`/api/admin/check-student?email=${encodeURIComponent(email)}`)
+    const email    = dbStudent?.email || student?.email || ''
+    const idNumber = student?.idNumber || ''
+    const name     = dbStudent?.name   || student?.name || ''
+    if (!email && !idNumber && !name) return
+    const params = new URLSearchParams()
+    if (email)    params.set('email',    email)
+    if (idNumber) params.set('idNumber', idNumber)
+    if (name)     params.set('name',     name)
+    fetch(`/api/admin/check-student?${params.toString()}`)
       .then(r => r.json())
       .then(d => { if (d.isAdmin) { setIsAdminUser(true); setIsSuper(d.is_super) } })
       .catch(() => {})
-  }, [dbStudent?.email, student?.email])
+  }, [student?.idNumber, student?.name, student?.email, dbStudent?.email, dbStudent?.name])
 
   // Display Name logic (prioritize updated db name, fallback to context name)
   const displayName = dbStudent?.name || student?.name || 'Student'

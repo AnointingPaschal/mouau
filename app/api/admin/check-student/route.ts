@@ -1,31 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
 
-// GET /api/admin/check-student?email=xxx&idNumber=yyy
-// Returns { isAdmin, adminId, name, is_super } — public enough to call from student profile
+// GET /api/admin/check-student?email=xxx&idNumber=yyy&name=zzz
+// Checks if a student is also an admin by email OR idNumber OR name (any match)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const email    = (searchParams.get('email') || '').toLowerCase().trim()
   const idNumber = (searchParams.get('idNumber') || '').toLowerCase().trim()
+  const name     = (searchParams.get('name') || '').toLowerCase().trim()
 
-  if (!email && !idNumber) return NextResponse.json({ isAdmin: false })
+  if (!email && !idNumber && !name) return NextResponse.json({ isAdmin: false })
 
   const adminDb = getAdminDb()
 
-  // Check by email first, then by id_number stored in name field (some admins promoted from students)
-  let query = adminDb.from('admins').select('id,name,email,is_super,active')
-  if (email) {
-    query = query.eq('email', email)
-  }
+  // Fetch ALL active admins and match client-side (admins table is tiny)
+  const { data: admins } = await adminDb
+    .from('admins')
+    .select('id,name,email,is_super,active,student_id')
+    .eq('active', true)
 
-  const { data } = await query.maybeSingle()
+  if (!admins || admins.length === 0) return NextResponse.json({ isAdmin: false })
 
-  if (!data || !data.active) return NextResponse.json({ isAdmin: false })
+  const match = admins.find((a: any) => {
+    const aEmail    = (a.email      || '').toLowerCase().trim()
+    const aName     = (a.name       || '').toLowerCase().trim()
+    const aStuId    = (a.student_id || '').toLowerCase().trim()
+
+    if (email    && aEmail  === email)    return true
+    if (idNumber && aStuId  === idNumber) return true
+    if (name     && aName   === name)     return true
+    return false
+  })
+
+  if (!match) return NextResponse.json({ isAdmin: false })
 
   return NextResponse.json({
     isAdmin:  true,
-    adminId:  data.id,
-    name:     data.name,
-    is_super: data.is_super,
+    adminId:  match.id,
+    name:     match.name,
+    is_super: match.is_super,
   })
 }
