@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/adminDb'
 import { logApiError } from '@/lib/logError'
 
-// Always return 200 to Flutterwave — it will retry on any other status
+// Always return 200 to Flutterwave — any other status triggers retries
 const ok = () => NextResponse.json({ ok: true })
+
+async function safeLog(adminDb: any, route: string, error: string, payload?: string) {
+  try {
+    await adminDb.from('api_error_logs').insert({ route, error, payload: payload?.slice(0, 1000) ?? null })
+  } catch (_) {}
+}
 
 export async function POST(req: NextRequest) {
   let payload: any = {}
@@ -11,41 +17,33 @@ export async function POST(req: NextRequest) {
     payload = await req.json()
     const adminDb = getAdminDb()
 
-    // ── Signature check (use service-role client to read unmasked secret) ──
-    const signature  = req.headers.get('verif-hash') ?? ''
+    // ── Signature check via service-role client (anon client masks secrets) ──
+    const signature = req.headers.get('verif-hash') ?? ''
     const { data: hashRow } = await adminDb
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'flw_webhook_hash')
-      .maybeSingle()
+      .from('app_settings').select('value').eq('key', 'flw_webhook_hash').maybeSingle()
     const webhookHash = hashRow?.value ?? ''
 
-    // If a hash is configured, enforce it. If none configured, allow all.
     if (webhookHash && signature !== webhookHash) {
-      // Log mismatch for debugging but still return 200 so FLW doesn't retry forever
-      await adminDb.from('api_error_logs').insert({
-        route:   '/api/webhook/flutterwave',
-        error:   `Signature mismatch — received: "${signature}", expected: "${webhookHash.slice(0,8)}…"`,
-        payload: JSON.stringify(payload).slice(0, 500),
-      }).catch(() => {})
+      await safeLog(adminDb,
+        '/api/webhook/flutterwave',
+        `Signature mismatch — received: "${signature}", expected starts: "${webhookHash.slice(0,8)}…"`,
+        JSON.stringify(payload),
+      )
       return ok()
     }
 
     const { event, data } = payload
 
-    // ── Log every incoming webhook for debugging ──
-    await adminDb.from('api_error_logs').insert({
-      route:   '/api/webhook/flutterwave [debug]',
-      error:   `event=${event} status=${data?.status} acct=${data?.account_number ?? data?.virtual_account_number ?? 'none'} amount=${data?.amount}`,
-      payload: JSON.stringify(payload).slice(0, 1000),
-    }).catch(() => {})
+    // ── Debug log every incoming webhook ──
+    await safeLog(adminDb,
+      '/api/webhook/flutterwave [debug]',
+      `event=${event} status=${data?.status} acct=${data?.account_number ?? data?.virtual_account_number ?? 'none'} amount=${data?.amount}`,
+      JSON.stringify(payload),
+    )
 
-    // Only handle successful charges
     if (event !== 'charge.completed' || data?.status !== 'successful') return ok()
 
-    // Flutterwave virtual account bank transfer payload:
-    // data.account_number — the virtual account number the customer paid into
-    // Also check data.virtual_account_number and data.meta.* as fallbacks
+    // FLW virtual account bank transfer — try all known field names
     const accountNumber = (
       data?.account_number ||
       data?.virtual_account_number ||
@@ -61,28 +59,22 @@ export async function POST(req: NextRequest) {
 
     // Find wallet by account number
     const { data: wallet } = await adminDb
-      .from('wallets')
-      .select('student_id, balance')
-      .eq('account_number', accountNumber)
-      .maybeSingle()
+      .from('wallets').select('student_id, balance')
+      .eq('account_number', accountNumber).maybeSingle()
 
     if (!wallet) {
-      // Log unmatched account for debugging
-      await adminDb.from('api_error_logs').insert({
-        route:   '/api/webhook/flutterwave [no-wallet]',
-        error:   `No wallet found for account_number="${accountNumber}"`,
-        payload: JSON.stringify(payload).slice(0, 500),
-      }).catch(() => {})
+      await safeLog(adminDb,
+        '/api/webhook/flutterwave [no-wallet]',
+        `No wallet for account_number="${accountNumber}"`,
+        JSON.stringify(payload),
+      )
       return ok()
     }
 
     // Prevent double-crediting
     if (flwRef) {
       const { data: exists } = await adminDb
-        .from('wallet_transactions')
-        .select('id')
-        .eq('flw_ref', flwRef)
-        .maybeSingle()
+        .from('wallet_transactions').select('id').eq('flw_ref', flwRef).maybeSingle()
       if (exists) return ok()
     }
 
@@ -105,20 +97,22 @@ export async function POST(req: NextRequest) {
       narration:  data?.narration || `Wallet deposit of ₦${amount.toLocaleString()}`,
     })
 
-    // In-app notification
-    await adminDb.from('notifications').insert({
-      recipient_id: wallet.student_id,
-      type:         'info',
-      title:        'Wallet Funded! 💰',
-      body:         `₦${amount.toLocaleString()} has been added to your wallet.`,
-      post_id:      '/wallet',
-      actor:        'system',
-      read:         false,
-    }).catch(() => {})
+    // In-app notification (best-effort)
+    try {
+      await adminDb.from('notifications').insert({
+        recipient_id: wallet.student_id,
+        type:         'info',
+        title:        'Wallet Funded! 💰',
+        body:         `₦${amount.toLocaleString()} has been added to your wallet.`,
+        post_id:      '/wallet',
+        actor:        'system',
+        read:         false,
+      })
+    } catch (_) {}
 
     return ok()
   } catch (e: any) {
     await logApiError({ route: '/api/webhook/flutterwave', error: e })
-    return ok() // Always 200
+    return ok()
   }
 }
