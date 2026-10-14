@@ -2,10 +2,28 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import AdminShell from '@/components/AdminShell'
 import { useAdmin } from '@/components/AdminProvider'
+import { createClient } from '@supabase/supabase-js'
 import {
   Plus, Trash2, Edit2, X, Save, Loader2, MapPin, CheckCircle2,
   Image as ImageIcon, Video, Hash, Target, Eye, EyeOff, ChevronRight
 } from 'lucide-react'
+
+// Client-side Supabase — uploads go directly to storage, bypassing Vercel's 4.5MB limit
+const sbClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+async function uploadToStorage(file: File, folder: string): Promise<string> {
+  const ext  = file.name.split('.').pop()?.toLowerCase() || 'bin'
+  const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+  const { error } = await sbClient.storage
+    .from('materials')
+    .upload(path, file, { contentType: file.type, upsert: false })
+  if (error) throw new Error(error.message)
+  const { data: { publicUrl } } = sbClient.storage.from('materials').getPublicUrl(path)
+  return publicUrl
+}
 
 type Place = {
   id: string; name: string; description: string; category: string
@@ -135,15 +153,13 @@ function ImageManager({ images, onChange }: { images: string[]; onChange: (imgs:
   const handleFiles = async (files: FileList | null) => {
     if (!files || !files.length) return
     setUploading(true); setError('')
-    const form = new FormData()
-    Array.from(files).forEach(f => form.append('files', f))
     try {
-      const r = await fetch('/api/admin/places/upload', { method: 'POST', body: form })
-      const d = await r.json()
-      if (!r.ok) { setError(d.error || 'Upload failed'); return }
-      onChange([...images, ...(d.urls as string[])])
+      const urls = await Promise.all(
+        Array.from(files).map(f => uploadToStorage(f, 'places'))
+      )
+      onChange([...images, ...urls])
     } catch (e: any) {
-      setError('Upload failed')
+      setError(e.message || 'Upload failed')
     } finally {
       setUploading(false)
       if (inputRef.current) inputRef.current.value = ''
@@ -207,15 +223,11 @@ function VideoUploader({ value, onChange }: { value: string; onChange: (url: str
   const handleFile = async (file: File | null) => {
     if (!file) return
     setUploading(true); setError('')
-    const form = new FormData()
-    form.append('video', file)
     try {
-      const r = await fetch('/api/admin/places/upload', { method: 'POST', body: form })
-      const d = await r.json()
-      if (!r.ok) { setError(d.error || 'Upload failed'); return }
-      onChange(d.urls[0] || '')
-    } catch {
-      setError('Upload failed')
+      const url = await uploadToStorage(file, 'places/videos')
+      onChange(url)
+    } catch (e: any) {
+      setError(e.message || 'Upload failed')
     } finally {
       setUploading(false)
       if (inputRef.current) inputRef.current.value = ''
