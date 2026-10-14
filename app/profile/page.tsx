@@ -5,9 +5,11 @@ import TopBar from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
 import { saveStudent } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 import { 
   Camera, Save, Loader2, CheckCircle2, User, Mail, 
-  Phone, BookOpen, GraduationCap, LogOut, Edit3, X, AlertCircle 
+  Phone, BookOpen, GraduationCap, LogOut, Edit3, X, AlertCircle,
+  ShieldCheck
 } from 'lucide-react'
 
 export default function ProfilePage() {
@@ -133,6 +135,18 @@ export default function ProfilePage() {
   const [downloads, setDownloads] = useState(0)
   useEffect(()=>{ setDownloads(parseInt(localStorage.getItem(`downloads_${student?.idNumber}`) || '0')) },[student?.idNumber])
 
+  // Check if this student is also an admin
+  const [isAdminUser, setIsAdminUser] = useState(false)
+  const [isSuper, setIsSuper] = useState(false)
+  useEffect(() => {
+    const email = dbStudent?.email || student?.email || ''
+    if (!email) return
+    fetch(`/api/admin/check-student?email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(d => { if (d.isAdmin) { setIsAdminUser(true); setIsSuper(d.is_super) } })
+      .catch(() => {})
+  }, [dbStudent?.email, student?.email])
+
   // Display Name logic (prioritize updated db name, fallback to context name)
   const displayName = dbStudent?.name || student?.name || 'Student'
   const displayLevel = dbStudent?.level || student?.level || '100'
@@ -173,6 +187,15 @@ export default function ProfilePage() {
             className={`mt-4 flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${isEditing ? 'bg-[#f0f0f0] text-[#6b6b6b]' : 'bg-[#1a6b3a] text-white hover:bg-[#145530] active:scale-95'}`}>
             {isEditing ? <><X className="w-4 h-4"/> Cancel</> : <><Edit3 className="w-4 h-4"/> Edit Profile</>}
           </button>
+
+          {/* Admin portal button — shown only to students who are also admins */}
+          {isAdminUser && (
+            <Link href="/admin"
+              className="mt-2 flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold bg-[#0a0a0a] text-white hover:bg-[#222] active:scale-95 transition-all w-full justify-center">
+              <ShieldCheck className="w-4 h-4"/>
+              {isSuper ? 'Super Admin Portal' : 'Admin Portal'}
+            </Link>
+          )}
         </div>
 
         {/* Stats */}
