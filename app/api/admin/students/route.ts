@@ -6,6 +6,22 @@ export async function GET(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { searchParams } = new URL(req.url)
+  const search = searchParams.get('search')?.trim() || ''
+  const limit  = parseInt(searchParams.get('limit') || '0')
+
+  // Search mode — lightweight, returns minimal fields
+  if (search) {
+    const q = search.toLowerCase()
+    let query = adminDb.from('students')
+      .select('id_number,name,email,department,level')
+      .or(`name.ilike.%${q}%,id_number.ilike.%${q}%,email.ilike.%${q}%`)
+      .order('name')
+    if (limit > 0) query = query.limit(limit)
+    const { data } = await query
+    return NextResponse.json({ data: data || [] })
+  }
+
   // Fetch students and push subscriptions in parallel
   const [{ data: students }, { data: subs }] = await Promise.all([
     adminDb.from('students').select('*').order('created_at', { ascending: false }),
