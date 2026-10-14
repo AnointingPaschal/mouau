@@ -4,7 +4,7 @@ import AdminShell from '@/components/AdminShell'
 import { useAdmin } from '@/components/AdminProvider'
 import {
   Plus, Trash2, Edit2, X, Save, Loader2, MapPin, CheckCircle2,
-  Image as ImageIcon, Video, Link2, Hash, Target, Eye, EyeOff, ChevronRight
+  Image as ImageIcon, Video, Hash, Target, Eye, EyeOff, ChevronRight
 } from 'lucide-react'
 
 type Place = {
@@ -124,26 +124,45 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
   )
 }
 
-// ─── Image Manager ─────────────────────────────────────────────────────────────
+// ─── Image Upload Manager ──────────────────────────────────────────────────────
 function ImageManager({ images, onChange }: { images: string[]; onChange: (imgs: string[]) => void }) {
-  const [newUrl, setNewUrl] = useState('')
-  const add = () => {
-    const url = newUrl.trim()
-    if (!url) return
-    onChange([...images, url]); setNewUrl('')
-  }
+  const [uploading, setUploading] = useState(false)
+  const [error,     setError]     = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const remove = (i: number) => onChange(images.filter((_,idx) => idx !== i))
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || !files.length) return
+    setUploading(true); setError('')
+    const form = new FormData()
+    Array.from(files).forEach(f => form.append('files', f))
+    try {
+      const r = await fetch('/api/admin/places/upload', { method: 'POST', body: form })
+      const d = await r.json()
+      if (!r.ok) { setError(d.error || 'Upload failed'); return }
+      onChange([...images, ...(d.urls as string[])])
+    } catch (e: any) {
+      setError('Upload failed')
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
   return (
     <div className="space-y-2">
       <p className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider flex items-center gap-1.5">
         <ImageIcon className="w-3 h-3"/> Images ({images.length})
       </p>
+
+      {/* Thumbnails */}
       {images.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {images.map((src, i) => (
             <div key={i} className="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-[#e8e8e8]">
               <img src={src} alt="" className="w-full h-full object-cover"/>
-              <button onClick={() => remove(i)}
+              <button type="button" onClick={() => remove(i)}
                 className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white">
                 <X className="w-2.5 h-2.5"/>
               </button>
@@ -151,16 +170,93 @@ function ImageManager({ images, onChange }: { images: string[]; onChange: (imgs:
           ))}
         </div>
       )}
-      <div className="flex gap-2">
-        <input value={newUrl} onChange={e => setNewUrl(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && add()}
-          placeholder="Paste image URL and press Enter or +"
-          className="input flex-1 text-xs"/>
-        <button onClick={add} className="px-3 py-2 bg-[#1a6b3a] text-white rounded-xl text-sm font-bold flex-shrink-0">
-          <Plus className="w-4 h-4"/>
-        </button>
+
+      {/* Drop zone / file picker */}
+      <div
+        className="border-2 border-dashed border-[#e8e8e8] rounded-xl p-4 text-center cursor-pointer hover:border-[#1a6b3a] hover:bg-[#1a6b3a]/5 transition-all"
+        onClick={() => inputRef.current?.click()}
+        onDragOver={e => { e.preventDefault() }}
+        onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files) }}
+      >
+        {uploading ? (
+          <div className="flex items-center justify-center gap-2 text-xs text-[#1a6b3a] font-semibold">
+            <Loader2 className="w-4 h-4 animate-spin"/> Uploading...
+          </div>
+        ) : (
+          <>
+            <ImageIcon className="w-6 h-6 text-[#ccc] mx-auto mb-1"/>
+            <p className="text-xs font-semibold text-[#555]">Tap to select photos</p>
+            <p className="text-[9px] text-[#bbb] mt-0.5">or drag & drop · JPG, PNG, WebP · multiple allowed</p>
+          </>
+        )}
       </div>
-      <p className="text-[9px] text-[#bbb]">Tip: Upload to ImgBB, Cloudinary or any CDN — paste the direct image URL here</p>
+      <input ref={inputRef} type="file" accept="image/*" multiple className="hidden"
+        onChange={e => handleFiles(e.target.files)}/>
+
+      {error && <p className="text-[10px] text-red-500">{error}</p>}
+    </div>
+  )
+}
+
+// ─── Video Upload ──────────────────────────────────────────────────────────────
+function VideoUploader({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const [uploading, setUploading] = useState(false)
+  const [error,     setError]     = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleFile = async (file: File | null) => {
+    if (!file) return
+    setUploading(true); setError('')
+    const form = new FormData()
+    form.append('video', file)
+    try {
+      const r = await fetch('/api/admin/places/upload', { method: 'POST', body: form })
+      const d = await r.json()
+      if (!r.ok) { setError(d.error || 'Upload failed'); return }
+      onChange(d.urls[0] || '')
+    } catch {
+      setError('Upload failed')
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider flex items-center gap-1.5">
+        <Video className="w-3 h-3"/> Video (optional)
+      </label>
+
+      {value ? (
+        <div className="flex items-center gap-2 p-2.5 bg-[#f9f9f7] rounded-xl border border-[#e8e8e8]">
+          <Video className="w-4 h-4 text-[#1a6b3a] flex-shrink-0"/>
+          <p className="text-xs text-[#555] truncate flex-1">{value.split('/').pop()}</p>
+          <button type="button" onClick={() => onChange('')} className="p-1 rounded-lg hover:bg-red-50 text-[#aaa] hover:text-red-500">
+            <X className="w-3.5 h-3.5"/>
+          </button>
+        </div>
+      ) : (
+        <div
+          className="border-2 border-dashed border-[#e8e8e8] rounded-xl p-4 text-center cursor-pointer hover:border-[#1a6b3a] hover:bg-[#1a6b3a]/5 transition-all"
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? (
+            <div className="flex items-center justify-center gap-2 text-xs text-[#1a6b3a] font-semibold">
+              <Loader2 className="w-4 h-4 animate-spin"/> Uploading video...
+            </div>
+          ) : (
+            <>
+              <Video className="w-6 h-6 text-[#ccc] mx-auto mb-1"/>
+              <p className="text-xs font-semibold text-[#555]">Tap to upload a video</p>
+              <p className="text-[9px] text-[#bbb] mt-0.5">MP4, MOV, WebM</p>
+            </>
+          )}
+        </div>
+      )}
+      <input ref={inputRef} type="file" accept="video/*" className="hidden"
+        onChange={e => handleFile(e.target.files?.[0] || null)}/>
+      {error && <p className="text-[10px] text-red-500">{error}</p>}
     </div>
   )
 }
@@ -549,13 +645,8 @@ export default function AdminPlacesPage() {
               </div>
 
               {/* Video */}
-              <div className="space-y-2 pt-1 border-t border-[#f0f0f0]">
-                <label className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider flex items-center gap-1.5">
-                  <Video className="w-3 h-3"/> Video URL (optional)
-                </label>
-                <input value={form.video_url} onChange={e => setForm(f => ({...f,video_url:e.target.value}))}
-                  className="input text-sm" placeholder="YouTube, Google Drive or direct video link"/>
-                <p className="text-[9px] text-[#bbb]">YouTube links are auto-embedded on the place page</p>
+              <div className="pt-1 border-t border-[#f0f0f0]">
+                <VideoUploader value={form.video_url} onChange={url => setForm(f => ({...f,video_url:url}))}/>
               </div>
 
               {/* Visibility */}
