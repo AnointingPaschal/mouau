@@ -34,15 +34,17 @@ export async function POST(req: NextRequest) {
       narration:  narration || 'Manual credit by admin',
     })
 
-    await adminDb.from('notifications').insert({
-      recipient_id: sid,
-      type:         'info',
-      title:        'Wallet Credited 💰',
-      body:         `₦${amt.toLocaleString()} has been added to your wallet by admin.`,
-      post_id:      '/wallet',
-      actor:        'system',
-      read:         false,
-    }).catch(() => {})
+    try {
+      await adminDb.from('notifications').insert({
+        recipient_id: sid,
+        type:         'info',
+        title:        'Wallet Credited 💰',
+        body:         `₦${amt.toLocaleString()} has been added to your wallet by admin.`,
+        post_id:      '/wallet',
+        actor:        'system',
+        read:         false,
+      })
+    } catch (_) {}
 
     return NextResponse.json({ ok: true, newBalance })
   } catch (e: any) {
