@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getAdminDb } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+
+function getDb() {
+  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
+  return createClient(url, key, { auth: { persistSession: false } })
+}
 
 export async function GET() {
-  const db = getAdminDb()
+  const db = getDb()
   const { data } = await db.from('app_settings').select('key,value').in('key', ['faqs', 'whatsapp_group_link'])
   const faqs = data?.find((r: any) => r.key === 'faqs')
   const wa   = data?.find((r: any) => r.key === 'whatsapp_group_link')
@@ -12,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const db = getAdminDb()
+  const db = getDb()
   const { faqs, waLink } = await req.json()
   const ops = [
     db.from('app_settings').upsert({ key: 'faqs', value: JSON.stringify(faqs), category: 'community', label: 'FAQ Questions', description: 'JSON array of {q,a} objects shown on student dashboard', is_secret: false }, { onConflict: 'key' }),
