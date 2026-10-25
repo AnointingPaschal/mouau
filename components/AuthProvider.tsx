@@ -26,7 +26,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     const s = getStudent()
     setStudentState(s)
     setLoading(false)
-    if (!s && pathname !== '/' && pathname !== '/login') {
+    if (!s && pathname !== '/' && pathname !== '/login' && !pathname.startsWith('/admin')) {
       router.replace('/login')
     }
   }, [pathname, router])

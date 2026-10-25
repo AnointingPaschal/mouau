@@ -208,9 +208,7 @@ export default function LoginPage() {
                   <button onClick={() => { reset('register'); setPassword(''); setConfirm('') }}
                     className="text-[#1a6b3a] font-semibold hover:underline">New student? Register →</button>
                 </div>
-                <div className="border-t border-[#f0f0f0] pt-3 text-center">
-                  <a href="/admin" className="text-[10px] text-[#aaa] hover:text-[#6b6b6b]">Admin? Sign in to admin panel</a>
-                </div>
+
               </div>
             )}
 
