@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import AdminShell from '@/components/AdminShell'
 import { useAdmin } from '@/components/AdminProvider'
-import { Loader2, Search, Users, Smartphone, User, GraduationCap } from 'lucide-react'
+import { Loader2, Search, Users, Smartphone, User, GraduationCap, RefreshCw } from 'lucide-react'
 
 type Student = {
   id: string
@@ -92,18 +92,33 @@ function StudentCard({ student }: { student: Student }) {
 
 export default function StudentsPage() {
   const { token } = useAdmin()
-  const [students, setStudents] = useState<Student[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [query,    setQuery]    = useState('')
-  const [tab,      setTab]      = useState<Tab>('all')
+  const [students,    setStudents]    = useState<Student[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [refreshing,  setRefreshing]  = useState(false)
+  const [query,       setQuery]       = useState('')
+  const [tab,         setTab]         = useState<Tab>('all')
   const [levelFilter, setLevelFilter] = useState<string>('all')
+  const [lastUpdated, setLastUpdated] = useState<Date|null>(null)
 
+  const fetchStudents = async (silent = false) => {
+    if (!token) return
+    if (!silent) setLoading(true); else setRefreshing(true)
+    try {
+      const r = await fetch('/api/admin/students', { headers: { Authorization: `Bearer ${token}` } })
+      const d = await r.json()
+      setStudents(d.data || [])
+      setLastUpdated(new Date())
+    } catch {}
+    setLoading(false); setRefreshing(false)
+  }
+
+  useEffect(() => { fetchStudents() }, [token])
+
+  // Auto-refresh every 30 seconds
   useEffect(() => {
     if (!token) return
-    fetch('/api/admin/students', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => { setStudents(d.data || []); setLoading(false) })
-      .catch(() => setLoading(false))
+    const interval = setInterval(() => fetchStudents(true), 30_000)
+    return () => clearInterval(interval)
   }, [token])
 
   // Derived counts — directly from the pwa_installed flag
@@ -143,10 +158,22 @@ export default function StudentsPage() {
       <div className="p-4 w-full pb-24 space-y-4 max-w-2xl">
 
         {/* Header */}
-        <div>
-          <p className="text-[10px] text-[#aaa] uppercase tracking-widest">ADMIN</p>
-          <h1 className="font-black text-[#0a0a0a] text-2xl">Students</h1>
-          <p className="text-xs text-[#6b6b6b] mt-0.5">Registered accounts &amp; PWA installs</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-[10px] text-[#aaa] uppercase tracking-widest">ADMIN</p>
+            <h1 className="font-black text-[#0a0a0a] text-2xl">Students</h1>
+            <p className="text-xs text-[#6b6b6b] mt-0.5">Registered accounts &amp; PWA installs</p>
+            {lastUpdated && (
+              <p className="text-[9px] text-[#bbb] mt-0.5">
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+          </div>
+          <button onClick={() => fetchStudents(true)} disabled={refreshing || loading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#e8e8e8] bg-white text-xs font-semibold text-[#6b6b6b] hover:border-[#1a6b3a] hover:text-[#1a6b3a] transition-all disabled:opacity-50 mt-1">
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}/>
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
         </div>
 
         {/* Stats */}
