@@ -1,18 +1,20 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-let _adminDb: SupabaseClient | null = null
-
 function getAdminDb(): SupabaseClient {
-  if (!_adminDb) {
-    const u = url || 'https://placeholder.supabase.co'
-    const k = serviceKey || 'placeholder'
-    _adminDb = createClient(u, k)
+  const u = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const anonKey    = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  const k = serviceKey || anonKey
+
+  if (!serviceKey) {
+    // Log once so it appears in Vercel function logs
+    console.error('[adminDb] SUPABASE_SERVICE_ROLE_KEY not set — falling back to anon key. RLS will apply.')
   }
-  return _adminDb
+
+  return createClient(u || 'https://placeholder.supabase.co', k || 'placeholder', {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
 }
 
 export const adminDb = new Proxy({} as SupabaseClient, {
