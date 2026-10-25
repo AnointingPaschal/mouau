@@ -27,11 +27,10 @@ export async function POST(req: Request) {
   if (error && !error.message.includes('unique')) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
 
   // Increment entry_count
-  await client.rpc('increment_giveaway_entries', { gid: giveawayId }).catch(() =>
-    client.from('giveaways').select('entry_count').eq('id', giveawayId).single().then(({ data }) =>
-      client.from('giveaways').update({ entry_count: (data?.entry_count || 0) + 1 }).eq('id', giveawayId)
-    )
-  )
+  try {
+    const { data: cur } = await client.from('giveaways').select('entry_count').eq('id', giveawayId).single()
+    await client.from('giveaways').update({ entry_count: (cur?.entry_count || 0) + 1 }).eq('id', giveawayId)
+  } catch {}
 
   return NextResponse.json({ ok: true })
 }
