@@ -14,7 +14,7 @@ import {
   BookOpen, Award, Phone, Wifi,
   Gamepad2, Plus, Copy, Building2, RefreshCw,
   Wallet, Send, Eye, EyeOff, Hash, MessageSquare,
-  HelpCircle, ChevronDown, MessageCircle,
+  HelpCircle, ChevronDown, MessageCircle, X,
 } from 'lucide-react'
 
 type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; created_at:string }
@@ -56,14 +56,14 @@ const CAMPUS_ACTIONS_FRESHER = [
   { href:'/cutoff',     label:'Cut-Off',  icon:Award,          color:'#1e3a8a' },
   { href:'/skills',     label:'Skills',   icon:Zap,            color:'#7c3aed' },
   { href:'/library',    label:'Library',  icon:BookOpen,       color:'#1a6b3a' },
-  { href:'/forum',      label:'Forum',    icon:MessageCircle,  color:'#0891b2' },
+  { href:'/forum',      label:'Ask',      icon:MessageCircle,  color:'#0891b2' },
 ]
 const CAMPUS_ACTIONS_RETURNING = [
   { href:'/skills',     label:'Skills',   icon:Zap,            color:'#7c3aed' },
   { href:'/calculator', label:'CGPA',     icon:Calculator,     color:'#0284c7' },
   { href:'/cutoff',     label:'Cut-Off',  icon:Award,          color:'#1e3a8a' },
   { href:'/library',    label:'Library',  icon:BookOpen,       color:'#1a6b3a' },
-  { href:'/forum',      label:'Forum',    icon:MessageCircle,  color:'#0891b2' },
+  { href:'/forum',      label:'Ask',      icon:MessageCircle,  color:'#0891b2' },
 ]
 const BILL_ACTIONS = [
   { href:'/wallet/fund',     label:'Fund',    icon:Plus,         color:'#059669' },
@@ -99,6 +99,9 @@ export default function Dashboard() {
   const [copied,        setCopied]        = useState(false)
   const [hideBalance,   setHideBalance]   = useState(false)
   const [createError,   setCreateError]   = useState('')
+  const [faqs,          setFaqs]          = useState<{q:string;a:string}[]>([])
+  const [waLink,        setWaLink]        = useState('')
+  const [waDismissed,   setWaDismissed]   = useState(false)
 
   const fetchWallet = async (sid: string) => {
     try {
@@ -110,6 +113,15 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
+    // Check WhatsApp dismissal
+    try { if (localStorage.getItem('wa_dismissed')) setWaDismissed(true) } catch {}
+    // Fetch FAQs + WhatsApp link from app_settings
+    supabase.from('app_settings').select('key,value').in('key', ['faqs', 'whatsapp_group_link']).then(({ data }) => {
+      data?.forEach((row: any) => {
+        if (row.key === 'faqs') { try { setFaqs(JSON.parse(row.value || '[]')) } catch {} }
+        if (row.key === 'whatsapp_group_link') setWaLink(row.value || '')
+      })
+    })
     getAnnouncements().then(({ data }) => { if(data) setAnns(data as Ann[]) })
     if(!student?.idNumber) { setWalletLoading(false); return }
 
@@ -418,21 +430,48 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ══ FAQ ══════════════════════════════════════════════════════════ */}
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-[#1a6b3a]"/>
-                <p className="section-label">FREQUENTLY ASKED</p>
+          {/* ══ WHATSAPP BANNER ══════════════════════════════════════════════ */}
+          {waLink && !waDismissed && (
+            <div className="relative flex items-center gap-3 p-4 rounded-2xl overflow-hidden"
+              style={{background:'linear-gradient(135deg,#075e54,#128c7e)'}}>
+              <div className="absolute inset-0 opacity-20" style={{background:'radial-gradient(circle at 80% 50%,#25d366,transparent)'}}/>
+              <div className="relative w-10 h-10 bg-white/15 rounded-2xl flex items-center justify-center flex-shrink-0 border border-white/20">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.535 5.845L.057 23.571a.75.75 0 0 0 .915.903l5.913-1.55A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.713 9.713 0 0 1-4.925-1.338l-.353-.209-3.655.958.975-3.563-.23-.368A9.726 9.726 0 0 1 2.25 12c0-5.376 4.374-9.75 9.75-9.75s9.75 4.374 9.75 9.75-4.374 9.75-9.75 9.75z"/></svg>
               </div>
-              <Link href="/forum" className="text-[9px] font-bold text-[#1a6b3a]">Ask more →</Link>
+              <div className="relative flex-1 min-w-0">
+                <p className="text-white font-black text-sm leading-tight">Join Our WhatsApp Group</p>
+                <p className="text-white/70 text-[11px] mt-0.5">Connect with fellow MOUAU students</p>
+              </div>
+              <div className="relative flex items-center gap-2">
+                <a href={waLink} target="_blank" rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-white rounded-xl text-[#075e54] text-xs font-black hover:bg-[#e8f5e9] transition-colors">
+                  Join
+                </a>
+                <button onClick={() => { setWaDismissed(true); try { localStorage.setItem('wa_dismissed','1') } catch {} }}
+                  className="w-7 h-7 bg-white/15 rounded-full flex items-center justify-center hover:bg-white/25 transition-colors">
+                  <X className="w-3.5 h-3.5 text-white"/>
+                </button>
+              </div>
             </div>
-            <div className="space-y-2">
-              {FAQS.map((faq, i) => <FAQItem key={i} faq={faq} index={i} />)}
-            </div>
-          </div>
+          )}
 
-          {/* ══ FORUM CTA ═════════════════════════════════════════════════════ */}
+          {/* ══ FAQ ══════════════════════════════════════════════════════════ */}
+          {(() => { const displayFaqs = faqs.length > 0 ? faqs : FAQS; return displayFaqs.length > 0 ? (
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-[#1a6b3a]"/>
+                  <p className="section-label">FREQUENTLY ASKED</p>
+                </div>
+                <Link href="/forum" className="text-[9px] font-bold text-[#1a6b3a]">Ask more →</Link>
+              </div>
+              <div className="space-y-2">
+                {displayFaqs.map((faq, i) => <FAQItem key={i} faq={faq} index={i} />)}
+              </div>
+            </div>
+          ) : null })()}
+
+          {/* ══ ASK ANYTHING CTA ══════════════════════════════════════════════ */}
           <Link href="/forum"
             className="flex items-center gap-3.5 p-4 rounded-2xl overflow-hidden relative group"
             style={{background:'linear-gradient(135deg,#0c1a2e,#1e3a8a)'}}>
@@ -441,7 +480,7 @@ export default function Dashboard() {
               <MessageCircle className="w-5 h-5 text-blue-300"/>
             </div>
             <div className="relative flex-1 min-w-0">
-              <p className="text-white font-black text-sm leading-tight">Student Forum</p>
+              <p className="text-white font-black text-sm leading-tight">Ask Anything</p>
               <p className="text-white/50 text-[10px] mt-0.5">Ask questions, share answers, connect with peers</p>
             </div>
             <ChevronRight className="relative w-4 h-4 text-blue-300 flex-shrink-0"/>

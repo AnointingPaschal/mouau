@@ -6,7 +6,7 @@ import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import {
   X, Send, MessageCircle, Share2, Loader2, MoreHorizontal,
-  Image as ImageIcon, Video, Bold, Italic, Underline,
+  Image as ImageIcon, Bold, Italic, Underline,
   List, Link, ThumbsUp, ArrowLeft, ChevronDown,
   Trash2, Edit2, Flag, AlertTriangle, ChevronUp, CornerDownRight,
   TrendingUp, Clock, Flame, Hash, BookOpen, HelpCircle,
@@ -266,8 +266,8 @@ function PostEditor({ editPost, onClose, onSaved }: { editPost?: Post; onClose: 
   const { student } = useAuth()
   const [cat, setCat]     = useState(editPost?.category || 'General')
   const [file, setFile]   = useState<File|null>(null)
-  const [preview, setPrev]= useState<string|null>(editPost?.image_url || editPost?.video_url || null)
-  const [isVid, setIsVid] = useState(!!editPost?.video_url)
+  const [preview, setPrev]= useState<string|null>(editPost?.image_url || null)
+  const [fileErr, setFileErr] = useState('')
   const [posting, setPosting] = useState(false)
   const edRef = useRef<HTMLDivElement>(null)
   const fRef  = useRef<HTMLInputElement>(null)
@@ -282,14 +282,16 @@ function PostEditor({ editPost, onClose, onSaved }: { editPost?: Post; onClose: 
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return
-    setFile(f); setIsVid(f.type.startsWith('video/')); setPrev(URL.createObjectURL(f))
+    if (!f.type.startsWith('image/')) { setFileErr('Only photos are allowed.'); return }
+    if (f.size > 5 * 1024 * 1024) { setFileErr('Photo must be under 5 MB.'); return }
+    setFileErr(''); setFile(f); setPrev(URL.createObjectURL(f))
   }
 
   const submit = async () => {
     const body = edRef.current?.innerHTML || ''
     if (!body.replace(/<[^>]*>/g, '').trim()) return
     setPosting(true)
-    let url = editPost?.image_url || editPost?.video_url || ''
+    let url = editPost?.image_url || ''
     if (file) {
       const ext = file.name.split('.').pop()
       const path = `forum/${Date.now()}.${ext}`
@@ -298,12 +300,12 @@ function PostEditor({ editPost, onClose, onSaved }: { editPost?: Post; onClose: 
     }
     const av = (student?.name || 'ST').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     if (editPost) {
-      await supabase.from('forum_posts').update({ body, category: cat, image_url: isVid ? '' : url, video_url: isVid ? url : '' }).eq('id', editPost.id)
+      await supabase.from('forum_posts').update({ body, category: cat, image_url: url, video_url: '' }).eq('id', editPost.id)
     } else {
       await supabase.from('forum_posts').insert({
         title: body.replace(/<[^>]*>/g, ' ').trim().slice(0, 100), body,
         author: student?.name || 'Anonymous', avatar: av, author_id: student?.idNumber || '',
-        category: cat, tags: [], image_url: isVid ? '' : url, video_url: isVid ? url : '',
+        category: cat, tags: [], image_url: url, video_url: '',
         replies: 0, views: 0, likes: 0, like_count: 0, love_count: 0, haha_count: 0, wow_count: 0, cry_count: 0,
       })
     }
@@ -350,11 +352,10 @@ function PostEditor({ editPost, onClose, onSaved }: { editPost?: Post; onClose: 
           data-placeholder="What's on your mind? Ask a question, share an update…"
           className="min-h-full text-[16px] text-[#0a0a0a] outline-none leading-relaxed pb-20
             empty:before:content-[attr(data-placeholder)] empty:before:text-[#bbb] empty:before:pointer-events-none"/>
+        {fileErr && <p className="text-red-500 text-xs mb-2 font-medium">{fileErr}</p>}
         {preview && (
           <div className="relative rounded-2xl overflow-hidden border border-[#e8e8e8] mb-4">
-            {isVid
-              ? <video src={preview} className="w-full max-h-64 bg-black" controls/>
-              : <img src={preview} alt="" className="w-full max-h-64 object-cover"/>}
+            <img src={preview} alt="" className="w-full max-h-64 object-cover"/>
             <button onClick={() => { setFile(null); setPrev(null) }}
               className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1.5 hover:bg-black/80">
               <X className="w-4 h-4"/>
@@ -370,14 +371,10 @@ function PostEditor({ editPost, onClose, onSaved }: { editPost?: Post; onClose: 
           <span className="text-[10px] font-bold text-[#aaa] mr-1.5 uppercase tracking-wide">Add</span>
           <button onClick={() => fRef.current?.click()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f0faf4] text-[#1a6b3a] text-xs font-bold hover:bg-[#e0f5ea] transition-colors">
-            <ImageIcon className="w-3.5 h-3.5"/> Photo
-          </button>
-          <button onClick={() => fRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-bold hover:bg-red-100 transition-colors">
-            <Video className="w-3.5 h-3.5"/> Video
+            <ImageIcon className="w-3.5 h-3.5"/> Photo <span className="text-[9px] text-[#aaa] font-normal">max 5 MB</span>
           </button>
         </div>
-        <input ref={fRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile}/>
+        <input ref={fRef} type="file" accept="image/*" className="hidden" onChange={onFile}/>
       </div>
     </div>
   )
@@ -716,7 +713,7 @@ export default function ForumPage() {
 
   return (
     <AppShell>
-      <TopBar title="Community" subtitle="Ask · Share · Connect"/>
+      <TopBar title="Ask Anything" subtitle="Ask · Share · Connect"/>
       <div className="pb-28">
 
         {/* Hero composer */}
@@ -738,10 +735,6 @@ export default function ForumPage() {
             <button onClick={() => setCreate(true)}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-bold text-[#1a6b3a] hover:bg-[#f0faf4] transition-colors">
               <ImageIcon className="w-3.5 h-3.5"/> Photo
-            </button>
-            <button onClick={() => setCreate(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-bold text-red-500 hover:bg-red-50 transition-colors">
-              <Video className="w-3.5 h-3.5"/> Video
             </button>
             <button onClick={() => setCreate(true)}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-bold text-[#7c3aed] hover:bg-purple-50 transition-colors">
