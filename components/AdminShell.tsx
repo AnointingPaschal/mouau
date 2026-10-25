@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images, Cross, SendHorizontal, Zap, Wallet, CreditCard, AlertTriangle, Wifi, HelpCircle, Gift } from 'lucide-react'
+import { LayoutDashboard, Type, BookOpen, Bell, MapPin, Brain, Users, User, LogOut, ChevronRight, ClipboardList, Menu, X, Settings2, BellRing, Images, Cross, SendHorizontal, Zap, Wallet, CreditCard, AlertTriangle, Wifi, HelpCircle, Gift, MessageCircle } from 'lucide-react'
 
 const nav = [
   { href:'/admin/dashboard',           label:'Dashboard',            icon:LayoutDashboard },
@@ -29,6 +29,7 @@ const nav = [
   { href:'/admin/settings/flutterwave',label:'Flutterwave Settings', icon:CreditCard      },
   { href:'/admin/settings/bigisub',    label:'Bigisub Settings',     icon:Wifi            },
   { href:'/admin/bigisub',             label:'Plans & Pricing',      icon:Wallet          },
+  { href:'/admin/forum',               label:'Forum Moderation',     icon:MessageCircle   },
   { href:'/admin/faq',                 label:'FAQ & Community',      icon:HelpCircle      },
   { href:'/admin/giveaway',            label:'Giveaways',            icon:Gift            },
   { href:'/admin/errors',              label:'API Error Log',        icon:AlertTriangle   },
