@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { adminDb } from '@/lib/admin'
 import { createHash } from 'crypto'
 
 function hashPassword(idNumber: string, password: string): string {
@@ -20,8 +21,8 @@ export async function POST(req: NextRequest) {
   if (!verif) return NextResponse.json({ error: 'Invalid or expired verification code.' }, { status: 400 })
   if (new Date(verif.expires_at) < new Date()) return NextResponse.json({ error: 'Code expired. Request a new one.' }, { status: 400 })
 
-  // Duplicate check
-  const { data: dup } = await supabase.from('students')
+  // Duplicate check — use service-role to bypass RLS
+  const { data: dup } = await adminDb.from('students')
     .select('id').or(`id_number.eq.${id},email.eq.${email}`).limit(1)
   if (dup?.length) return NextResponse.json({ error: 'Account already exists. Sign in instead.' }, { status: 409 })
 
@@ -29,8 +30,8 @@ export async function POST(req: NextRequest) {
   const studentLevel = level || '100'
   const studentDept  = department?.trim() || ''
 
-  // Create account
-  const { error } = await supabase.from('students').insert({
+  // Create account — use service-role to bypass RLS insert restrictions
+  const { error } = await adminDb.from('students').insert({
     id_number:     id,
     name:          name.trim(),
     email:         email,
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Mark code used
-  await supabase.from('verification_codes').update({ used: true }).eq('id', verif.id)
+  await adminDb.from('verification_codes').update({ used: true }).eq('id', verif.id)
 
   return NextResponse.json({
     ok: true,
