@@ -14,7 +14,7 @@ import {
   BookOpen, Award, Phone, Wifi,
   Gamepad2, Plus, Copy, Building2, RefreshCw,
   Wallet, Send, Eye, EyeOff, Hash, MessageSquare,
-  HelpCircle, ChevronDown, MessageCircle, X,
+  HelpCircle, ChevronDown, MessageCircle, X, Gift,
 } from 'lucide-react'
 
 type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; created_at:string }
@@ -102,6 +102,7 @@ export default function Dashboard() {
   const [faqs,          setFaqs]          = useState<{q:string;a:string}[]>([])
   const [waLink,        setWaLink]        = useState('')
   const [waDismissed,   setWaDismissed]   = useState(false)
+  const [giveaway,      setGiveaway]      = useState<{id:string;title:string;prize_label:string;prize_type:string;prize_amount:number;entry_count:number}|null>(null)
 
   const fetchWallet = async (sid: string) => {
     try {
@@ -115,6 +116,8 @@ export default function Dashboard() {
   useEffect(() => {
     // Check WhatsApp dismissal
     try { if (localStorage.getItem('wa_dismissed')) setWaDismissed(true) } catch {}
+    // Fetch active giveaway
+    fetch('/api/giveaway').then(r => r.json()).then(d => { if (d.giveaway) setGiveaway(d.giveaway) })
     // Fetch FAQs + WhatsApp link from app_settings
     supabase.from('app_settings').select('key,value').in('key', ['faqs', 'whatsapp_group_link']).then(({ data }) => {
       data?.forEach((row: any) => {
@@ -342,6 +345,28 @@ export default function Dashboard() {
                 </Link>
               )}
             </div>
+          )}
+
+          {/* ══ GIVEAWAY BANNER ══════════════════════════════════════════════ */}
+          {giveaway && (
+            <Link href="/giveaway"
+              className="flex items-center gap-3.5 p-4 rounded-2xl overflow-hidden relative group active:scale-[0.98] transition-transform"
+              style={{background:'linear-gradient(135deg,#1a3a2a 0%,#0d2818 50%,#1e1a0e 100%)'}}>
+              <div className="absolute inset-0 opacity-25" style={{background:'radial-gradient(circle at 80% 50%,#f59e0b,transparent 60%)'}}/>
+              <div className="relative w-11 h-11 bg-amber-400/20 rounded-2xl flex items-center justify-center flex-shrink-0 border border-amber-400/30">
+                <Gift className="w-5 h-5 text-amber-400"/>
+              </div>
+              <div className="relative flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-white font-black text-sm leading-tight truncate">{giveaway.title}</p>
+                  <span className="text-[9px] font-black bg-amber-400 text-black px-2 py-0.5 rounded-full flex-shrink-0">LIVE</span>
+                </div>
+                <p className="text-white/50 text-[11px] mt-0.5">
+                  {giveaway.prize_type === 'wallet' ? `₦${Number(giveaway.prize_amount).toLocaleString()} prize` : giveaway.prize_label || 'Amazing prize'} · {giveaway.entry_count} entries
+                </p>
+              </div>
+              <ChevronRight className="relative w-4 h-4 text-amber-400 flex-shrink-0"/>
+            </Link>
           )}
 
           {/* ══ QUICK ACTIONS ════════════════════════════════════════════════ */}
