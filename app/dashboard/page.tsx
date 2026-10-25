@@ -11,26 +11,59 @@ import {
   ClipboardList, Users, Calculator,
   AlertTriangle, Info, CheckCircle2, Calendar,
   ChevronRight, Navigation2, MapPin, Zap,
-  BookOpen, Award, ArrowUpRight, Phone, Wifi,
+  BookOpen, Award, Phone, Wifi,
   Gamepad2, Plus, Copy, Building2, RefreshCw,
   Wallet, Send, Eye, EyeOff, Hash, MessageSquare,
+  HelpCircle, ChevronDown, MessageCircle,
 } from 'lucide-react'
 
 type Ann = { id:string; title:string; body:string; type:string; pinned:boolean; created_at:string }
 
+const FAQS = [
+  { q: 'How do I start my school registration?', a: 'Go to the Registration Guide page. Start from the Admission section — check your admission status on the JAMB portal, then accept and print your admission letter before moving to Development Levy.' },
+  { q: 'What documents do I need for registration?', a: 'You need: JAMB result slip, O\'Level result (WAEC/NECO), birth certificate, passport photographs (white background), acceptance fee receipt, and your admission letter. Bring originals + 5 photocopies each.' },
+  { q: 'Where is the ICT Centre on campus?', a: 'The ICT Centre is near the Faculty of Engineering. Use the Campus Map or Campus Places feature in this app to get directions.' },
+  { q: 'How do I pay the development levy?', a: 'Visit the student portal at portal.mouau.edu.ng, generate your RRR code under Development Levy, pay at any bank or via Remita, then come back to validate on the portal.' },
+  { q: 'What is the cost of school fees?', a: 'School fees vary by department and level. Visit the bursary or check your student portal after completing development levy. Contact your department for exact figures.' },
+  { q: 'How do I register my courses?', a: 'After completing all payment steps, log in to the student portal and go to Course Registration. Select your courses for the semester, print your course form, and get it signed by your adviser.' },
+  { q: 'Can I use the wallet to pay school fees?', a: 'The in-app wallet is currently for airtime, data, bills, and transfers. School fee payments go through the student portal (portal.mouau.edu.ng) using Remita.' },
+  { q: 'Where do I get my student ID card?', a: 'After completing registration and getting your matric number, visit the ICT Centre with your registration documents and two passport photographs to collect your ID card.' },
+]
+
+function FAQItem({ faq, index }: { faq: typeof FAQS[0]; index: number }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className={`border rounded-2xl overflow-hidden transition-all duration-200 ${open ? 'border-[#1a6b3a]/30 bg-[#f0faf4]' : 'border-[#e8e8e8] bg-white'}`}>
+      <button onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+        <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black transition-colors ${open ? 'bg-[#1a6b3a] text-white' : 'bg-[#f0f0f0] text-[#aaa]'}`}>{index + 1}</span>
+        <p className={`flex-1 text-xs font-bold leading-snug ${open ? 'text-[#1a6b3a]' : 'text-[#0a0a0a]'}`}>{faq.q}</p>
+        <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180 text-[#1a6b3a]' : 'text-[#aaa]'}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 pt-0">
+          <div className="ml-9 border-l-2 border-[#1a6b3a]/20 pl-3">
+            <p className="text-[11px] text-[#6b6b6b] leading-relaxed">{faq.a}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const CAMPUS_ACTIONS_FRESHER = [
-  { href:'/register',   label:'Register', icon:ClipboardList, color:'#d97706' },
-  { href:'/cutoff',     label:'Cut-Off',  icon:Award,         color:'#1e3a8a' },
-  { href:'/skills',     label:'Skills',   icon:Zap,           color:'#7c3aed' },
-  { href:'/library',    label:'Library',  icon:BookOpen,      color:'#1a6b3a' },
-  { href:'/pdm',        label:'PDM',      icon:Users,         color:'#b91c1c' },
+  { href:'/register',   label:'Register', icon:ClipboardList,  color:'#d97706' },
+  { href:'/cutoff',     label:'Cut-Off',  icon:Award,          color:'#1e3a8a' },
+  { href:'/skills',     label:'Skills',   icon:Zap,            color:'#7c3aed' },
+  { href:'/library',    label:'Library',  icon:BookOpen,       color:'#1a6b3a' },
+  { href:'/forum',      label:'Forum',    icon:MessageCircle,  color:'#0891b2' },
 ]
 const CAMPUS_ACTIONS_RETURNING = [
-  { href:'/skills',     label:'Skills',   icon:Zap,           color:'#7c3aed' },
-  { href:'/calculator', label:'CGPA',     icon:Calculator,    color:'#0284c7' },
-  { href:'/cutoff',     label:'Cut-Off',  icon:Award,         color:'#1e3a8a' },
-  { href:'/library',    label:'Library',  icon:BookOpen,      color:'#1a6b3a' },
-  { href:'/pdm',        label:'PDM',      icon:Users,         color:'#b91c1c' },
+  { href:'/skills',     label:'Skills',   icon:Zap,            color:'#7c3aed' },
+  { href:'/calculator', label:'CGPA',     icon:Calculator,     color:'#0284c7' },
+  { href:'/cutoff',     label:'Cut-Off',  icon:Award,          color:'#1e3a8a' },
+  { href:'/library',    label:'Library',  icon:BookOpen,       color:'#1a6b3a' },
+  { href:'/forum',      label:'Forum',    icon:MessageCircle,  color:'#0891b2' },
 ]
 const BILL_ACTIONS = [
   { href:'/wallet/fund',     label:'Fund',    icon:Plus,         color:'#059669' },
@@ -80,25 +113,58 @@ export default function Dashboard() {
     getAnnouncements().then(({ data }) => { if(data) setAnns(data as Ann[]) })
     if(!student?.idNumber) { setWalletLoading(false); return }
 
-    // Registration progress
-    try {
-      const raw = localStorage.getItem(`reg_progress_${student.idNumber}`)
-      const checked: Record<string,boolean> = raw ? JSON.parse(raw) : {}
-      const done = Object.values(checked).filter(Boolean).length
-      setDoneCount(done)
-      supabase.from('registration_steps').select('substeps').eq('active',true)
-        .then(({ data }) => {
-          if(!data) return
-          let total = 0
-          data.forEach((s:any) => {
-            const subs = Array.isArray(s.substeps) ? s.substeps
-              : (()=>{try{return JSON.parse(s.substeps||'[]')}catch{return[]}})()
-            total += subs.length
+    // Registration progress — must use same key as register page
+    const studentType = (!student.level || student.level === '100') ? 'new' : 'returning'
+    const progressKey = `reg_progress_${student.idNumber}_${studentType}`
+    const loadProgress = async () => {
+      try {
+        // Try Supabase first for accurate cross-device progress
+        const { data: dbProgress } = await supabase
+          .from('student_progress')
+          .select('step_key, done')
+          .eq('student_id', student.idNumber)
+        if (dbProgress && dbProgress.length > 0) {
+          const map: Record<string,boolean> = {}
+          dbProgress.forEach((d:any) => { map[d.step_key] = d.done })
+          const done = Object.values(map).filter(Boolean).length
+          localStorage.setItem(progressKey, JSON.stringify(map))
+          setDoneCount(done)
+          supabase.from('registration_steps').select('substeps').eq('active',true).eq('student_type',studentType)
+            .then(({ data }) => {
+              if(!data) return
+              let total = 0
+              data.forEach((s:any) => {
+                const subs = Array.isArray(s.substeps) ? s.substeps
+                  : (()=>{try{return JSON.parse(s.substeps||'[]')}catch{return[]}})()
+                total += subs.length
+              })
+              setTotalCount(total)
+              setPct(total>0 ? Math.round((done/total)*100) : 0)
+            })
+          return
+        }
+      } catch {}
+      // Fallback to localStorage
+      try {
+        const raw = localStorage.getItem(progressKey)
+        const checked: Record<string,boolean> = raw ? JSON.parse(raw) : {}
+        const done = Object.values(checked).filter(Boolean).length
+        setDoneCount(done)
+        supabase.from('registration_steps').select('substeps').eq('active',true).eq('student_type',studentType)
+          .then(({ data }) => {
+            if(!data) return
+            let total = 0
+            data.forEach((s:any) => {
+              const subs = Array.isArray(s.substeps) ? s.substeps
+                : (()=>{try{return JSON.parse(s.substeps||'[]')}catch{return[]}})()
+              total += subs.length
+            })
+            setTotalCount(total)
+            setPct(total>0 ? Math.round((done/total)*100) : 0)
           })
-          setTotalCount(total)
-          setPct(total>0 ? Math.round((done/total)*100) : 0)
-        })
-    } catch {}
+      } catch {}
+    }
+    loadProgress()
 
     // Wallet
     fetch('/api/admin/wallet-toggle')
@@ -351,6 +417,35 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {/* ══ FAQ ══════════════════════════════════════════════════════════ */}
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-[#1a6b3a]"/>
+                <p className="section-label">FREQUENTLY ASKED</p>
+              </div>
+              <Link href="/forum" className="text-[9px] font-bold text-[#1a6b3a]">Ask more →</Link>
+            </div>
+            <div className="space-y-2">
+              {FAQS.map((faq, i) => <FAQItem key={i} faq={faq} index={i} />)}
+            </div>
+          </div>
+
+          {/* ══ FORUM CTA ═════════════════════════════════════════════════════ */}
+          <Link href="/forum"
+            className="flex items-center gap-3.5 p-4 rounded-2xl overflow-hidden relative group"
+            style={{background:'linear-gradient(135deg,#0c1a2e,#1e3a8a)'}}>
+            <div className="absolute inset-0 opacity-10" style={{background:'radial-gradient(circle at 80% 50%,#60a5fa,transparent)'}}/>
+            <div className="relative w-11 h-11 bg-white/10 rounded-2xl flex items-center justify-center flex-shrink-0 border border-white/20">
+              <MessageCircle className="w-5 h-5 text-blue-300"/>
+            </div>
+            <div className="relative flex-1 min-w-0">
+              <p className="text-white font-black text-sm leading-tight">Student Forum</p>
+              <p className="text-white/50 text-[10px] mt-0.5">Ask questions, share answers, connect with peers</p>
+            </div>
+            <ChevronRight className="relative w-4 h-4 text-blue-300 flex-shrink-0"/>
+          </Link>
 
         </div>
       </div>
