@@ -9,9 +9,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const admin = await getAdminFromRequest(req)
   if (!admin || !admin.is_super) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { email, name, password, is_super } = await req.json()
+  const { email, name, password, is_super, student_id } = await req.json()
   if (!email || !name || !password) return NextResponse.json({ error: 'All fields required' }, { status: 400 })
-  const { error } = await adminDb.from('admins').insert({ email: email.toLowerCase(), name, password_hash: hashPassword(password), is_super: !!is_super, active: true })
+  const insertData: any = { email: email.toLowerCase(), name, password_hash: hashPassword(password), is_super: !!is_super, active: true }
+  if (student_id) insertData.student_id = String(student_id).toUpperCase().trim()
+  const { error } = await adminDb.from('admins').insert(insertData)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ success: true })
 }
