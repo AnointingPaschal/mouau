@@ -306,6 +306,10 @@ export default function LoginPage() {
                   <h2 className="text-xl font-black text-[#0a0a0a]">Check your email</h2>
                   <p className="text-[#6b6b6b] text-sm mt-1">Enter the 6-digit code sent to <strong>{email}</strong></p>
                 </div>
+                <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3 text-xs text-amber-800">
+                  <span className="text-base leading-none mt-0.5">⚠️</span>
+                  <p><strong>Can't find the email?</strong> Check your <strong>Spam</strong> or <strong>Junk</strong> folder — it sometimes lands there. Also check <strong>Promotions</strong> if you use Gmail.</p>
+                </div>
                 <div>
                   <label className="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wide mb-1.5 block">6-Digit Verification Code</label>
                   <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g,'').slice(0,6))}
