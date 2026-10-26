@@ -119,7 +119,7 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
       })
 
       const map = L.map(containerRef.current!, { zoomControl: true }).setView([lat, lng], 17)
-      L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
         subdomains: ['0','1','2','3'],
         attribution: '© Google Maps',
         maxZoom: 21,
@@ -165,7 +165,7 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
             : <><MapPin className="w-3 h-3"/> Use My Location</>}
         </button>
       </div>
-      <div ref={containerRef} style={{ height: 260, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e8e8' }}/>
+      <div ref={containerRef} style={{ height: 380, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e8e8' }}/>
       {locErr && <p className="text-[11px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{locErr}</p>}
       <p className="text-[9px] text-[#bbb] text-center">© Google Maps</p>
     </div>
