@@ -80,12 +80,21 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 }
 
 // ─── Leaflet Map Picker (loaded lazily so Next.js SSR doesn't crash) ──────────
+const TILE_LAYERS = {
+  hybrid:    { url: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', label: 'Satellite' },
+  street:    { url: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', label: 'Street' },
+  terrain:   { url: 'https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', label: 'Terrain' },
+}
+type TileKey = keyof typeof TILE_LAYERS
+
 function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (lat: number, lng: number) => void }) {
-  const mapRef = useRef<any>(null)
-  const markerRef = useRef<any>(null)
+  const mapRef      = useRef<any>(null)
+  const markerRef   = useRef<any>(null)
+  const tileRef     = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [locating, setLocating] = useState(false)
-  const [locErr,   setLocErr]   = useState('')
+  const [locating, setLocating]   = useState(false)
+  const [locErr,   setLocErr]     = useState('')
+  const [tileKey,  setTileKey]    = useState<TileKey>('hybrid')
 
   const useMyLocation = () => {
     if (!navigator.geolocation) { setLocErr('Geolocation not supported on this device'); return }
@@ -106,11 +115,22 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
     )
   }
 
+  // Switch tile layer when tileKey changes
+  useEffect(() => {
+    if (!mapRef.current) return
+    import('leaflet').then(L => {
+      if (tileRef.current) { mapRef.current.removeLayer(tileRef.current) }
+      tileRef.current = L.tileLayer(TILE_LAYERS[tileKey].url, {
+        subdomains: ['0','1','2','3'] as any,
+        attribution: '© Google Maps',
+        maxZoom: 21,
+      }).addTo(mapRef.current)
+    })
+  }, [tileKey])
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
-    // Dynamic import to avoid SSR issues
     import('leaflet').then(L => {
-      // Fix default marker icon
       delete (L.Icon.Default.prototype as any)._getIconUrl
       L.Icon.Default.mergeOptions({
         iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -118,9 +138,16 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       })
 
-      const map = L.map(containerRef.current!, { zoomControl: true }).setView([lat, lng], 17)
-      L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-        subdomains: ['0','1','2','3'],
+      // Enable rotation via touchRotate if available, fall back to bearing plugin hint
+      const map = L.map(containerRef.current!, {
+        zoomControl: true,
+        // @ts-ignore — leaflet-rotate plugin option (no-op if plugin absent)
+        rotate: true,
+        touchRotate: true,
+      }).setView([lat, lng], 17)
+
+      tileRef.current = L.tileLayer(TILE_LAYERS['hybrid'].url, {
+        subdomains: ['0','1','2','3'] as any,
         attribution: '© Google Maps',
         maxZoom: 21,
       }).addTo(map)
@@ -140,11 +167,10 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
     })
 
     return () => {
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; markerRef.current = null }
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; markerRef.current = null; tileRef.current = null }
     }
   }, [])
 
-  // Update marker when lat/lng change from outside
   useEffect(() => {
     if (markerRef.current) {
       markerRef.current.setLatLng([lat, lng])
@@ -153,19 +179,35 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
   }, [lat, lng])
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider">
-          Map Picker — click map or drag pin to set location
+          Map Picker — tap to pin, drag pin, or use location
         </p>
         <button type="button" onClick={useMyLocation} disabled={locating}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a6b3a] text-white text-[11px] font-semibold rounded-lg disabled:opacity-60 active:scale-95 transition-transform">
+          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-[#1a6b3a] text-white text-[11px] font-semibold rounded-lg disabled:opacity-60 active:scale-95 transition-transform">
           {locating
             ? <><Loader2 className="w-3 h-3 animate-spin"/> Locating…</>
-            : <><MapPin className="w-3 h-3"/> Use My Location</>}
+            : <><MapPin className="w-3 h-3"/> My Location</>}
         </button>
       </div>
-      <div ref={containerRef} style={{ height: 380, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e8e8' }}/>
+
+      {/* Tile switcher */}
+      <div className="flex gap-1.5">
+        {(Object.keys(TILE_LAYERS) as TileKey[]).map(key => (
+          <button key={key} type="button" onClick={() => setTileKey(key)}
+            className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+              tileKey === key
+                ? 'bg-[#1a6b3a] text-white border-[#1a6b3a]'
+                : 'bg-white text-[#555] border-[#ddd]'
+            }`}>
+            {TILE_LAYERS[key].label}
+          </button>
+        ))}
+        <span className="ml-auto text-[10px] text-[#bbb] self-center">Rotate: two fingers</span>
+      </div>
+
+      <div ref={containerRef} style={{ height: 480, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e8e8' }}/>
       {locErr && <p className="text-[11px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{locErr}</p>}
       <p className="text-[9px] text-[#bbb] text-center">© Google Maps</p>
     </div>
