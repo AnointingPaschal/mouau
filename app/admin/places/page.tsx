@@ -84,6 +84,27 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
   const mapRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [locating, setLocating] = useState(false)
+  const [locErr,   setLocErr]   = useState('')
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) { setLocErr('Geolocation not supported on this device'); return }
+    setLocating(true); setLocErr('')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false)
+        const { latitude, longitude } = pos.coords
+        onPick(latitude, longitude)
+        if (markerRef.current) markerRef.current.setLatLng([latitude, longitude])
+        if (mapRef.current) mapRef.current.setView([latitude, longitude], 18)
+      },
+      (err) => {
+        setLocating(false)
+        setLocErr(err.code === 1 ? 'Location permission denied — allow it in your browser settings' : 'Could not get location, try again')
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -133,10 +154,19 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
 
   return (
     <div className="space-y-1.5">
-      <p className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider">
-        Map Picker — click map or drag pin to set location
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold text-[#aaa] uppercase tracking-wider">
+          Map Picker — click map or drag pin to set location
+        </p>
+        <button type="button" onClick={useMyLocation} disabled={locating}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a6b3a] text-white text-[11px] font-semibold rounded-lg disabled:opacity-60 active:scale-95 transition-transform">
+          {locating
+            ? <><Loader2 className="w-3 h-3 animate-spin"/> Locating…</>
+            : <><MapPin className="w-3 h-3"/> Use My Location</>}
+        </button>
+      </div>
       <div ref={containerRef} style={{ height: 260, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e8e8' }}/>
+      {locErr && <p className="text-[11px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{locErr}</p>}
       <p className="text-[9px] text-[#bbb] text-center">© Google Maps</p>
     </div>
   )
