@@ -27,6 +27,7 @@ const nav = [
   { href:'/admin/students',            label:'Students',             icon:User            },
   { href:'/admin/admins',              label:'Admin Accounts',       icon:Users           },
   { href:'/admin/settings/flutterwave',label:'Flutterwave Settings', icon:CreditCard      },
+  { href:'/admin/settings/paystack',   label:'Paystack Settings',    icon:CreditCard      },
   { href:'/admin/settings/bigisub',    label:'Bigisub Settings',     icon:Wifi            },
   { href:'/admin/bigisub',             label:'Plans & Pricing',      icon:Wallet          },
   { href:'/admin/forum',               label:'Forum Moderation',     icon:MessageCircle   },

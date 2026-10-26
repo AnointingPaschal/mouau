@@ -24,6 +24,7 @@ export default function TransferPage() {
   const [balance,        setBalance]       = useState<number>(0)
   const [error,          setError]         = useState('')
   const [success,        setSuccess]       = useState('')
+  const [provider,       setProvider]      = useState<'flutterwave'|'paystack'>('flutterwave')
 
   useEffect(() => {
     const loadBanks = async () => {
@@ -35,9 +36,14 @@ export default function TransferPage() {
     }
     const loadBalance = async () => {
       if (!student?.idNumber) return
-      const r = await fetch(`/api/wallet?studentId=${student.idNumber}`)
-      const d = await r.json()
-      setBalance(parseFloat(d.wallet?.balance || 0))
+      const [wr, pr] = await Promise.all([
+        fetch(`/api/wallet?studentId=${student.idNumber}`),
+        fetch('/api/wallet/provider'),
+      ])
+      const wd = await wr.json()
+      const pd = await pr.json()
+      setBalance(parseFloat(wd.wallet?.balance || 0))
+      setProvider(pd.provider || 'flutterwave')
     }
     loadBanks(); loadBalance()
   }, [student?.idNumber])
@@ -67,12 +73,14 @@ export default function TransferPage() {
   const submit = async () => {
     if (!student || !selectedBank || !accountNumber || !amount || !beneficiaryName) return
     setSubmitting(true); setError(''); setSuccess('')
-    const r = await fetch('/api/wallet/transfer', {
+    const endpoint = provider === 'paystack' ? '/api/wallet/paystack-transfer' : '/api/wallet/transfer'
+    const r = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         studentId:       student.idNumber,
         accountBank:     selectedBank.code,
+        bankCode:        selectedBank.code,
         accountNumber,
         amount:          parseFloat(amount),
         narration:       narration || `Transfer to ${beneficiaryName}`,

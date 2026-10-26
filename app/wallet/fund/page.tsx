@@ -13,13 +13,19 @@ export default function FundWalletPage() {
   const [creating,  setCreating]  = useState(false)
   const [copied,    setCopied]    = useState(false)
   const [error,     setError]     = useState('')
+  const [provider,  setProvider]  = useState<'flutterwave'|'paystack'>('flutterwave')
 
   const fetchWallet = async (sid: string) => {
     setLoading(true)
     try {
-      const r = await fetch(`/api/wallet?studentId=${sid}`)
-      const d = await r.json()
-      setWallet(d.wallet || null)
+      const [wr, pr] = await Promise.all([
+        fetch(`/api/wallet?studentId=${sid}`),
+        fetch('/api/wallet/provider'),
+      ])
+      const wd = await wr.json()
+      const pd = await pr.json()
+      setWallet(wd.wallet || null)
+      setProvider(pd.provider || 'flutterwave')
     } catch {}
     setLoading(false)
   }
@@ -33,7 +39,10 @@ export default function FundWalletPage() {
     if (!student) return
     setCreating(true); setError('')
     if (!student?.idNumber) return
-    const r = await fetch('/api/wallet/create-virtual-account', {
+    const endpoint = provider === 'paystack'
+      ? '/api/wallet/paystack-virtual-account'
+      : '/api/wallet/create-virtual-account'
+    const r = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

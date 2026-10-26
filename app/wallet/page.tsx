@@ -28,14 +28,14 @@ const CATEGORY_ICONS: Record<string,any> = {
   other:       Wallet,
 }
 
-const QUICK_ACTIONS = [
-  { href:'/wallet/fund',         label:'Fund',        icon:Plus,           color:'#1a6b3a' },
-  { href:'/wallet/transfer',     label:'Transfer',    icon:ArrowUpRight,   color:'#1e3a8a' },
-  { href:'/wallet/airtime',      label:'Airtime',     icon:Phone,          color:'#c2410c' },
-  { href:'/wallet/data',         label:'Data',        icon:Wifi,           color:'#7c3aed' },
-  { href:'/wallet/bills',        label:'Bills',       icon:Gamepad2,       color:'#d97706' },
-  { href:'/wallet/recharge-pin', label:'Recharge',    icon:Hash,           color:'#0891b2' },
-  { href:'/wallet/sms',          label:'Bulk SMS',    icon:MessageSquare,  color:'#6d28d9' },
+const ALL_QUICK_ACTIONS = [
+  { href:'/wallet/fund',         label:'Fund',        icon:Plus,           color:'#1a6b3a', svcKey:'service_fund'         },
+  { href:'/wallet/transfer',     label:'Transfer',    icon:ArrowUpRight,   color:'#1e3a8a', svcKey:'service_transfer'     },
+  { href:'/wallet/airtime',      label:'Airtime',     icon:Phone,          color:'#c2410c', svcKey:'service_airtime'      },
+  { href:'/wallet/data',         label:'Data',        icon:Wifi,           color:'#7c3aed', svcKey:'service_data'         },
+  { href:'/wallet/bills',        label:'Bills',       icon:Gamepad2,       color:'#d97706', svcKey:'service_cable'        },
+  { href:'/wallet/recharge-pin', label:'Recharge',    icon:Hash,           color:'#0891b2', svcKey:'service_recharge_pin' },
+  { href:'/wallet/sms',          label:'Bulk SMS',    icon:MessageSquare,  color:'#6d28d9', svcKey:'service_sms'          },
 ]
 
 function fmt(n: number) { return `₦${n.toLocaleString('en-NG', { minimumFractionDigits:2, maximumFractionDigits:2 })}` }
@@ -53,18 +53,24 @@ export default function WalletPage() {
   const [creating,    setCreating]    = useState(false)
   const [copied,      setCopied]      = useState(false)
   const [error,       setError]       = useState('')
+  const [services,    setServices]    = useState<Record<string,boolean>>({})
+  const [provider,    setProvider]    = useState<'flutterwave'|'paystack'>('flutterwave')
 
   const load = async (sid: string) => {
     setLoading(true)
     try {
-      const [wRes, tRes] = await Promise.all([
+      const [wRes, tRes, pRes] = await Promise.all([
         fetch(`/api/wallet?studentId=${sid}`),
         fetch(`/api/wallet/transactions?studentId=${sid}&limit=15`),
+        fetch('/api/wallet/provider'),
       ])
       const wData = await wRes.json()
       const tData = await tRes.json()
+      const pData = await pRes.json()
       setWallet(wData.wallet)
       setTxns(tData.transactions || [])
+      setServices(pData.services || {})
+      setProvider(pData.provider || 'flutterwave')
     } catch {}
     setLoading(false)
   }
@@ -168,7 +174,7 @@ export default function WalletPage() {
             <div className="card p-4">
               <p className="text-xs font-bold text-[#888] uppercase tracking-wide mb-3">Quick Actions</p>
               <div className="grid grid-cols-5 gap-2">
-                {QUICK_ACTIONS.map(({ href, label, icon:Icon, color }) => (
+                {ALL_QUICK_ACTIONS.filter(a => services[a.svcKey] !== false).map(({ href, label, icon:Icon, color }) => (
                   <Link key={href} href={href}
                     className="flex flex-col items-center gap-1.5">
                     <div className="w-11 h-11 rounded-xl flex items-center justify-center"
