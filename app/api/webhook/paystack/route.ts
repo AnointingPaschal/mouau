@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     const client = db()
-    await client.from('api_errors').insert({ route: '/api/webhook/paystack', error: e.message, created_at: new Date().toISOString() }).catch(() => {})
+    try { await client.from('api_errors').insert({ route: '/api/webhook/paystack', error: e.message, created_at: new Date().toISOString() }) } catch {}
     return NextResponse.json({ ok: true })
   }
 }
