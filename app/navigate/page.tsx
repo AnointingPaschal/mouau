@@ -494,7 +494,18 @@ function NavigateContent() {
           )}
 
           {dirResult?._noSteps && (
-            <div className="absolute bottom-[80px] lg:bottom-4 left-3 right-3 z-10">
+            <div className="absolute bottom-[80px] lg:bottom-4 left-3 right-3 z-10 space-y-2">
+              {/* Destination name + disclaimer */}
+              {paramName && (
+                <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.10)] border border-[#e8e8e8] px-4 py-3">
+                  <p className="text-[11px] font-bold text-[#0a0a0a] truncate">
+                    Navigating to: <span className="text-[#1a6b3a]">{paramName}</span>
+                  </p>
+                  <p className="text-[10px] text-[#888] mt-0.5 leading-relaxed">
+                    The map may show a different name at this pin — that's normal. Multiple addresses or buildings can share the same location. You're still heading to the right place.
+                  </p>
+                </div>
+              )}
               <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#e8e8e8] p-4 flex items-center gap-3">
                 <div className="w-9 h-9 bg-[#1a6b3a] rounded-full flex items-center justify-center flex-shrink-0">
                   <Navigation2 className="w-4 h-4 text-white"/>
