@@ -39,6 +39,7 @@ function NavigateContent() {
   const paramTo   = searchParams.get('to')   || ''
   const paramName = searchParams.get('name') || ''
   const paramAuto = searchParams.get('auto') === '1'
+  const [showInfoCard, setShowInfoCard] = useState(true)
 
   type LocState = 'checking'|'granted'|'requesting'|'denied'|'skipped'
   const [locState,   setLocState]   = useState<LocState>('checking')
@@ -496,12 +497,19 @@ function NavigateContent() {
           {dirResult?._noSteps && (
             <div className="absolute bottom-[80px] lg:bottom-4 left-3 right-3 z-10 space-y-2">
               {/* Destination name + disclaimer */}
-              {paramName && (
-                <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.10)] border border-[#e8e8e8] px-4 py-3">
-                  <p className="text-[11px] font-bold text-[#0a0a0a] truncate">
+              {paramName && showInfoCard && (
+                <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.10)] border border-[#e8e8e8] px-4 py-3 relative">
+                  <button onClick={() => setShowInfoCard(false)}
+                    className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-[#f0f0f0] flex items-center justify-center">
+                    <X className="w-3 h-3 text-[#666]"/>
+                  </button>
+                  <p className="text-[11px] font-bold text-[#0a0a0a] pr-6 truncate">
                     Navigating to: <span className="text-[#1a6b3a]">{paramName}</span>
                   </p>
-                  <p className="text-[10px] text-[#888] mt-0.5 leading-relaxed">
+                  <p className="text-[10px] text-[#888] mt-1 leading-relaxed">
+                    Click the <strong className="text-[#1a6b3a]">Start</strong> button below to begin your journey.
+                  </p>
+                  <p className="text-[10px] text-[#aaa] mt-1 leading-relaxed">
                     The map may show a different name at this pin — that's normal. Multiple addresses or buildings can share the same location. You're still heading to the right place.
                   </p>
                 </div>
