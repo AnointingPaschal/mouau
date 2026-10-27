@@ -58,7 +58,7 @@ export default function PlacesPage() {
 
   const getDir = (loc:Loc) => {
     const dest = loc.lat&&loc.lng ? `${loc.lat},${loc.lng}` : encodeURIComponent(loc.name+', MOUAU Umudike')
-    router.push(`/navigate?to=${dest}&directions=1`)
+    router.push(`/navigate?to=${dest}&auto=1`)
   }
   const viewMap = (loc:Loc) => router.push(`/places/${loc.id}`)
 

@@ -407,7 +407,7 @@ function NavigateContent() {
                 {gettingLoc ? 'Getting location...' : 'Searching...'}
               </>
             ) : (
-              <><Search className="w-3.5 h-3.5"/>Search</>
+              <><Search className="w-3.5 h-3.5"/>Start Routing</>
             )}
           </button>
         </div>
