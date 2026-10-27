@@ -130,7 +130,21 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
-    import('leaflet').then(L => {
+
+    // Load leaflet-rotate plugin from CDN, then init map
+    const loadPlugin = (): Promise<void> => {
+      if ((window as any).L?.Map?.mergeOptions && (window as any)._leafletRotateLoaded) return Promise.resolve()
+      return new Promise(resolve => {
+        const s = document.createElement('script')
+        s.src = 'https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js'
+        s.onload = () => { (window as any)._leafletRotateLoaded = true; resolve() }
+        s.onerror = () => resolve() // proceed even if plugin fails to load
+        document.head.appendChild(s)
+      })
+    }
+
+    loadPlugin().then(() => import('leaflet')).then(L => {
+      if (!containerRef.current || mapRef.current) return
       delete (L.Icon.Default.prototype as any)._getIconUrl
       L.Icon.Default.mergeOptions({
         iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -138,12 +152,13 @@ function MapPicker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (la
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       })
 
-      // Enable rotation via touchRotate if available, fall back to bearing plugin hint
       const map = L.map(containerRef.current!, {
         zoomControl: true,
-        // @ts-ignore — leaflet-rotate plugin option (no-op if plugin absent)
+        // @ts-ignore — leaflet-rotate plugin options
         rotate: true,
         touchRotate: true,
+        rotateControl: { closeOnZeroBearing: false },
+        bearing: 0,
       }).setView([lat, lng], 17)
 
       tileRef.current = L.tileLayer(TILE_LAYERS['hybrid'].url, {
